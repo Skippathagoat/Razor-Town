@@ -229,6 +229,10 @@
     renderCreator();
   }
   function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent].join('|'); }
+  function wearList(str) {
+    return `<div class="weargrid" style="margin-top:10px;text-align:left">${AV.wear(str).map(w =>
+      `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}</div>`;
+  }
   function renderCreator() {
     const w = $('#creator-wrap');
     const o = G.meta.origins;
@@ -237,10 +241,11 @@
       <div class="creator-sub">Account <b style="color:var(--cyn)">@${esc(G.creds.username)}</b> — now give yourself a face and a start in the town.</div>
       <div class="creator-grid">
         <div class="creator-preview">
-          <div style="margin:0 auto;width:150px;height:150px" id="cpv">${AV.svgFor(avatarStr(), 150)}</div>
+          <div style="margin:0 auto;width:150px" id="cpv">${AV.doll(avatarStr(), 150)}</div>
           <div class="preview-name" id="cpname">${esc(CREATOR.name || 'Name')}</div>
           <div class="preview-origin" id="cporigin">—</div>
-          <p style="color:var(--dim);font-size:11px;margin-top:10px">This face will follow you across the city.</p>
+          <div id="cpwear">${wearList(avatarStr())}</div>
+          <p style="color:var(--dim);font-size:11px;margin-top:10px">This is how the town will see you — hat, coat and all.</p>
         </div>
         <div class="creator-steps">
           <div class="creator-panel">
@@ -276,13 +281,15 @@
       $$('#originrow .chip').forEach(x => x.classList.toggle('on', x === b));
       const or = o.find(x => x.id === CREATOR.origin);
       $('#cporigin').textContent = or.name + ' — +' + or.bonus + ' ' + FINGER[or.stat];
-      $('#cpv').innerHTML = AV.svgFor(avatarStr(), 150);
+      $('#cpv').innerHTML = AV.doll(avatarStr(), 150);
+      if ($('#cpwear')) $('#cpwear').innerHTML = wearList(avatarStr());
     });
     $$('[data-opt]', w).forEach(b => b.addEventListener('click', () => {
       const f = b.dataset.opt, v = +b.dataset.v;
       CREATOR[f] = v;
       $$(`[data-opt="${f}"]`, w).forEach(x => x.classList.toggle('on', +x.dataset.v === v));
-      $('#cpv').innerHTML = AV.svgFor(avatarStr(), 150);
+      $('#cpv').innerHTML = AV.doll(avatarStr(), 150);
+      if ($('#cpwear')) $('#cpwear').innerHTML = wearList(avatarStr());
     }));
     const or = o.find(x => x.id === CREATOR.origin);
     $('#cporigin').textContent = or.name + ' — +' + or.bonus + ' ' + FINGER[or.stat];
@@ -361,23 +368,33 @@
         <span class="cash mono" id="cash-val">${money(me.money)}</span>
         <span class="banked mono" id="bank-val">🏦 ${money(me.bank)}</span>
       </div>
-      <div class="hud-bar-wrap">
-        <div class="bar-group" style="min-width:150px">
-          <div class="bar-meta"><span>LVL ${me.level} <span style="color:var(--cyn)">${money(me.xpInto).replace('$','')}</span>/<span style="color:var(--dim)">${money(me.xpNeed).replace('$','')}</span> XP</span><span class="v">⭐ ${Math.floor(me.total)}</span></div>
-          <div class="bar" style="height:7px"><div class="fill xp" style="width:${pct(me.xpInto, me.xpNeed)}%"></div></div>
-        </div>
-        ${!jail && !hosp ? barBlock('life', me.life, me.max_life, '#c24b3f') : ''}
-        ${!jail && !hosp ? barBlock('energy', me.energy, me.max_energy, '#e5b95e') : ''}
-        ${!jail && !hosp ? barBlock('nerve', me.nerve, me.max_nerve, '#7f9a5f') : ''}
+      <div class="hud-bars">
+        ${!jail && !hosp ? hbar('life', me.life, me.max_life, '❤', 'Life') : ''}
+        ${!jail && !hosp ? hbar('energy', me.energy, me.max_energy, '⚡', 'Energy') : ''}
+        ${!jail && !hosp ? hbar('nerve', me.nerve, me.max_nerve, '🧠', 'Nerve') : ''}
+        ${!jail && !hosp ? hbar('happy', me.happy, 100, '🙂', 'Happiness') : ''}
+        ${hbar('xp', me.xpInto, me.xpNeed, '⭐', 'Experience')}
       </div>
       <div class="hud-spacer"></div>
+      <div class="hud-stats">
+        <span class="hstat" title="Level"><span class="hl">level</span><span class="hv">${me.level}</span></span>
+        <span class="hstat" title="Battle rating"><span class="hl">rating</span><span class="hv">${Math.floor(me.total)}</span></span>
+        <span class="hstat" title="Reputation on the street"><span class="hl">rep</span><span class="hv">${me.reputation.toLocaleString()}</span></span>
+      </div>
       <span class="pill online" id="online-pill" title="live events + city pulse"><span class="dot"></span><span class="oltext">Live</span></span>
       <span class="pill" title="players online right now">👥 <span id="online-count">…</span></span>
-      <button class="iconbtn" data-act="menu" title="Menu (Esc)">☰</button>`;
+      <button class="iconbtn" data-nav="msg" title="Wire Messages${me.unread ? ' — ' + me.unread + ' unread' : ''}">📨${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>
+      <button class="iconbtn ${(jail || hosp) ? 'warn' : ''}" data-act="menu" title="Menu (Esc)">☰</button>`;
   }
-  function barBlock(id, v, max, c) {
+  // Torn-style status bar: icon and value sit inside the bar
+  function hbar(id, v, max, icon, label) {
     const pc = pct(v, max);
-    return `<div class="bar-group"><div class="bar" style="min-width:84px"><div class="fill ${id}" style="width:${pc}%"></div><div class="lbl">${id==='life'?'❤':id==='energy'?'⚡':id==='nerve'?'🧠':''} ${Math.round(v)}</div></div></div>`;
+    return `<div class="hbar ${id}" title="${label}: ${Math.round(v)} / ${max}">` +
+      `<div class="hfill ${id}" style="width:${pc}%"></div>` +
+      `<div class="htext"><span class="hicon">${icon}</span><span class="hval">${Math.round(v)}${id === 'xp' ? '/' + Math.round(max) : ''}</span></div></div>`;
+  }
+  function barBlock(id, v, max) {
+    return hbar(id, v, max, id === 'life' ? '❤' : id === 'energy' ? '⚡' : id === 'nerve' ? '🧠' : '🙂', id);
   }
 
   function renderRail() {
@@ -393,12 +410,16 @@
       const pre = (idx === 0) ? '' : ((idx === 5) ? `<div class="rail-section">Empire</div>` : (idx === 9) ? `<div class="rail-section">Allies & Glory</div>` : '');
       let disable = false;
       if (lock && ['crime', 'gym', 'job', 'attack', 'casino'].includes(t.id)) disable = true;
-      items += `${pre}<button class="rail-item ${G.view === t.id ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${t.id}" ${disable ? 'disabled' : ''}><span class="ico">${t.ico}</span>${t.label}<span class="kbd">${t.key}</span></button>`;
+      const carried = Object.values(me.items || {}).reduce((a, b) => a + b, 0);
+      const badge = t.id === 'items' && carried ? `<span class="rail-count neutral">${carried}</span>` : '';
+      items += `${pre}<button class="rail-item ${G.view === t.id ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${t.id}" ${disable ? 'disabled' : ''}><span class="ico">${t.ico}</span>${t.label}${badge}<span class="kbd">${t.key}</span></button>`;
     });
-    rail.innerHTML = `<div class="profile-chip" data-nav="profile">${avatarHTML}<div style="min-width:0"><b>${esc(me.name)}</b><span>⭐ Level ${me.level}</span></div></div>${items}
+    rail.innerHTML = `<div class="profile-chip" data-nav="profile">
+      <div class="pc-top">${avatarHTML}<div style="min-width:0"><b>${esc(me.name)}</b><span>⭐ Level ${me.level} · ${Math.floor(me.total)} rating</span></div></div>
+      <div class="pc-hp">${hbar('life', me.life, me.max_life, '❤', 'Life')}</div></div>${items}
       <div class="rail-section">World</div>
       <button class="rail-item ${G.view === 'leaders' ? 'on' : ''}" data-nav="leaders"><span class="ico">👑</span>The Gallery<span class="kbd">l</span></button>
-      <button class="rail-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}<span class="kbd">n</span></button>
+      <button class="rail-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="rail-count">${me.unread}</span>` : ''}<span class="kbd">n</span></button>
       <button class="rail-item ${G.view === 'help' ? 'on' : ''}" data-nav="help"><span class="ico">❔</span>Help<span class="kbd">/</span></button>
       ${lock ? `<div class="rail-section" style="color:var(--bad)">⛓ Locked (${hosp ? 'Hospital' : 'Jail'})</div>` : ''}`;
     // mobile nav
@@ -632,13 +653,13 @@
 
       <div class="grid2">
         <div class="card"><div class="kv"><span class="k">Level</span><span class="v">${me.level}</span></div>
-          <div style="margin:4px 0 10px"><div class="bar" style="height:10px"><div class="fill xp" style="width:${pct(me.xpInto, me.xpNeed)}%"></div></div></div>
+          <div style="margin:6px 0 10px">${hbar('xp', me.xpInto, me.xpNeed, '⭐', 'Experience')}</div>
           <div class="kv"><span class="k">Reputation (score)</span><span class="v" style="color:var(--gold)">${me.reputation.toLocaleString()}</span></div>
           <div class="kv"><span class="k">Rank on city</span><span class="v" style="color:var(--cyn)" id="rank-self">…</span></div>
           <div class="kv"><span class="k">Gang</span><span class="v">${me.faction ? 'member' : '<span style="color:var(--dim)">— join or found one</span>'}</span></div></div>
 
         <div class="card"><div style="display:flex;align-items:center;gap:14px">
-          <div style="width:78px;height:78px;flex-shrink:0">${AV.svgFor(me.avatar, 78)}</div>
+          <div style="width:86px;flex-shrink:0" data-act="editlook" role="button" title="Change your look">${AV.doll(me.avatar, 86)}</div>
           <div style="min-width:0"><div class="head" style="font-size:17px">${esc(me.name)}</div>
           <div style="color:var(--cyn);font-size:11px;text-transform:uppercase;letter-spacing:1px">${origin ? origin.icon + ' ' + origin.name : ''}</div>
           <div style="color:var(--dim);font-size:11.5px;margin-top:3px">${esc(me.bio || 'No tagline. Mysterious.')}</div></div></div>
@@ -1057,34 +1078,52 @@
     const v = $('#view');
     const inJail = me.jail_until && me.jail_until > Date.now();
     const inHosp = me.hosp_until && me.hosp_until > Date.now();
+    const worn = AV.wear(me.avatar);
+    const F = k => FINGER[k];
     v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🧑‍🎤 <span class="head">Your File</span></div></div>
-      ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">✏️ Edit look</button>` : ''}
-      </div>
-      <div class="grid2">
-        <div class="card" style="text-align:center">
-          <div style="width:130px;height:130px;margin:0 auto">${AV.svgFor(me.avatar, 130)}</div>
-          <div class="head" style="font-size:22px;margin-top:12px">${esc(me.name)}</div>
-          <div style="color:var(--cyn);font-size:11px;letter-spacing:1.5px;text-transform:uppercase">${origin ? origin.name : ''} · Level ${me.level}</div>
-          <p style="color:var(--mut);font-size:12.5px;margin-top:8px">${esc(me.bio || '— no tagline —')}</p>
-          <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-            <span class="qtychip">${me.wins}W · ${me.losses}L</span>
-            <span class="qtychip">🔥 ${me.reputation.toLocaleString()} rep</span>
-          </div></div>
-        <div class="card"><div class="subhead">Statistics</div>
-          ${statLine('st', me.stats.st)}${statLine('de', me.stats.de)}${statLine('sp', me.stats.sp)}${statLine('dx', me.stats.dx)}
-          <div class="kv"><span class="k">Battle rating</span><span class="v" style="color:var(--cyn)">⭐ ${me.total}</span></div>
-          <div class="kv"><span class="k">Health</span><span class="v">${Math.floor(me.life)} / ${me.max_life}</span></div>
-          <div class="kv"><span class="k">Happiness</span><span class="v">${me.happy} / 100</span></div>
+      <div class="vhead"><div><div class="vtitle">🧑‍🎤 <span class="head">Your File</span></div>
+      <div class="vdesc">Every citizen in this town is a real player. This is the file the rest of them see.</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="qtychip">${me.wins}W · ${me.losses}L</span>
+        ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">✏️ Change your look</button>` : ''}
+      </div></div>
+      <div class="grid2 profile-grid">
+        <div class="dollframe">
+          ${AV.doll(me.avatar, 210)}
+          <div class="dollname">${esc(me.name)}</div>
+          <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}</div>
+          <div class="dollbio">${esc(me.bio || '')}</div>
+          <div class="statgrid" style="margin-top:10px">
+            ${['st','de','sp','dx'].map(k => `<div class="statcell"><div class="snum">${Math.floor(me.stats[k])}</div><div class="slab">${F[k]}</div></div>`).join('')}
+          </div>
+        </div>
+        <div>
+          <div class="card"><div class="subhead">🎩 What you're wearing</div>
+            <div class="weargrid">
+              ${worn.map(w => `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}
+            </div>
+            ${!inJail && !inHosp ? `<div style="margin-top:10px"><button class="btn ghost sm" data-act="editlook">Change it in the character editor</button></div>` : ''}
+          </div>
+          <div class="card"><div class="subhead">📊 Standing</div>
+            <div class="kv"><span class="k">Battle rating</span><span class="v" style="color:var(--cyn)">⭐ ${Math.floor(me.total)}</span></div>
+            <div class="kv"><span class="k">Health</span><span class="v">${Math.floor(me.life)} / ${me.max_life}</span></div>
+            <div class="kv"><span class="k">Energy</span><span class="v">${Math.round(me.energy)} / ${me.max_energy}</span></div>
+            <div class="kv"><span class="k">Nerve</span><span class="v">${Math.round(me.nerve)} / ${me.max_nerve}</span></div>
+            <div class="kv"><span class="k">Happiness</span><span class="v">${me.happy} / 100</span></div>
+            <div class="kv"><span class="k">Reputation</span><span class="v">🔥 ${me.reputation.toLocaleString()}</span></div>
+            <div class="kv"><span class="k">Experience</span><span class="v">${Math.round(me.xpInto)} / ${Math.round(me.xpNeed)}</span></div>
+          </div>
         </div>
       </div>
       <div class="grid2">
-        <div class="card"><div class="subhead">Career</div>
-          <div class="kv"><span class="k">Crimes (ok / busted)</span><span class="v">${me.total_success} / ${me.total_fail}</span></div>
+        <div class="card"><div class="subhead">💼 Career</div>
+          <div class="kv"><span class="k">Crimes pulled off</span><span class="v">${me.total_success}</span></div>
+          <div class="kv"><span class="k">Times nicked</span><span class="v">${me.total_fail}</span></div>
           <div class="kv"><span class="k">Job</span><span class="v">${me.job ? esc((m.jobs.find(j => j.id === me.job) || {}).name || me.job) : '— unemployed —'}</span></div>
-          <div class="kv"><span class="k">Gang</span><span class="v">${me.faction ? 'member' : '—'}</span></div>
-          <div class="kv"><span class="k">Items carried</span><span class="v">${Object.values(me.items || {}).reduce((s, q) => s + q, 0)}</span></div></div>
-        <div class="card"><div class="subhead">Extras</div>
+          <div class="kv"><span class="k">Gang</span><span class="v">${me.faction ? 'member' : '— none —'}</span></div>
+          <div class="kv"><span class="k">Items carried</span><span class="v">${Object.values(me.items || {}).reduce((s, q) => s + q, 0)}</span></div>
+        </div>
+        <div class="card"><div class="subhead">🗄️ Extras</div>
           <div class="kv"><span class="k">Feats earned</span><span class="v">${Object.keys(me.achievements).length} / ${Object.keys(m.achievements).length}</span></div>
           <div class="kv"><span class="k">Market spend</span><span class="v">${money(me.total_market_spend)}</span></div>
           <div class="kv"><span class="k">Bank deposits</span><span class="v">${money(me.total_deposits)}</span></div>
@@ -1130,7 +1169,7 @@
     root.innerHTML = `<div class="modal"><div class="modal-card">
       <div class="modal-title">✏️ <span class="head">Edit your look</span></div>
       <div style="display:flex;gap:14px;align-items:center;margin:14px 0">
-        <div style="width:110px;height:110px;flex-shrink:0" id="el-prev">${AV.svgFor(me.avatar, 110)}</div>
+        <div style="width:120px;flex-shrink:0;text-align:center" id="el-prev">${AV.doll(me.avatar, 120)}</div>
         <div style="flex:1">${editChips('skin', 'Skin', AV.SKINS.map((_, i) => i + ''), parts.skin, true)}</div>
       </div>
       ${editChips('face', 'Face', ['Round', 'Sharpe', 'Rugged', 'Hooded', 'Sleepy', 'Scar'], parts.face)}
@@ -1146,7 +1185,7 @@
       const f = b.dataset.elOpt, val = +b.dataset.v;
       cur[f] = val;
       const str = [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent].join('|');
-      $('#el-prev').innerHTML = AV.svgFor(str, 110);
+      $('#el-prev').innerHTML = AV.doll(str, 120);
       $$(`[data-el-opt="${f}"]`, root).forEach(x => x.classList.toggle('on', +x.dataset.v === val));
     }));
   }

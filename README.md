@@ -2,6 +2,8 @@
 
 **An online 1920s Birmingham crime sim you can play in the browser.** Flat caps, razor gangs, canal whisky and honest thievery. Character creator, real accounts & passwords (hashed + salted), crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
 
+**The look:** a Torn-style layout — status bars across the top header, a grouped left sidebar, dense zebra-striped panels and tables, and a full-length paper-doll character on your profile with the six things you're wearing (headwear, jacket, waistcoat, trousers, boots, trinket). The art and icons are our own; the structure is what makes it read like the games you already know.
+
 **Every citizen in this town is a real player.** There are no NPC characters and no seeded gangs: the streets start empty, and the only names on the wire, the leaderboard and the target list are people who actually signed up. Fight reports land in your inbox, so nobody gets jumped without being told.
 
 > **Inspired by classic browser crime sims (like Torn) — not a copy.** Every name, crime, item, gang and line of fiction here is original Razor Town flavor. No copyrighted shows, houses or characters.
@@ -31,6 +33,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Character creator** | Pick skin, face, headwear (flat caps, bowlers, head scarves…), jacket and trinket, plus an origin story that grants bonus stats & starter loot. |
 | **Crimes** | 23 original jobs across 6 categories (Theft & Dip, Fraud & Forge, Black Market, Sharp Practice, Strong-Arm Work, Big Jobs). Each costs nerve + energy, has skill requirements, odds, loot drops and bust risk. Chain successes for a **🔥 Spree** cash bonus. |
 | **Busted** | Screw up badly and you're **NICKED!** — the gaol keeps you below stairs (or the infirmary takes you in). Timers run live; energy refills while you wait. |
+| **Profile** | Your paper-doll in full, every stat and slot, what you're wearing, and your career record. |
 | **Attack** | Fight other **real players** for cash and respect. The target list only ever shows accounts that exist, and coming off worst goes on your record. |
 | **Gym / Jobs** | Train 4 stats (balanced training enforced); work shifts at day jobs — Corner Café, Racing Clerk, Exchange Engineer… |
 | **Market & Items** | Buy consumables (strong tea, Doc's kit, nerve draught), stat tonics, tools, and fence your loot with the fences. |
