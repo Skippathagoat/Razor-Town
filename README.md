@@ -7,7 +7,7 @@
 ---
 
 ## ▶️ Play it right now
-**Public URL (live):** https://privileges-stored-sponsors-himself.trycloudflare.com
+**Public URL (live):** https://these-seeing-gaps-cheaper.trycloudflare.com
 *(a free Cloudflare tunnel from this workspace — anyone with the link can play; it lives as long as this session is running. For a permanent URL see DEPLOY.md.)*
 
 Also available as the **LIVE PREVIEW** on port 8787 in this workspace, or `http://localhost:8787` locally.
