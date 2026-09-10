@@ -1,0 +1,14 @@
+# Razor Town on Render — free tier (no credit card).
+# The free plan has ephemeral storage: the world resets on redeploy/restart.
+# Attach a disk (small paid add-on) at /data and set DB_PATH=/data/world.db to keep saves.
+services:
+  - type: web
+    name: razor-town
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

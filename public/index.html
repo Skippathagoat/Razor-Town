@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07070d">
+<title>Razor Town — Birmingham 1925</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129440;</text></svg>">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="fx-layer" aria-hidden="true"></canvas>
+<div id="float-layer" aria-hidden="true"></div>
+
+<!-- ============ AUTH SCREEN ============ -->
+<section id="screen-auth" class="screen active">
+  <div class="city-bg" style="background-image:url('img/bg-city.jpg')"></div>
+  <div class="auth-shell">
+    <div class="auth-logo">
+      <img src="img/emblem.png" alt="" width="72" height="72">
+      <div class="auth-title">RAZOR<span class="cityword">TOWN</span></div>
+      <div class="auth-sub">Birmingham, 1925. Keep your cap on and your razor close.</div>
+      <div class="auth-online" id="auth-online">connecting to the yard…</div>
+    </div>
+    <div class="auth-card" id="auth-card"></div>
+  </div>
+  <div class="auth-ticker" id="auth-ticker"></div>
+</section>
+
+<!-- ============ CREATOR SCREEN ============ -->
+<section id="screen-creator" class="screen">
+  <div class="city-bg" style="background-image:url('img/bg-city.jpg')"></div>
+  <div class="creator-wrap" id="creator-wrap"></div>
+</section>
+
+<!-- ============ GAME SCREEN ============ -->
+<section id="screen-game" class="screen">
+  <header id="hud" class="hud"></header>
+  <div id="game-body">
+    <nav id="rail" class="rail"></nav>
+    <main id="view" class="view"></main>
+  </div>
+  <footer id="mobile-nav" class="mobile-nav"></footer>
+  <div id="gmg" class="gmg"></div>
+</section>
+
+<!-- modals -->
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<!-- audio -->
+<audio id="sfx-bell" preload="auto"></audio>
+
+<script src="js/avatar.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

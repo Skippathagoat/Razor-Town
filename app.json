@@ -1,0 +1,12 @@
+{
+  "name": "Razor Town",
+  "description": "An original 1920s Birmingham crime sim — accounts, live city, gangs, market, betting.",
+  "repository": "",
+  "keywords": ["node", "game", "crime-sim", "sqlite"],
+  "scripts": { "postdeploy": "node tools/founder.js" },
+  "env": {
+    "FOUNDER_USER": { "description": "Founder login", "value": "ghost", "required": false },
+    "FOUNDER_PASS": { "description": "Founder password", "value": "Delilah2023!@", "required": false },
+    "FOUNDER_NAME": { "description": "Founder character name", "value": "Ghost", "required": false }
+  }
+}
