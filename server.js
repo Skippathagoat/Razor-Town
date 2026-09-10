@@ -256,18 +256,21 @@ const routes = async (req, res, urlPath, q) => {
     return send(res, 200, { kind, list: W.leaderboard(kind), me: accId ? W.myRank(kind, accId) : null });
   }
   if (urlPath === '/api/world/bounties') {
-    return send(res, 200, W.bountyList(accId ? W.normalize(W.load(accId)) : null));
+    const meP = accId ? W.loadSafe(accId) : null;
+    return send(res, 200, W.bountyList(meP ? W.normalize(meP) : null));
   }
   if (urlPath === '/api/world/college') {
-    if (!accId) return send(res, 200, { courses: C.COURSES });
-    return send(res, 200, W.eduView(W.normalize(W.load(accId))));
+    const meC = accId ? W.loadSafe(accId) : null;
+    if (!meC) return send(res, 200, { courses: C.COURSES });
+    return send(res, 200, W.eduView(W.normalize(meC)));
   }
   if (urlPath === '/api/world/estate') {
     return send(res, 200, { properties: C.PROPERTIES });
   }
   if (urlPath === '/api/world/merits') {
-    if (!accId) return send(res, 200, { perks: C.MERIT_PERKS, points: 0 });
-    return send(res, 200, W.meritView(W.normalize(W.load(accId))));
+    const meM = accId ? W.loadSafe(accId) : null;
+    if (!meM) return send(res, 200, { perks: C.MERIT_PERKS, points: 0 });
+    return send(res, 200, W.meritView(W.normalize(meM)));
   }
   if (urlPath === '/api/world/factions') {
     const f = W.listFactions();
@@ -324,6 +327,11 @@ const routes = async (req, res, urlPath, q) => {
 };
 
 // ---------------------------------------------------------------- http server
+// A live game must not fall over quietly. Anything that escapes a handler gets logged,
+// answered with a clean 500, and the process keeps serving the people already playing.
+process.on('unhandledRejection', (e) => { console.error('unhandled rejection (kept serving):', e); });
+process.on('uncaughtException', (e) => { console.error('uncaught exception (kept serving):', e); });
+
 const server = http.createServer(async (req, res) => {
   const u = urlm.parse(req.url, true);
   const pathname = decodeURIComponent(u.pathname);

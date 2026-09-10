@@ -11,10 +11,13 @@
 ---
 
 ## ▶️ Play it right now
-**Public URL (live):** https://downloads-hope-father-productivity.trycloudflare.com
-*(a free Cloudflare tunnel from this workspace — anyone with the link can play; it lives as long as this session is running. For a permanent URL see DEPLOY.md.)*
+**Permanent URL (always on):** https://p01--razor-town--zynzxj4wfx54.code.run
+*(this is the deployed build on Northflank — it stays up on its own and does not depend on this workspace.)*
 
-Also available as the **LIVE PREVIEW** on port 8787 in this workspace, or `http://localhost:8787` locally.
+**Workspace preview:** the **LIVE PREVIEW** on port 8787 here, or `http://localhost:8787` locally.
+Need to share it from a workspace session? `bash ./start-all.sh --public` opens a temporary
+Cloudflare tunnel and prints the link — that URL **changes every time the workspace restarts**,
+so share the permanent URL above with anyone you want to keep playing.
 
 **Keeping it up:** `./start-all.sh` (add `--public` for a shareable link) starts a **self-healing
 supervisor** — it restarts the game within ~2s if it crashes and reinstalls its own dependencies if
@@ -50,6 +53,10 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Live city** | A town wire fed by what real players actually do — heists, scraps, gang notices — plus plain street colour when the town is quiet. |
 
 **Juice everywhere:** coin bursts, confetti, floating cash, screen shake on busts, animated XP/money/stat bars, poster-style **MADE!** / **NICKED!** result cards, a synthesized era synth engine, and level-up fanfares.
+
+**Is it up?** `curl <url>/api/health` returns `{"ok":true,...}` with an `up` counter — if a monitor
+ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
+is a fault worth reporting).
 
 **Verify the systems yourself:** `node tools/check-systems.js` runs 48 rule-level assertions (property, upkeep, education, merits, bounties, payout) against a throwaway world in `/tmp` — it never touches the live ledger.
 
