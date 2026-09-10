@@ -86,6 +86,8 @@ the founder account automatically (see `lib/bootstrap.js`). No API keys, no buil
 | Free host — Northflank | repo + volume at `/data` | ✅ | ✅ always-on, no sleep | ✅ persistent volume |
 | Any VPS / Docker | `Dockerfile` + `keep-up.sh` | ✅ | ✅ (systemd/pm2/`--restart`) | ✅ volume at `/data` |
 
+**Deploying on Northflank?** See **`NORTHFLANK.md`** — exact settings (port 8787, volume at `/data`, `DB_PATH=/data/world.db`, health check `/api/health`) and troubleshooting.
+
 **`FREE-HOSTS.md`** compares the free 2026 options for this exact app (and lists the dead ones — Glitch
 shut down in 2025, so ignore any older guide pointing there). `DEPLOY.md` is the hands-on runbook, including
 the free uptime-pinger trick that stops free hosts from sleeping. `/api/health` exists for exactly that.
