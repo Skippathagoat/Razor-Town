@@ -81,6 +81,26 @@ Push to `main` and Northflank redeploys automatically (with a health-gated switc
 on a half-started container). Your volume — and therefore every account, gang and bank balance — is untouched
 because it lives at `/data`, outside the image.
 
+**CI/CD is on by default on a combined service** — every commit to the tracked branch is built and deployed,
+so there is no deploy button to press [northflank docs](https://northflank.com/docs/v1/application/getting-started/build-and-deploy-your-code).
+Two toggles worth knowing in **Service → Build & deploy settings**:
+- **CI** — build automatically on each new commit.
+- **CD** — roll the newest successful build out automatically. Keep both on for "push = live".
+
+You can also turn **CD off** if you'd rather stage builds and promote them manually:
+`Service → Builds → (pick a build) → Deploy`.
+
+### How changes get made (no host access needed)
+1. Describe the change you want.
+2. The commit is pushed to **`main`** in `Skippathagoat/Razor-Town`.
+3. Northflank builds and deploys it automatically; watch the service **Logs** for
+   `Razor Town listening on http://0.0.0.0:8787`.
+4. Confirm at `https://YOUR-URL/api/health` (`ok: true`, `citizens: 42`).
+5. Something broke? `git revert <commit>` and push — the previous version redeploys within a couple of minutes.
+
+> ⚠️ Don't edit code through the Northflank **Shell/Exec** tab. The container is rebuilt from the image on
+> every deploy, so those edits disappear — it's only useful for one-off commands (e.g. `node tools/founder.js reset`).
+
 ## 🔑 Founder account
 `ghost` / `Delilah2023!@` — created automatically when the world is empty. To force a password reset later,
 run once from the Northflank **Shell/Exec** tab:
