@@ -620,3 +620,11 @@ body{background:
 }
 .mnav-item{color:var(--mut); font-family:var(--font-body); letter-spacing:.6px;}
 .mnav-item.on{color:var(--cyn); background:rgba(199,162,82,.07);}
+
+/* --- touch screens: nothing smaller than a fingertip ---------------------- */
+@media (pointer: coarse) {
+  .btn.sm, button.btn.sm { min-height: 32px; padding: 7px 12px; font-size: 11.5px; }
+  .btn { min-height: 34px; }
+  .row .btn.sm { min-width: 76px; }
+  #view .kv, #view .pill { padding-top: 5px; padding-bottom: 5px; }
+}

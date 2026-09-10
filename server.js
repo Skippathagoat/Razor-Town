@@ -100,8 +100,11 @@ function guard(req, res) {
 
 function withId(id, pj){ const m = W.publicView(pj); m.id = id; return m; }
 function metaPayload(){
-  return { crimes: C.CRIMES, crimeCats: C.CRIME_CATS, items: C.ITEMS, jobs: C.JOBS, gyms: C.GYMS, origins: C.ORIGINS, achievements: C.ACHIEVEMENTS };
+  return { crimes: C.CRIMES, crimeCats: C.CRIME_CATS, items: C.ITEMS, jobs: C.JOBS, gyms: C.GYMS, origins: C.ORIGINS, achievements: C.ACHIEVEMENTS,
+    courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS };
 }
+// load a player for a non-combat action, normalised (courses/perks/housing defaults)
+function me(accId) { return W.normalize(W.load(accId)); }
 // ------------------------------------------------ API
 const routes = async (req, res, urlPath, q) => {
   const method = req.method;
@@ -221,6 +224,16 @@ const routes = async (req, res, urlPath, q) => {
       job_apply: () => W.applyJob(id, body.jobId),
       job_quit: () => W.quitJob(id),
       msg: () => W.sendMsg(id, body.to, body.body),
+      // -- property, education, merits, bounties
+      property_buy: () => W.buyProperty(id, body.propertyId),
+      property_upgrade: () => W.upgradeProperty(id, body.upgradeId),
+      property_sell: () => W.sellProperty(id),
+      vault_in: () => W.moveVault(id, body.amount, 'in'),
+      vault_out: () => W.moveVault(id, body.amount, 'out'),
+      course_start: () => W.startCourse(id, body.courseId),
+      course_quit: () => W.abortCourse(id),
+      merit_buy: () => W.buyMerit(id, body.perkId),
+      bounty_place: () => W.placeBounty(id, body.targetId, body.amount, body.anon),
     };
     const fn = handlers[name];
     if (!fn) return send(res, 404, { err: 'Unknown action.' });
@@ -229,6 +242,7 @@ const routes = async (req, res, urlPath, q) => {
       if (out && out.err) return send(res, 400, { err: out.err });
       if (out && out.p) { out.p.id = id; pushAll('p', { id, name: out.p.name, rep: out.p.reputation, level: out.p.level }); }
       if (name === 'crime' || name === 'attack' || name === 'casino') pushAll('news', { n: 1 });
+      if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
   }
@@ -240,6 +254,20 @@ const routes = async (req, res, urlPath, q) => {
   if (urlPath === '/api/world/leaders') {
     const kind = q.kind || 'rep';
     return send(res, 200, { kind, list: W.leaderboard(kind), me: accId ? W.myRank(kind, accId) : null });
+  }
+  if (urlPath === '/api/world/bounties') {
+    return send(res, 200, W.bountyList(accId ? W.normalize(W.load(accId)) : null));
+  }
+  if (urlPath === '/api/world/college') {
+    if (!accId) return send(res, 200, { courses: C.COURSES });
+    return send(res, 200, W.eduView(W.normalize(W.load(accId))));
+  }
+  if (urlPath === '/api/world/estate') {
+    return send(res, 200, { properties: C.PROPERTIES });
+  }
+  if (urlPath === '/api/world/merits') {
+    if (!accId) return send(res, 200, { perks: C.MERIT_PERKS, points: 0 });
+    return send(res, 200, W.meritView(W.normalize(W.load(accId))));
   }
   if (urlPath === '/api/world/factions') {
     const f = W.listFactions();

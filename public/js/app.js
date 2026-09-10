@@ -19,6 +19,10 @@
     { id: 'market', label: 'Market', ico: '🛒', key: 'm' },
     { id: 'items', label: 'Items', ico: '🎒', key: 'i' },
     { id: 'bank', label: 'Bank', ico: '🏦', key: 'b' },
+    { id: 'property', label: 'Property', ico: '🏠', key: 'y' },
+    { id: 'college', label: 'College', ico: '🎓', key: 'u' },
+    { id: 'merits', label: 'Merits', ico: '⭐', key: 'k' },
+    { id: 'bounty', label: 'Bounties', ico: '🎯', key: 'w' },
     { id: 'casino', label: 'Betting', ico: '🎰', key: 'g' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
@@ -442,7 +446,7 @@
     v.scrollTop = 0;
     const jail = G.me.jail_until && G.me.jail_until > Date.now();
     const hosp = G.me.hosp_until && G.me.hosp_until > Date.now();
-    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, msg: renderMsg, profile: renderProfile, help: renderHelp };
+    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, msg: renderMsg, profile: renderProfile, help: renderHelp };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -477,11 +481,14 @@
       // minimum suspense so results land with a punch
       const wait = Math.max(0, 620 - (Date.now() - started));
       if (wait > 0) await new Promise(res => setTimeout(res, wait));
-      if (r.p) applyMe(r.p, r.res);
-      // gang membership/list changes must show up immediately, not 60s later
+      // anything the action changed must be dropped BEFORE the re-render that applyMe triggers,
+      // or the view paints from the cache and the result looks like it did not happen
       if (name === 'faction_create' || name === 'faction_join' || name === 'faction_leave') {
         G.cache.factions = null; G.cache.factionsAt = 0;
       }
+      if (name === 'bounty_place' || name === 'attack') { G.cache.bounties = null; G.cache.bountiesAt = 0; }
+      if (name === 'attack') { G.cache.targets = null; G.cache.targetsAt = 0; }
+      if (r.p) applyMe(r.p, r.res);
       if (sceneMode === 'crime') resolveCrimeScene(r);
       else if (sceneMode === 'attack') { r._gain = (G.me ? G.me.money : 0) - prevMoney; resolveAttackScene(r); }
       else if (sceneMode === 'casino') resolveCasinoScene(r);
@@ -510,8 +517,199 @@
     else if (!jailNow && meWasJail) { unlockUI(); }
     reRenderCurrent(res);
   }
+
+  // ================================================================ PROPERTY / COLLEGE / MERITS / BOUNTIES
+  function renderProperty() {
+    const me = G.me, v = $('#view');
+    const pr = me.aproperty || { name: 'Back-to-back Terrace', upgrades: [], vault: 0, happy: 100, upkeep: 0, value: 0 };
+    const props = (G.meta && G.meta.properties) || [];
+    const hp = Math.round(100 * (me.happy || 0) / Math.max(1, me.max_happy || 1));
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🏠 <span class="head">Pemberton &amp; Sons, Estate Agents</span></div>
+      <div class="vdesc">Where you sleep sets how happy you can get, how much you can hide, and what the place costs you every day. Happiness makes training pay.</div></div>
+      <div class="pill"><span>Max happy</span> <b style="color:var(--gold)">${me.max_happy || 100}</b></div></div>
+
+      <div class="grid2">
+        <div class="card"><div class="subhead">Where you live</div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="font-size:40px">${pr.icon || '🏚️'}</div>
+            <div><div class="head" style="font-size:16px">${esc(pr.name)}</div>
+            <div style="color:var(--mut);font-size:12px;margin-top:3px">${esc(pr.desc || '')}</div></div>
+          </div>
+          <div class="subhead" style="margin-top:14px">Happiness</div>
+          ${barBlock('happy-mini', me.happy || 0, me.max_happy || 100)}
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px">
+            <span>${Math.round(me.happy || 0)} / ${me.max_happy || 100}</span><span>upkeep $${(pr.upkeep || 0).toLocaleString()}/day</span></div>
+        </div>
+        <div class="card"><div class="subhead">The safe</div>
+          <div class="bigstat"><div class="num" style="color:var(--cyn)">${money(me.vault || 0)}</div><div class="lab">of ${money(pr.vault || 0)} hidden away</div></div>
+          <div class="grid2" style="align-items:end;gap:8px;margin-top:10px">
+            <div class="field" style="margin:0"><label>Amount</label><input id="vault-amt" type="number" min="1" value="1000" step="500"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn ok" data-act="vault_in" ${pr.vault ? '' : 'disabled'}>Hide →</button>
+              <button class="btn ghost" data-act="vault_out" ${pr.vault ? '' : 'disabled'}>← Take</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:10px">
+            <span>On you: ${money(me.money)}</span><span>Resale value: ${money(pr.value || 0)}</span></div>
+          ${props.length && (me.property !== 'shack') ? `<div style="margin-top:12px"><button class="btn sm danger" data-act="property_sell">Sell up and move out</button></div>` : ''}
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead">Improvements fitted here</div>
+        ${(pr.upgrades || []).length === 0 ? `<p style="color:var(--mut);font-size:12.5px">There is nothing in this house to improve. Buy somewhere better and the estate agent will show you what can be done.</p>` :
+        (pr.upgrades || []).map(u => `<div class="row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+          <span style="font-size:20px">${u.icon}</span>
+          <div style="flex:1"><b>${esc(u.name)}</b><div style="color:var(--mut);font-size:11.5px">${u.happy ? `+${u.happy} max happiness` : ''}${u.happy && u.vault ? ' · ' : ''}${u.vault ? `+${money(u.vault)} safe space` : ''}${u.gymPct ? ` · +${u.gymPct}% training` : ''}</div></div>
+          ${u.owned ? `<span class="pill" style="color:var(--good)">Fitted</span>` :
+            `<button class="btn sm" data-act="property_upgrade" data-up="${u.id}" ${me.money >= u.cost ? '' : 'disabled'}>${money(u.cost)}</button>`}
+        </div>`).join('')}
+      </div>
+
+      <div class="card"><div class="subhead">On the market</div>
+        ${props.map(x => {
+          const owned = me.property === x.id;
+          const afford = me.money >= x.price;
+          return `<div class="row" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)">
+            <span style="font-size:26px;width:34px;text-align:center">${x.icon}</span>
+            <div style="flex:1">
+              <b>${esc(x.name)}</b>${owned ? ' <span class="pill" style="color:var(--good)">Your address</span>' : ''}
+              <div style="color:var(--mut);font-size:11.5px;margin-top:2px">${esc(x.desc)}</div>
+              <div style="font-size:11.5px;color:var(--dim);margin-top:3px">🏠 ${x.happy} happy · 🧾 $${x.upkeep}/day upkeep · 🗄️ ${money(x.vault)} safe · ${(x.upgrades || []).length} improvements</div>
+            </div>
+            ${owned ? '' : (x.price === 0 ? '' : `<button class="btn sm ${afford ? 'ok' : ''}" data-act="property_buy" data-prop="${x.id}" ${afford ? '' : 'disabled'}>${money(x.price)}</button>`)}
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function renderCollege() {
+    const me = G.me, v = $('#view');
+    const data = (G.meta && G.meta.courses ? { courses: G.meta.courses } : { courses: [] });
+    const done = me.courses_done || [];
+    const c = me.course;
+    const cur = c ? (data.courses.find(x => x.id === c.id) || {}) : null;
+    const b = me.bonuses || {};
+    const courseList = G.cache.courses || data.courses || [];
+    const rows = courseList.map(x => {
+      const passed = done.includes(x.id);
+      const enrolled = c && c.id === x.id;
+      const needCourse = x.req && x.req.course && !done.includes(x.req.course);
+      const needLevel = x.req && x.req.level && me.level < x.req.level;
+      const locked = needCourse || needLevel;
+      return `<div class="row" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:24px;width:32px;text-align:center">${x.icon}</span>
+        <div style="flex:1">
+          <b>${esc(x.name)}</b>${passed ? ' <span class="pill" style="color:var(--good)">Passed</span>' : ''}${enrolled ? ' <span class="pill" style="color:var(--cyn)">Attending</span>' : ''}
+          <div style="color:var(--mut);font-size:11.5px;margin-top:2px">${esc(x.desc)}</div>
+          <div style="font-size:11.5px;color:var(--gold);margin-top:3px">🎁 ${esc(x.grantText || '')}${locked ? ` · <span style="color:var(--dim)">needs ${x.req.level ? 'level ' + x.req.level : ''}${x.req.level && x.req.course ? ' and ' : ''}${x.req.course ? (data.courses.find(y => y.id === x.req.course) || {}).name : ''}</span>` : ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--dim)">${x.minutes} min</div>
+          ${passed ? '' : enrolled ? `<span class="mono" id="course-timer" data-ends="${c.ends}" style="color:var(--cyn)">…</span>` :
+            `<button class="btn sm ${!locked && !c && me.money >= x.cost ? 'ok' : ''}" data-act="course_start" data-course="${x.id}" ${(!locked && !c && me.money >= x.cost) ? '' : 'disabled'}>${money(x.cost)}</button>`}
+        </div>
+      </div>`;
+    }).join('');
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🎓 <span class="head">Digbeth Technical College</span></div>
+      <div class="vdesc">Evening classes for working men. One at a time, fees up front, and what you learn stays with you for good. The clever ones get better at everything else.</div></div>
+      <div class="pill"><span>Passed</span> <b style="color:var(--gold)">${done.length}/${courseList.length}</b></div></div>
+
+      ${cur ? `<div class="card" style="border-color:var(--cyn)"><div class="subhead">You are attending</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:30px">${cur.icon || '📘'}</span>
+          <div style="flex:1"><div class="head" style="font-size:16px">${esc(c.name || '')}</div>
+          <div style="color:var(--gold);font-size:12px">${esc(cur.grantText || '')}</div></div>
+          <div class="mono" id="course-timer" data-ends="${c.ends}" style="font-size:20px;color:var(--cyn)">…</div>
+        </div>
+        <div style="margin-top:12px"><button class="btn sm danger" data-act="course_quit">Walk out</button></div></div>` : ''}
+
+      <div class="card"><div class="subhead">What your learning does for you</div>
+        <div class="grid2" style="gap:8px">
+          <div class="kv"><span>Crime success</span><b>+${Math.round((b.crimePct || 0) * 10) / 10}%</b></div>
+          <div class="kv"><span>Training gains</span><b>+${b.gymPct || 0}%</b></div>
+          <div class="kv"><span>Sentence length</span><b>${b.jailPct || 0}%</b></div>
+          <div class="kv"><span>Property prices</span><b>−${b.propDiscPct || 0}%</b></div>
+        </div></div>
+
+      <div class="card"><div class="subhead">The curriculum</div>${rows}</div>`;
+    tickCourse();
+  }
+  function tickCourse() {
+    const el = $('#course-timer');
+    if (!el) return;
+    const ends = +el.dataset.ends;
+    const left = ends - Date.now();
+    el.textContent = left > 0 ? fmtDur(left) : 'finishing…';
+  }
+
+  function renderMerits() {
+    const me = G.me, v = $('#view');
+    const perks = (G.meta && G.meta.meritPerks) || [];
+    const took = me.perks || {};
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">⭐ <span class="head">Merits</span></div>
+      <div class="vdesc">A life on the make teaches a man things. Every level earns a merit; spend them here and the gain is permanent.</div></div>
+      <div class="pill"><span>Unspent</span> <b style="color:var(--gold)">${me.merits || 0}</b></div></div>
+      <div class="grid2">
+        <div class="card"><div class="bigstat"><div class="num" style="color:var(--gold)">${me.merits || 0}</div><div class="lab">merit points to spend</div></div></div>
+        <div class="card"><div class="bigstat"><div class="num" style="color:var(--cyn)">${Object.values(took).reduce((n, x) => n + x, 0)}</div><div class="lab">perks already taken</div></div></div>
+      </div>
+      <div class="card"><div class="subhead">Perk list</div>
+        ${perks.map(k => {
+          const taken = took[k.id] || 0, maxed = taken >= k.max;
+          return `<div class="row" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">
+            <span style="font-size:22px;width:30px;text-align:center">${k.icon}</span>
+            <div style="flex:1"><b>${esc(k.name)}</b>
+              <div style="color:var(--mut);font-size:11.5px">${esc(k.desc)} · ${taken}/${k.max} taken</div></div>
+            <button class="btn sm ${(me.merits || 0) > 0 && !maxed ? 'ok' : ''}" data-act="merit_buy" data-perk="${k.id}" ${(me.merits || 0) > 0 && !maxed ? '' : 'disabled'}>${maxed ? 'Maxed' : 'Take (1)'}</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  async function renderBounty() {
+    const me = G.me, v = $('#view');
+    if (!G.cache.bounties || Date.now() - (G.cache.bountiesAt || 0) > 20000) {
+      try { G.cache.bounties = await Net.get('/api/world/bounties'); G.cache.bountiesAt = Date.now(); }
+      catch (e) { G.cache.bounties = { list: [], total: 0 }; }
+    }
+    let targets = G.cache.targets;
+    if (!targets) { try { const r = await Net.get('/api/attacks'); targets = r.targets || []; G.cache.targets = targets; } catch (e) { targets = []; } }
+    const data = G.cache.bounties || { list: [], total: 0 };
+    const mine = data.list.find(b => b.mine);
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🎯 <span class="head">The Bounty Board</span></div>
+      <div class="vdesc">Money on a name, paid to whoever puts that man in hospital. Take the whole pot — the board keeps a 5% cut.</div></div>
+      <div class="pill"><span>On the board</span> <b style="color:var(--gold)">${money(data.total)}</b></div></div>
+
+      ${mine ? `<div class="card" style="border-color:var(--bad)"><div class="subhead">There is money on your head</div>
+        <div class="bigstat"><div class="num" style="color:var(--bad)">${money(mine.total)}</div><div class="lab">keep your life topped up and stay out of the open</div></div></div>` : ''}
+
+      <div class="card"><div class="subhead">Post a price</div>
+        <div class="grid2" style="align-items:end;gap:8px">
+          <div class="field" style="margin:0"><label>Target</label><select id="bo-target">${targets.map(t => `<option value="${t.acc_id}">${esc(t.name)} — lvl ${t.level} · ⭐${t.total}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label>Amount (min $500)</label><input id="bo-amt" type="number" min="500" step="500" value="5000"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--mut)"><input id="bo-anon" type="checkbox"> Put it up anonymously</label>
+        <div style="margin-top:12px"><button class="btn ok" data-act="bounty_place" ${targets.length ? '' : 'disabled'}>Place bounty</button></div>
+      </div>
+
+      <div class="card"><div class="subhead">Wanted</div>
+        ${data.list.length === 0 ? `<p style="color:var(--mut);font-size:12.5px">The board is empty. Nobody has upset anybody yet — or nobody with money.</p>` :
+        data.list.map(b => `<div class="row" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)">
+          <span style="font-size:22px">${b.status === 'hospital' ? '🏥' : b.status === 'jail' ? '🔒' : '🎯'}</span>
+          <div style="flex:1"><b>${esc(b.name)}</b>${b.mine ? ' <span class="pill" style="color:var(--bad)">You</span>' : ''}
+            <div style="color:var(--mut);font-size:11.5px">${b.entries.length} reward${b.entries.length === 1 ? '' : 's'} · last from ${esc(b.entries[b.entries.length - 1].from)} · ${b.status === 'hospital' ? 'in hospital — pot is collectable' : b.status === 'jail' ? 'in jail' : 'walking free'}</div></div>
+          <div style="text-align:right"><b style="color:var(--gold)">${money(b.total)}</b></div>
+        </div>`).join('')}
+        <p style="color:var(--dim);font-size:11.5px;margin-top:10px">Collect by beating the target in a fight and putting them in the hospital. The pot is paid out instantly.</p>
+      </div>`;
+  }
+
   function reRenderCurrent(res) {
-    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile };
+    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -1151,6 +1349,13 @@
           <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;color:var(--mut);font-size:13px;margin-top:6px">
             ${TABS.map(t => `<span><span class="kbd" style="display:inline-block;min-width:18px;text-align:center;border:1px solid var(--line2);border-radius:5px;padding:0 5px">${t.key}</span></span><span>${t.label}</span>`).join('')}
             <span><span class="kbd" style="border:1px solid var(--line2);border-radius:5px;padding:0 5px">Esc</span></span><span>Menu</span></div></div>
+        <div class="card"><div class="subhead">Build a life</div>
+          <ul style="color:var(--mut);font-size:13px;line-height:2;list-style:none;padding:0">
+            <li>🎓 <b style="color:var(--ink)">College</b> — evening classes at Digbeth Technical. Pass a course and the gain never leaves you.</li>
+            <li>🏠 <b style="color:var(--ink)">Property</b> — a better address raises how happy you can get (and happy men train harder). Rent is charged daily.</li>
+            <li>⭐ <b style="color:var(--ink)">Merits</b> — one point per level. Spend them on permanent perks.</li>
+            <li>🎯 <b style="color:var(--ink)">Bounties</b> — post money on a name. Whoever puts that man in hospital collects the pot, less a 5% cut.</li>
+          </ul></div>
         <div class="card"><div class="subhead">Play on any device</div>
           <p style="color:var(--mut);font-size:13px">Log in with the same account on your phone or PC — your character, items and reputation follow you. Touch and keyboard both fully supported.</p></div>
       </div>
@@ -1299,6 +1504,23 @@
         if (ok) { G.cache.msgs = null; U.toast('Message sent into the wire.', 'good'); renderMsg(); }
         break;
       }
+      case 'property_buy': act('property_buy', { propertyId: btn.dataset.prop }); break;
+      case 'property_upgrade': act('property_upgrade', { upgradeId: btn.dataset.up }); break;
+      case 'property_sell': act('property_sell', {}); break;
+      case 'vault_in': case 'vault_out': {
+        const amt = parseInt(($('#vault-amt') || {}).value, 10) || 0;
+        act(actN, { amount: amt }); break;
+      }
+      case 'course_start': act('course_start', { courseId: btn.dataset.course }); break;
+      case 'course_quit': act('course_quit', {}); break;
+      case 'merit_buy': act('merit_buy', { perkId: btn.dataset.perk }); break;
+      case 'bounty_place': {
+        const sel = $('#bo-target'), amtEl = $('#bo-amt'), anonEl = $('#bo-anon');
+        const targetId = sel ? +sel.value : 0;
+        if (!targetId) { U.toast('Pick somebody first.', 'bad'); break; }
+        act('bounty_place', { targetId, amount: parseInt(amtEl && amtEl.value, 10) || 0, anon: !!(anonEl && anonEl.checked) });
+        break;
+      }
       case 'menu': openMenu(); break;
       case 'sound': { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; break; }
       case 'logout': doLogout(); break;
@@ -1327,7 +1549,7 @@
     const k = e.key.toLowerCase();
     if (k === 'escape') { if ($('#modal-root').innerHTML) $('#modal-root').innerHTML = ''; else openMenu(); return; }
     if (k === '/') { e.preventDefault(); nav('help'); return; }
-    const tab = TABS.find(t => t.key === k && ['h', 'c', 'a', 't', 'j', 'm', 'i', 'b', 'g', 'f', 'e', 'l', 'n', 'p'].includes(k));
+    const tab = TABS.find(t => t.key === k && ['h', 'c', 'a', 't', 'j', 'm', 'i', 'b', 'y', 'u', 'k', 'w', 'g', 'f', 'e', 'l', 'n', 'p'].includes(k));
     if (tab) { e.preventDefault(); nav(tab.id); }
   }
 
@@ -1336,6 +1558,7 @@
     if (!G.authed) return;
     const cc = $('#lock-cover');
     if (cc) U.updateTimers(cc);
+    if (G.view === 'college') tickCourse();
     // re-render hud bars periodically (regeneration display)
   }, 1000);
   setInterval(() => {

@@ -38,6 +38,10 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Gym / Jobs** | Train 4 stats (balanced training enforced); work shifts at day jobs — Corner Café, Racing Clerk, Exchange Engineer… |
 | **Market & Items** | Buy consumables (strong tea, Doc's kit, nerve draught), stat tonics, tools, and fence your loot with the fences. |
 | **Bank** | The Exchange Bank parks your cash and pays ~4%/hr interest. Cash on you is lootable in fights. |
+| **Property** | Pemberton & Sons, estate agents — 8 addresses from a back-to-back terrace to the Manor at Solihull, each with three improvements and an iron safe. Where you live sets how happy you can get (happy men train harder, and happiness regenerates every 30 minutes). Rent is charged once a day; unpaid rent costs you happiness instead. Sell up and you get 75% of the value plus everything in the safe. |
+| **College** | Digbeth Technical College — 14 evening courses from Pitman Shorthand to Industrial Chemistry and Law of Property. One at a time, fees up front, and the grant is permanent: stat blocks, +% crime success, +% training gains, shorter sentences, cheaper property. Some courses are gated behind a level or an earlier course. |
+| **Merits** | One merit point per level, spent permanently on 8 perk lines (extra energy, nerve, life, happiness, training, crime success, heavier muggings, shorter stretches). |
+| **Bounties** | The Bounty Board — post money on any citizen's name ($500 minimum, anonymously if you like) and it pools. Beat that man into hospital and you collect the pot less a 5% fee; the target gets a letter telling them. |
 | **Betting shop** | The Corner Betting Shop — the Greyhound Dash. Back the dog, ride the multiplier, cash out before the crash. |
 | **Gangs** | Found your own crew for $200k (level 5+) and invite whoever turns up — every gang in the city is player-run. |
 | **Feats** | 20 achievements that fire juicy popups + town-wide news. |
@@ -46,6 +50,8 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Live city** | A town wire fed by what real players actually do — heists, scraps, gang notices — plus plain street colour when the town is quiet. |
 
 **Juice everywhere:** coin bursts, confetti, floating cash, screen shake on busts, animated XP/money/stat bars, poster-style **MADE!** / **NICKED!** result cards, a synthesized era synth engine, and level-up fanfares.
+
+**Verify the systems yourself:** `node tools/check-systems.js` runs 48 rule-level assertions (property, upkeep, education, merits, bounties, payout) against a throwaway world in `/tmp` — it never touches the live ledger.
 
 **Controls:** full keyboard shortcuts (see Help in-game, e.g. `c` crimes, `a` attack, `Esc` menu) *and* a thumb-friendly bottom nav on mobile. Menu/button based throughout — no movement controls.
 
