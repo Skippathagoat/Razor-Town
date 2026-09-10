@@ -675,8 +675,12 @@
       try { G.cache.bounties = await Net.get('/api/world/bounties'); G.cache.bountiesAt = Date.now(); }
       catch (e) { G.cache.bounties = { list: [], total: 0 }; }
     }
-    let targets = G.cache.targets;
-    if (!targets) { try { const r = await Net.get('/api/attacks'); targets = r.targets || []; G.cache.targets = targets; } catch (e) { targets = []; } }
+    // anyone in town can have a price put on them — this is not the strength-filtered hunt list
+    if (!G.cache.citizens || Date.now() - (G.cache.citizensAt || 0) > 30000) {
+      try { const r = await Net.get('/api/world/leaders?kind=rep'); G.cache.citizens = (r.list || []).filter(x => !x.isBot); G.cache.citizensAt = Date.now(); }
+      catch (e) { G.cache.citizens = []; }
+    }
+    const targets = (G.cache.citizens || []).filter(x => x.name !== me.name);
     const data = G.cache.bounties || { list: [], total: 0 };
     const mine = data.list.find(b => b.mine);
     v.innerHTML = `
@@ -689,7 +693,7 @@
 
       <div class="card"><div class="subhead">Post a price</div>
         <div class="grid2" style="align-items:end;gap:8px">
-          <div class="field" style="margin:0"><label>Target</label><select id="bo-target">${targets.map(t => `<option value="${t.acc_id}">${esc(t.name)} — lvl ${t.level} · ⭐${t.total}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label>Target</label><select id="bo-target">${targets.map(t => `<option value="${t.id}">${esc(t.name)} — lvl ${t.level} · ⭐${t.rep != null ? t.rep : t.total}</option>`).join('')}</select></div>
           <div class="field" style="margin:0"><label>Amount (min $500)</label><input id="bo-amt" type="number" min="500" step="500" value="5000"></div>
         </div>
         <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--mut)"><input id="bo-anon" type="checkbox"> Put it up anonymously</label>
@@ -703,6 +707,10 @@
           <div style="flex:1"><b>${esc(b.name)}</b>${b.mine ? ' <span class="pill" style="color:var(--bad)">You</span>' : ''}
             <div style="color:var(--mut);font-size:11.5px">${b.entries.length} reward${b.entries.length === 1 ? '' : 's'} · last from ${esc(b.entries[b.entries.length - 1].from)} · ${b.status === 'hospital' ? 'in hospital — pot is collectable' : b.status === 'jail' ? 'in jail' : 'walking free'}</div></div>
           <div style="text-align:right"><b style="color:var(--gold)">${money(b.total)}</b></div>
+          ${b.status === 'hospital' ? `<span class="pill" style="color:var(--dim)">in hospital</span>`
+            : b.status === 'jail' ? `<span class="pill" style="color:var(--dim)">in jail</span>`
+            : b.mine ? `<span class="pill" style="color:var(--bad)">your head</span>`
+            : `<button class="btn sm danger" data-act="attack" data-tid="${b.id}">Collect</button>`}
         </div>`).join('')}
         <p style="color:var(--dim);font-size:11.5px;margin-top:10px">Collect by beating the target in a fight and putting them in the hospital. The pot is paid out instantly.</p>
       </div>`;
