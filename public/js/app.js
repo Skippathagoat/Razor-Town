@@ -28,6 +28,7 @@
     { id: 'help', label: 'Help', ico: '❔', key: '/' }
   ];
   const FINGER = { st: 'Strength', de: 'Defense', sp: 'Speed', dx: 'Dexterity' };
+  const TRAIN_GAP = 10;   // keep in step with lib/game/engine.js
   const DIFF = { st: '💪', de: '🛡️', sp: '⚡', dx: '🖐️' };
 
   // ================================================================ JUICE
@@ -178,7 +179,7 @@
       </div>
       <div data-authpanel="register" style="display:none">
         <form data-form="register">
-          <div class="field"><label>Username (login)</label><input name="u" autocomplete="username" maxlength="20" placeholder="e.g. shadow_king" required></div>
+          <div class="field"><label>Username (login)</label><input name="u" autocomplete="username" maxlength="20" placeholder="e.g. cutler_street_alf" required></div>
           <div class="field"><label>Password</label><input name="p" type="password" autocomplete="new-password" placeholder="min 6 characters" required></div>
           <div class="err"></div>
           <button class="btn cyan big" style="width:100%" type="submit">Create my character →</button>
@@ -371,7 +372,7 @@
       </div>
       <div class="hud-spacer"></div>
       <span class="pill online" id="online-pill" title="live events + city pulse"><span class="dot"></span><span class="oltext">Live</span></span>
-      <span class="pill" title="citizens around">👥 <span id="online-count">…</span></span>
+      <span class="pill" title="players online right now">👥 <span id="online-count">…</span></span>
       <button class="iconbtn" data-act="menu" title="Menu (Esc)">☰</button>`;
   }
   function barBlock(id, v, max, c) {
@@ -397,12 +398,13 @@
     rail.innerHTML = `<div class="profile-chip" data-nav="profile">${avatarHTML}<div style="min-width:0"><b>${esc(me.name)}</b><span>⭐ Level ${me.level}</span></div></div>${items}
       <div class="rail-section">World</div>
       <button class="rail-item ${G.view === 'leaders' ? 'on' : ''}" data-nav="leaders"><span class="ico">👑</span>The Gallery<span class="kbd">l</span></button>
-      <button class="rail-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages<span class="kbd">n</span></button>
+      <button class="rail-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}<span class="kbd">n</span></button>
       <button class="rail-item ${G.view === 'help' ? 'on' : ''}" data-nav="help"><span class="ico">❔</span>Help<span class="kbd">/</span></button>
       ${lock ? `<div class="rail-section" style="color:var(--bad)">⛓ Locked (${hosp ? 'Hospital' : 'Jail'})</div>` : ''}`;
     // mobile nav
     const mnav = $('#mobile-nav');
-    mnav.innerHTML = TABS.map(t => `<button class="mnav-item ${G.view === t.id ? 'on' : ''}" data-nav="${t.id}"><span class="ico">${t.ico}</span>${t.label}</button>`).join('');
+    mnav.innerHTML = TABS.map(t => `<button class="mnav-item ${G.view === t.id ? 'on' : ''}" data-nav="${t.id}"><span class="ico">${t.ico}</span>${t.label}</button>`).join('')
+      + `<button class="mnav-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>`;
     $$('#mobile-nav [data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
     $$('#rail [data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
   }
@@ -449,11 +451,16 @@
       const started = Date.now();
       if (sceneMode === 'crime') showScene('crime', payload);
       else if (sceneMode === 'attack') showScene('attack', payload);
-      const r = await Net.post('/api/action', Object.assign({ name }, payload || {}));
+      // the action name goes LAST so a payload field can never overwrite it
+      const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name }));
       // minimum suspense so results land with a punch
       const wait = Math.max(0, 620 - (Date.now() - started));
       if (wait > 0) await new Promise(res => setTimeout(res, wait));
       if (r.p) applyMe(r.p, r.res);
+      // gang membership/list changes must show up immediately, not 60s later
+      if (name === 'faction_create' || name === 'faction_join' || name === 'faction_leave') {
+        G.cache.factions = null; G.cache.factionsAt = 0;
+      }
       if (sceneMode === 'crime') resolveCrimeScene(r);
       else if (sceneMode === 'attack') { r._gain = (G.me ? G.me.money : 0) - prevMoney; resolveAttackScene(r); }
       else if (sceneMode === 'casino') resolveCasinoScene(r);
@@ -741,6 +748,12 @@
       <div class="vhead"><div><div class="vtitle">⚔️ <span class="head">Hunt</span></div>
       <div class="vdesc">Pick a target close to your strength. Winners take a cut of the loser's cash. Getting jumped by a real player hurts twice.</div></div>
       <div class="pill"><span>Your rating</span> <b style="color:var(--cyn)">⭐ ${me.total}</b></div></div>
+      ${list.length === 0 ? `<div class="card" style="text-align:center">
+        <div style="font-size:34px">🥊</div>
+        <div class="head" style="font-size:16px;margin-top:6px">Nobody worth hitting</div>
+        <p style="color:var(--mut);font-size:13px;margin-top:8px">There is nobody else in town right now — the yards are empty. Rivals show up here the moment another player walks in. Until then, keep working jobs and building your name.</p>
+        <div style="margin-top:12px"><button class="btn cyan" data-nav="crime">Run some jobs instead →</button></div>
+      </div>` : ''}
       <div class="card" style="background:none;border:none;padding:0">
         ${list.map(t => {
           const gap = t.total - me.total;
@@ -765,20 +778,27 @@
     const gym = m.gyms.filter(g => me.level >= g.lvl).map(g => g).pop() || m.gyms[0];
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🏋️ <span class="head">The Gym</span></div>
-      <div class="vdesc">Costs $250 + 12 energy per session. Train a stat up — but keep your skills balanced or you'll stall.</div></div>
+      <div class="vdesc">$250 and 12 energy a session. Since the yards emptied there is no easy money in fighting — a harder body is how you survive the ones who come looking.</div></div>
       <div class="pill"><span>Energy</span> <b class="mono" style="color:var(--gold)">${Math.floor(me.energy)}</b><span style="color:var(--dim)">/</span><b>${me.max_energy}</b></div></div>
       <div class="card"><div class="subhead">Where are you training?</div><p style="color:var(--mut);font-size:13px">${esc(gym.name)} — ${esc(gym.desc)}</p>
-      <p style="color:var(--dim);font-size:11.5px;margin-top:4px">Better gyms unlock as you level (${m.gyms.map(g => g.name + ' lvl ' + g.lvl).join(' · ')}).</p></div>
+      <p style="color:var(--dim);font-size:11.5px;margin-top:4px">Better gyms unlock as you level (${m.gyms.map(g => g.name + ' lvl ' + g.lvl).join(' · ')}).</p>
+      <p style="color:var(--mut);font-size:12px;margin-top:6px">The house rule: you can push one skill up to <b>${TRAIN_GAP}</b> ahead of your best other skill. Past that the trainers send you away until the rest have caught up — so train everything, not just your favourite.</p></div>
       <div class="grid2">
         ${['st','de','sp','dx'].map(k => {
-          const lvlOk = me.stats[k] <= Math.max(...['st','de','sp','dx'].filter(o => o !== k).map(o => me.stats[o])) + 3;
+          const others = ['st','de','sp','dx'].filter(o => o !== k);
+          const lagging = others.reduce((a, o) => (me.stats[a] <= me.stats[o] ? a : o), others[0]);
+          const ahead = Math.round(me.stats[k] - Math.max(...others.map(o => me.stats[o])));
+          const lvlOk = me.stats[k] <= Math.max(...others.map(o => me.stats[o])) + TRAIN_GAP;
           const myEff = me.boosters && me.boosters[k];
+          const note = lvlOk
+            ? (ahead > 0 ? `${ahead} ahead of the pack — worth evening out soon.` : 'In step with the rest. Every session pays full.')
+            : `${FINGER[k]} is ${ahead} ahead of the rest. Train ${FINGER[lagging]} next, then come back to this.`;
           return `<div class="card" style="text-align:center"><div style="font-size:30px">${DIFF[k]}</div>
           <div class="head" style="font-size:16px">${FINGER[k]}</div>
           <div class="bigstat" style="padding:8px"><div class="num" style="font-size:40px">${Math.floor(me.stats[k])}</div></div>
           ${myEff ? `<span class="adv" style="margin-bottom:8px"><i></i> boosted ×${myEff.mult}</span>` : ''}
-          <div style="margin:6px 0"><button class="btn primary" data-act="train" data-stat="${k}" ${lvlOk && !(me.jail_until) && !(me.hosp_until) ? '' : 'disabled'}>Train ${FINGER[k].slice(0,3)}</button></div>
-          <p style="color:${lvlOk ? 'var(--mut)' : 'var(--bad)'};font-size:11px">${lvlOk ? 'Gains are better when you train alone? Not in this city.' : 'Needs balancing — train your lower stats first.'}</p></div>`;
+          <div style="margin:6px 0"><button class="btn primary" data-act="train" data-stat="${k}" data-gym="${gym.id}" ${lvlOk && !(me.jail_until) && !(me.hosp_until) ? '' : 'disabled'}>Train ${FINGER[k].slice(0,3)}</button></div>
+          <p style="color:${lvlOk ? 'var(--mut)' : 'var(--bad)'};font-size:11px">${note}</p></div>`;
         }).join('')}
       </div>`;
   }
@@ -919,14 +939,14 @@
     const me = G.me;
     let fs = [];
     try {
-      if (!G.cache.factions || Date.now() - (G.cache.factionsAt || 0) > 60000) {
+      if (!G.cache.factions || Date.now() - (G.cache.factionsAt || 0) > 15000) {
         const r = await Net.get('/api/world/factions'); G.cache.factions = r.factions; G.cache.factionsAt = Date.now();
       }
       fs = G.cache.factions;
     } catch (e) { fs = []; }
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🪓 <span class="head">The Gangs</span></div>
-      <div class="vdesc">Strength in numbers. Found your own crew for \$200,000 at level 5+, or throw in with an existing outfit.</div></div></div>
+      <div class="vdesc">Strength in numbers. Found your own crew for \$200,000 at level 5+, or throw in with an existing one.</div></div></div>
       ${me.faction ? '' : `
       <div class="card panel-gold"><div class="subhead" style="color:var(--gold)">Found your own</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -942,7 +962,9 @@
         <div class="kv"><span class="k">Power</span><span class="v">${f.power}</span></div>
         <div class="kv"><span class="k">Run by</span><span class="v">${esc(f.owner)}</span></div>
         ${me.faction ? '' : `<button class="btn cyan sm" style="margin-top:10px" data-act="faction_join" data-fid="${f.id}">Join ${esc(f.tag)}</button>`}
-        </div>`).join('') || '<p style="color:var(--dim)">No factions yet — the city is young.</p>'}</div>`;
+        </div>`).join('') || `<div class="card" style="text-align:center"><div style="font-size:30px">🪓</div>
+          <div class="head" style="font-size:15px;margin-top:6px">No gangs yet</div>
+          <p style="color:var(--mut);font-size:13px;margin-top:8px">Nobody has claimed this town yet. Found your own crew — \$200,000 and level 5 is all it takes — and your name goes on it.</p></div>`}</div>`;
   }
 
   // ---- ACHIEVEMENTS
@@ -1209,7 +1231,7 @@
         act('attack', { targetId: +tid }, 'attack');
         break;
       }
-      case 'train': act('train', { stat: btn.dataset.stat, gymId: 'abandoned_gym' }); break;
+      case 'train': act('train', { stat: btn.dataset.stat, gymId: btn.dataset.gym || 'abandoned_gym' }); break;
       case 'job_apply': act('job_apply', { jobId: btn.dataset.job }); break;
       case 'job_quit': act('job_quit', {}); break;
       case 'work': act('work', {}); break;
@@ -1227,8 +1249,8 @@
         break;
       }
       case 'faction_create': {
-        const name = $('#fac-name') && $('#fac-name').value; const tag = $('#fac-tag') && $('#fac-tag').value;
-        act('faction_create', { name, tag, desc: '' }); break;
+        const factionName = $('#fac-name') && $('#fac-name').value; const tag = $('#fac-tag') && $('#fac-tag').value;
+        act('faction_create', { factionName, tag, desc: '' }); break;
       }
       case 'faction_join': act('faction_join', { fid: +btn.dataset.fid }); break;
       case 'faction_leave': act('faction_leave', {}); break;

@@ -15,10 +15,16 @@ const boot = require('./lib/bootstrap.js');
 
 // First boot anywhere = playable world: seeds NPC citizens + gangs and creates the
 // founder account when the database is empty. Idempotent, so restarts are cheap.
-const world = boot.ensureWorld({ bots: Number(process.env.BOTS || 42) });
+const world = boot.ensureWorld();   // BOTS env controls NPCs; default 0 = real players only
 console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items');
 console.log('Citizens:', world.citizens, '| gangs:', world.gangs, '| accounts:', world.accounts,
+  world.bots ? '| NPC bots: ' + world.bots : '| NPC bots: off (real players only)',
   world.founder && world.founder.created ? '| founder created: ' + world.founder.username : '');
+if (world.purged && (world.purged.bots || world.purged.factions)) {
+  console.log('Purged NPCs ->', world.purged.bots, 'accounts,', world.purged.characters, 'characters,',
+    world.purged.factions, 'seeded gangs,', world.purged.news, 'news rows,',
+    world.purged.membersRemoved, 'players pulled out of those gangs');
+}
 
 // ---------------------------------------------------------------- SSE hub
 const sseClients = new Set();
@@ -209,7 +215,7 @@ const routes = async (req, res, urlPath, q) => {
       deposit: () => W.doDeposit(id, body.amount),
       withdraw: () => W.doWithdraw(id, body.amount),
       casino: () => W.doCasino(id, body.game, body.bet),
-      faction_create: () => W.createFaction(id, body.name, body.tag, body.desc),
+      faction_create: () => W.createFaction(id, body.factionName || body.name, body.tag, body.desc),
       faction_join: () => W.joinFaction(id, body.fid),
       faction_leave: () => W.leaveFaction(id),
       job_apply: () => W.applyJob(id, body.jobId),
@@ -240,7 +246,8 @@ const routes = async (req, res, urlPath, q) => {
     return send(res, 200, f);
   }
   if (urlPath === '/api/world/online') {
-    return send(res, 200, { online: 1 + Math.round(Math.random() * 4) + sseClients.size });
+    // real live connections only — no invented players
+    return send(res, 200, { online: sseClients.size });
   }
   if (urlPath === '/api/attacks') {
     const id = guard(req, res); if (!id) return;
@@ -302,18 +309,25 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// city pulse: random bot activity to keep the feed breathing
+// town wire pulse: keeps the feed breathing without inventing citizens.
+// Used only where it can be said without naming a person who doesn't exist.
+function ambientNews() {
+  const raw = C.NEWS_FLAIR.filter(l => !l.includes('{name}'));
+  if (!raw.length) return;
+  const pick = raw[Math.floor(Math.random() * raw.length)];
+  const place = C.PLACES[Math.floor(Math.random() * C.PLACES.length)];
+  W.logNews('news', '\uD83D\uDCF0', pick.replace('{place}', place));
+}
 setInterval(() => {
-  const kind = ['crime', 'fight', 'news'][Math.floor(Math.random() * 3)];
   const names = [
     ...dbm.getDb().prepare('SELECT p.name FROM players p JOIN accounts a ON a.id=p.acc_id WHERE a.kind=\'bot\' ORDER BY RANDOM() LIMIT 1').all()
   ];
-  if (!names.length) return;
+  if (!names.length) { ambientNews(); pushAll('news', { n: 1 }); return; }
   const nm = names[0].name;
+  const kind = ['crime', 'fight', 'news'][Math.floor(Math.random() * 3)];
   const pick = C.NEWS_FLAIR[Math.floor(Math.random() * C.NEWS_FLAIR.length)];
   const place = C.PLACES[Math.floor(Math.random() * C.PLACES.length)];
-  let msg = pick.replace('{name}', nm).replace('{place}', place);
-  W.logNews(kind, kind === 'crime' ? '\uD83D\uDCB0' : kind === 'fight' ? '\u2694\uFE0F' : '\uD83C\uDFAF', msg);
+  W.logNews(kind, kind === 'crime' ? '\uD83D\uDCB0' : kind === 'fight' ? '\u2694\uFE0F' : '\uD83C\uDFAF', pick.replace('{name}', nm).replace('{place}', place));
   pushAll('news', { n: 1 });
 }, 24000);
 setInterval(tickAll, 4000);

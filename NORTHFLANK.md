@@ -4,7 +4,7 @@ Northflank's free **Developer Sandbox** is the best free home for this game: it 
 can attach a **persistent volume**, so player accounts, banks, gangs and news survive redeploys.
 
 Stack used here: your GitHub repo → Northflank builds the included **`Dockerfile`** → runs `node server.js`
-→ the app **bootstraps its own world** (42 citizens, 3 gangs, founder **Ghost**) on first boot.
+→ the app **bootstraps its own world** (no NPC citizens, no NPC gangs, founder **Ghost**) on first boot.
 
 > ⚠️ Northflank asks for a **credit card at signup** as anti-abuse verification. The Sandbox plan itself is
 > free and isn't charged unless you deliberately upgrade to Pay-As-You-Go.
@@ -48,7 +48,7 @@ Stack used here: your GitHub repo → Northflank builds the included **`Dockerfi
 13. Watch **Logs**. On a fresh volume you should see exactly:
     ```
     World ready. Content: 23 crimes | 9 jobs | 25 items
-    Citizens: 42 | gangs: 3 | accounts: 43 | founder created: ghost
+    Citizens: 0 | gangs: 0 | accounts: 1 | NPC bots: off (real players only) | founder created: ghost
     Razor Town listening on http://0.0.0.0:8787
     ```
 14. Open your Northflank URL. You'll land on the 1920s auth screen → log in:
@@ -65,13 +65,14 @@ Stack used here: your GitHub repo → Northflank builds the included **`Dockerfi
 - `/api/health` returns `ok:true` with **citizens: 42** and **accounts: 43**.
 - You can log in as `ghost`, and a new recruit you register still exists after you:
   **Deployments → Restart** the service (that's the proof the volume is wired up).
-- Two people can play at once — the world is shared and streaming live events to both.
+- Two people can play at once — the world is shared and streaming live events to both. No NPCs are ever added, so every name you see is a real account; the boot log states this plainly.
 
 ## 🧯 If something looks wrong
 | Symptom | Cause | Fix |
 |---|---|---|
 | Health check fails / service won't start | wrong internal port | port must be **8787**, protocol HTTP |
-| `citizens: 0` and no bots | world never seeded | it's automatic on boot; check the logs for errors, then Restart |
+| `NPC bots: off (real players only)` | normal — the town is players-only | nothing to do; the founder + real accounts are kept |
+| `Purged NPCs -> 42 accounts, 3 seeded gangs` | legacy NPCs from an older build | expected once; a second boot shows `0` everywhere |
 | Everything resets after each deploy | volume not attached | mount a volume at **`/data`** and set `DB_PATH=/data/world.db` |
 | Everyone logged out after a deploy | session secret not on the volume | keep `DB_PATH` on the volume (the secret is stored beside it), or set `SESSION_SECRET` |
 | Build fails on `better-sqlite3` | Dockerfile not used (buildpack instead) | set build type to **Dockerfile** explicitly |

@@ -308,6 +308,9 @@ h1,h2,h3{font-family:var(--font-head); font-weight:400; letter-spacing:.4px;}
   .mnav-item{flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 13px; font-size:9px; letter-spacing:.5px; color:var(--mut); font-weight:700; text-transform:uppercase;}
   .mnav-item .ico{font-size:19px;}
   .mnav-item.on{color:var(--cyn);}
+  .mnav-item{position:relative;}
+  .unread-badge{display:inline-block; min-width:16px; margin-left:6px; padding:0 5px; border-radius:9px; background:var(--org,#d4713a); color:#17140f; font-size:10.5px; font-weight:800; line-height:16px; text-align:center; vertical-align:1px;}
+  .mnav-item .unread-badge{position:absolute; top:2px; right:4px; margin:0;}
   #game-body{padding-bottom:60px;}
   .view{padding:12px;}
 }

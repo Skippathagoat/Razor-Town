@@ -1,6 +1,8 @@
 # 🧢 RAZOR TOWN
 
-**An online 1920s Birmingham crime sim you can play in the browser.** Flat caps, razor gangs, canal whisky and honest thievery. Character creator, real accounts & passwords (hashed + salted), a live city of NPC citizens, crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
+**An online 1920s Birmingham crime sim you can play in the browser.** Flat caps, razor gangs, canal whisky and honest thievery. Character creator, real accounts & passwords (hashed + salted), crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
+
+**Every citizen in this town is a real player.** There are no NPC characters and no seeded gangs: the streets start empty, and the only names on the wire, the leaderboard and the target list are people who actually signed up. Fight reports land in your inbox, so nobody gets jumped without being told.
 
 > **Inspired by classic browser crime sims (like Torn) — not a copy.** Every name, crime, item, gang and line of fiction here is original Razor Town flavor. No copyrighted shows, houses or characters.
 
@@ -14,7 +16,7 @@ Also available as the **LIVE PREVIEW** on port 8787 in this workspace, or `http:
 
 **Keeping it up:** `./start-all.sh` (add `--public` for a shareable link) starts a **self-healing
 supervisor** — it restarts the game within ~2s if it crashes and reinstalls its own dependencies if
-they go missing. A brand-new empty host **builds its own world** on first boot (42 citizens, 3 gangs,
+they go missing. A brand-new empty host **builds its own world** on first boot (no NPC citizens, no NPC gangs —
 seed news, founder account), so there is nothing to set up by hand. `curl localhost:8787/api/health`
 reports liveness. True 24/7 for other people needs a host with an account — see **DEPLOY.md**.
 
@@ -29,16 +31,16 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Character creator** | Pick skin, face, headwear (flat caps, bowlers, head scarves…), jacket and trinket, plus an origin story that grants bonus stats & starter loot. |
 | **Crimes** | 23 original jobs across 6 categories (Theft & Dip, Fraud & Forge, Black Market, Sharp Practice, Strong-Arm Work, Big Jobs). Each costs nerve + energy, has skill requirements, odds, loot drops and bust risk. Chain successes for a **🔥 Spree** cash bonus. |
 | **Busted** | Screw up badly and you're **NICKED!** — the gaol keeps you below stairs (or the infirmary takes you in). Timers run live; energy refills while you wait. |
-| **Attack** | Fight NPC citizens or other online players for cash and respect. Target list is ranked to your power so newbies have winnable fights. |
+| **Attack** | Fight other **real players** for cash and respect. The target list only ever shows accounts that exist, and coming off worst goes on your record. |
 | **Gym / Jobs** | Train 4 stats (balanced training enforced); work shifts at day jobs — Corner Café, Racing Clerk, Exchange Engineer… |
 | **Market & Items** | Buy consumables (strong tea, Doc's kit, nerve draught), stat tonics, tools, and fence your loot with the fences. |
 | **Bank** | The Exchange Bank parks your cash and pays ~4%/hr interest. Cash on you is lootable in fights. |
 | **Betting shop** | The Corner Betting Shop — the Greyhound Dash. Back the dog, ride the multiplier, cash out before the crash. |
-| **Gangs** | Join an NPC crew (Crown Street, Canal Basin, Rag Market) or found your own for $200k (level 5+). |
+| **Gangs** | Found your own crew for $200k (level 5+) and invite whoever turns up — every gang in the city is player-run. |
 | **Feats** | 20 achievements that fire juicy popups + town-wide news. |
 | **The Gallery** | The city's live high-score table: reputation, level, crimes, fights, wealth. |
 | **Messages** | Telegrams — send a note to any citizen by character name. |
-| **Live city** | A town wire that never stops — NPCs commit crimes, scrap in the yards and get talked about while you play. |
+| **Live city** | A town wire fed by what real players actually do — heists, scraps, gang notices — plus plain street colour when the town is quiet. |
 
 **Juice everywhere:** coin bursts, confetti, floating cash, screen shake on busts, animated XP/money/stat bars, poster-style **MADE!** / **NICKED!** result cards, a synthesized era synth engine, and level-up fanfares.
 
@@ -53,8 +55,8 @@ lib/db.js           SQLite (better-sqlite3) persistence layer
 lib/accounts.js     accounts, salted+hashed passwords, signed session cookies
 lib/world.js        all gameplay actions + rules
 lib/game/engine.js  battle math, progression, regen timers (pure functions)
-lib/game/content.js the original era content DB (crimes/items/jobs/gyms/feats/bots)
-lib/seed.js         boots 42 NPC citizens + 3 NPC gangs into the world
+lib/game/content.js the original era content DB (crimes/items/jobs/gyms/feats)
+lib/seed.js         builds the world; purges any legacy NPC citizens/gangs on boot
 tools/founder.js    (re)creates the founder account on a fresh world
 tools/dlfonts.js    one-time: downloads the self-hosted era fonts
 public/             the whole client (HTML/CSS/JS, self-hosted fonts, art)
@@ -72,7 +74,7 @@ Or by hand:
 ```bash
 npm install                              # installs better-sqlite3
 npm start                                # -> http://localhost:8787  (PORT overrides)
-npm run seed                             # optional: refill NPC citizens
+npm run seed                             # optional; NPCs only if you set BOTS>0
 node tools/founder.js                    # (re)create login ghost / Delilah2023!@
 ```
 `node server.js` self-bootstraps: an empty or missing database gets the citizens, gangs, seed news and
