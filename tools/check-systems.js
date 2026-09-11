@@ -405,6 +405,93 @@ head('Bazaar — the citizens’ stall');
   fund(id, 900000 - 25000);
 }
 
+
+// ---------------------------------------------------------------- auction house
+head("Boulton’s Auction Rooms — the gavel");
+{
+  const a4 = A.createAccount('vern', 'rivalpass2', 'user');
+  A.createPlayerForAccount(a4, { name: 'Verney Slack', origin: 'street' });
+  const id4 = a4.id;
+  fund(id, 200000); fund(id4, 200000);
+  const DBH = require('../lib/db.js').getDb();
+  const put4 = (acc, item, n) => { const q = load(acc); q.items = q.items || {}; q.items[item] = n; W.save(acc, q); };
+
+  put4(id, 'lockpicks', 6);
+  const bag0 = load(id).items.lockpicks;
+  const cr = W.auctionCreate(id, 'lockpicks', 2, 1500, 3000, 3);
+  ok('sending a lot to the block takes it out of the bag', cr.ok && load(id).items.lockpicks === bag0 - 2, cr.err);
+  const lotId = cr.id;
+  ok('ghost items stay off the block', !!W.auctionCreate(id, 'unicorn', 1, 500, 0, 3).err);
+  ok('a book under $100 is beneath the house', !!W.auctionCreate(id, 'lockpicks', 1, 50, 0, 3).err);
+  ok('a buyout that does not clear the book is refused', !!W.auctionCreate(id, 'lockpicks', 1, 1000, 400, 3).err);
+  ok('sessions are fixed at 1/3/6/12/24 hours', !!W.auctionCreate(id, 'lockpicks', 1, 1000, 0, 5).err);
+  ok("you cannot list what you don't carry", !!W.auctionCreate(id, 'lockpicks', 99, 1000, 0, 3).err);
+
+  // four lots at once, then the house declines a fifth
+  for (let i = 0; i < 3; i++) { put4(id, 'volt_cola', 1); W.auctionCreate(id, 'volt_cola', 1, 100 + i, 0, 1); }
+  put4(id, 'volt_cola', 1);
+  ok('the rooms hold four of yours at most', (() => { const r = W.auctionCreate(id, 'volt_cola', 1, 130, 0, 1); return !!r.err && W.auctionView(id).active === 4; })(), W.auctionView(id).active);
+
+  // bidding: escrow, minima, self-shilling
+  const b0 = load(id4).money;
+  ok('a bid below the book is refused and untouched', !!W.auctionBid(id4, lotId, 1400).err && load(id4).money === b0);
+  const s0 = load(id).money;
+  ok('the seller cannot shill his own lot', !!W.auctionBid(id, lotId, 2000).err && load(id).money === s0);
+  const rb = W.auctionBid(id4, lotId, 1600);
+  ok('a clean bid leaves the hand immediately', rb.ok && load(id4).money === b0 - 1600, load(id4).money);
+  ok('... and must be bettered by the margin next time', !!W.auctionBid(load(id).acc ? id : id, lotId, 1600).err); // nextMin = 1600+160 at 10%
+  // buyer A (id4) is outbid by buyer B -> A refunded with a wire. use a third party: id is the seller; make a C bidder
+  require('../lib/db.js').getDb();
+  // simulate a second real account as bidder C
+  const a5 = A.createAccount('celcious', 'rivalpass3', 'user');
+  A.createPlayerForAccount(a5, { name: 'Celco Marimb', origin: 'factory' });
+  const id5 = a5.id; fund(id5, 10000);
+  const c0 = load(id5).money;
+  const r2 = W.auctionBid(id5, lotId, 1760); // 1600*1.10 = 1760 exact
+  ok('the next legal bid lands at the 10% margin', r2.ok && load(id5).money === c0 - 1760, c0 - load(id5).money);
+  ok('the outbid hand walks back in full', load(id4).money === b0, { before: b0, now: load(id4).money });
+  ok('... and the outbid bidder was wired at once', !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE '%out-nodded%'").get(id4));
+  ok("the wire names the rooms, not 'City Desk' boilerplate", !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE 'Boulton%'").get(id4));
+
+  // buyout slams the hammer at once: id4 (an actual bidder, never the seller) takes it at 3000
+  const s1 = load(id).money;
+  const b4bag0 = (load(id4).items.lockpicks || 0);
+  const rbuy = W.auctionBid(id4, lotId, 3000);
+  ok('hitting the buyout slams the hammer down now', rbuy.ok && rbuy.res && rbuy.res.bought === true);
+  ok('the winner carries the lot home', (load(id4).items.lockpicks || 0) === b4bag0 + 2, load(id4).items.lockpicks);
+  ok('the seller is paid the hammer price less 8%', load(id).money === s1 + 3000 - Math.round(3000 * 0.08), { before: s1, now: load(id).money, fee: Math.round(3000 * 0.08) });
+  ok('the lot is off the block for everyone', !DBH.prepare('SELECT 1 FROM auctions WHERE id=? AND settled=0').get(lotId));
+  ok('the outbid C-bidder was refunded too', load(id5).money === c0, { before: c0, now: load(id5).money });
+
+  // an ignored lot walks back to the seller's bag
+  put4(id4, 'rainy_ale', 2);
+  const cr2 = W.auctionCreate(id4, 'rainy_ale', 2, 200, 0, 1);
+  DBH.prepare('UPDATE auctions SET ends_at=? WHERE id=?').run(Date.now() - 1000, cr2.id);
+  const bagBeforeNoBid = (load(id4).items || {}).rainy_ale || 0; // empty-handed once the porter takes it
+  W.auctionView(id4); // a read is enough to settle the day's business
+  ok('nobody bids: the porter walks it home', load(id4).items.rainy_ale === bagBeforeNoBid + 2, load(id4).items.rainy_ale);
+  ok('... and the seller heard about it', !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE '%porter%'").get(id4));
+  // a settled-by-time sale with winner uses the same read path
+  put4(id5, 'champagne', 1);
+  const cr3 = W.auctionCreate(id5, 'champagne', 1, 120000, 0, 1); // >100k -> wire news
+  fund(id, 400000);
+  W.auctionBid(id, cr3.id, 130000);
+  DBH.prepare('UPDATE auctions SET ends_at=? WHERE id=?').run(Date.now() - 1000, cr3.id);
+  const s2 = load(id5).money;
+  W.auctionView(id5);
+  ok('the gavel falls on schedule even while everybody sleeps', (load(id).items.champagne || 0) >= 1 && load(id5).money === s2 + 130000 - 10400, load(id5).money);
+  ok('a six-figure hammer price makes the town paper', !!DBH.prepare("SELECT 1 FROM news WHERE message LIKE '%Boulton%'").get());
+  // cancel: only while the book is empty, and only your own
+  put4(id, 'noir_whisky', 1);
+  const cr4 = W.auctionCreate(id, 'noir_whisky', 1, 500, 0, 24);
+  ok('only the seller can pull a lot', !!W.auctionCancel(id4, cr4.id).err);
+  fund(id4, 10000); W.auctionBid(id4, cr4.id, 600);
+  ok('a lot with money on the book cannot be pulled', !!W.auctionCancel(id, cr4.id).err);
+  W.auctionCancel(id4, 999999); // not found path
+  DBH.prepare("DELETE FROM auctions WHERE settled=0").run(); // clear the block
+  fund(id, 0); fund(id4, 0); fund(id5, 0);
+}
+
 // ---------------------------------------------------------------- cleanup
 head('Hygiene');
 ok('selling up returns the value and the safe', (() => {

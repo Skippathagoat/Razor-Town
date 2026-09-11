@@ -488,6 +488,7 @@
       }
       if (name === 'bounty_place' || name === 'attack') { G.cache.bounties = null; G.cache.bountiesAt = 0; }
       if (name.startsWith('bazaar')) { G.cache.bazaar = null; G.cache.bazaarAt = 0; }
+      if (name.startsWith('auction')) { G.cache.auction = null; G.cache.auctionAt = 0; }
       if (name === 'attack') { G.cache.targets = null; G.cache.targetsAt = 0; }
       if (r.p) applyMe(r.p, r.res);
       if (sceneMode === 'crime') resolveCrimeScene(r);
@@ -1084,10 +1085,12 @@
       <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
       <div class="filterrow"><button class="minitab ${tab === 'buy' ? 'on' : ''}" data-fil="market" data-v="buy">🛒 Buy</button>
       <button class="minitab ${tab === 'sell' ? 'on' : ''}" data-fil="market" data-v="sell">💰 Sell loot</button>
-      <button class="minitab ${tab === 'bazaar' ? 'on' : ''}" data-fil="market" data-v="bazaar">🧺 Bazaar</button></div>
-      ${tab === 'bazaar' ? '<div id="bz-wrap"></div>' : `<div class="card" style="background:none;border:none;padding:0">
+      <button class="minitab ${tab === 'bazaar' ? 'on' : ''}" data-fil="market" data-v="bazaar">🧺 Bazaar</button>
+      <button class="minitab ${tab === 'auction' ? 'on' : ''}" data-fil="market" data-v="auction">🔨 Auction</button></div>
+      ${tab === 'bazaar' ? '<div id="bz-wrap"></div>' : tab === 'auction' ? '<div id="auc-wrap"></div>' : `<div class="card" style="background:none;border:none;padding:0">
       ${goods.map(id => marketRow(id, tab, me)).join('') || '<p style="color:var(--dim)">Nothing here. Keep crime-ing.</p>'}</div>`}`;
     if (tab === 'bazaar') renderBazaarInto($('#bz-wrap'));
+    if (tab === 'auction') renderAuctionInto($('#auc-wrap'));
   }
 
   // ---- BAZAAR (player stalls)
@@ -1595,6 +1598,58 @@
       <p style="color:var(--dim);font-size:10.5px;margin-top:14px;text-align:center">v1.0 · online crime sim · your saves live in the ledger</p></div></div>`;
   }
 
+  // ---- BOULTON'S AUCTION ROOMS
+  function fmtLeft(ms) {
+    const m = Math.ceil(ms / 60000);
+    if (m >= 60) return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+    return Math.max(1, m) + 'm';
+  }
+  async function renderAuctionInto(wrap) {
+    const me = G.me;
+    let data = null;
+    try {
+      if (!G.cache.auction || Date.now() - (G.cache.auctionAt || 0) > 12000) {
+        data = await Net.get('/api/world/auctions'); G.cache.auction = data; G.cache.auctionAt = Date.now();
+      } else data = G.cache.auction;
+    } catch (e) {}
+    if (!data) { wrap.innerHTML = '<div class="card"><p style="color:var(--dim)">The rooms are closed today. Try again.</p></div>'; return; }
+    const open = data.listings.filter(x => !x.mine);
+    const mine = data.listings.filter(x => x.mine);
+    const inv = Object.entries(me.items || {}).filter(([, q]) => q > 0);
+    wrap.innerHTML = `
+      <div class="card" style="margin-bottom:12px">
+        <div class="subhead" style="color:var(--gold)">🔨 Boulton's Auction Rooms, Snow Hill</div>
+        <p style="color:var(--mut);font-size:12px;margin:4px 0 10px">Gavel and estate sales. A bid leaves your hand the moment it lands; if you are outbid it walks straight back. Hammer still: <b>${data.feePct}%</b> to the house. Sessions run ${data.hours.map(h => h + 'h').join(' / ')}.</p>
+        ${open.length ? open.map(x => `
+          <div class="itemrow" style="align-items:flex-start">
+            <span class="ic">${x.icon}</span>
+            <div class="nm"><b>${esc(x.name)}</b> <small>×${x.qty}</small>
+              <small style="display:block">${esc(x.seller)} · ${x.bid ? 'stands at <b style="color:var(--gold)">' + money(x.bid) + '</b>' + (x.leading ? ' (held by ' + esc(x.leading) + ')' : '') : 'opens at ' + money(x.min)} · ${x.imWinning ? '<b style="color:var(--cyn)">your bid leads</b> · ' : ''}closes in ${fmtLeft(x.remaining)}</small></div>
+            <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
+              <div style="display:flex;gap:4px"><input id="auc-amt-${x.id}" type="number" value="${x.nextMin}" min="${x.nextMin}" step="10" style="width:92px;text-align:right"><button class="btn sm" data-act="auction_bid" data-aid="${x.id}" ${x.canBid || (x.buyout && me.money >= x.buyout) ? '' : 'disabled'}>Bid</button></div>
+              ${x.buyout ? `<button class="btn sm ghost" data-act="auction_buyout" data-aid="${x.id}" data-amt="${x.buyout}" ${me.money >= x.buyout ? '' : 'disabled'}>Buy outright ${money(x.buyout)}</button>` : ''}
+            </div>
+          </div>`).join('') : '<p style="color:var(--dim)">Nothing on the block. Nobody wants to part with anything today.</p>'}
+      </div>
+      <div class="card">
+        <div class="subhead" style="color:var(--cyn)">Your lots ${mine.length ? '(' + data.active + '/' + data.maxActive + ')' : ''}</div>
+        ${mine.length ? mine.map(x => `
+          <div class="itemrow">
+            <span class="ic">${x.icon}</span>
+            <div class="nm"><b>${esc(x.name)}</b><small>×${x.qty} · ${x.bid ? 'book at <b style="color:var(--gold)">' + money(x.bid) + '</b> by ' + esc(x.leading) : 'no takers yet'} · closes ${fmtLeft(x.remaining)}</small></div>
+            ${x.bid ? '<span class="qtychip" style="color:var(--gold)">' + money(x.bid) + '</span>' : `<button class="btn sm danger" data-act="auction_cancel" data-aid="${x.id}">Pull lot</button>`}
+          </div>`).join('') : '<p style="color:var(--dim);font-size:12.5px">You have nothing on the block.</p>'}
+        <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px">
+          <div class="kv"><span class="k">What</span><span class="v"><select id="auc-item" style="max-width:220px">${inv.length ? inv.map(([id, q]) => '<option value="' + id + '">' + ((G.meta.items[id] || {}).icon || '') + ' ' + esc((G.meta.items[id] || {}).name || id) + ' ×' + q + '</option>').join('') : '<option value="">— bag is empty —</option>'}</select></span></div>
+          <div class="kv"><span class="k">How many</span><span class="v"><input id="auc-qty" type="number" min="1" value="1" style="width:80px;text-align:right"></span></div>
+          <div class="kv"><span class="k">Opening book</span><span class="v"><input id="auc-min" type="number" min="100" value="1000" step="100" style="width:110px;text-align:right"></span></div>
+          <div class="kv"><span class="k">Buy outright</span><span class="v"><input id="auc-buyout" type="number" min="0" placeholder="optional" style="width:110px;text-align:right"></span></div>
+          <div class="kv"><span class="k">Session</span><span class="v"><select id="auc-hours">${data.hours.map(h => '<option value="' + h + '"' + (h === 3 ? ' selected' : '') + '>' + h + ' hours</option>').join('')}</select></span></div>
+          <button class="btn gold" style="width:100%;margin-top:8px" data-act="auction_create" ${inv.length ? '' : 'disabled'}>Send it to the block</button>
+        </div>
+      </div>`;
+  }
+
   // ================================================================ GLOBAL HANDLERS
   function onModalRoot(e) {
     const act = (e.target.closest('[data-act]') || {}).dataset && e.target.closest('[data-act]').dataset.act;
@@ -1664,6 +1719,20 @@
       }
       case 'bazaar_buy': act('bazaar_buy', { listingId: +btn.dataset.lid }); break;
       case 'bazaar_cancel': act('bazaar_cancel', { listingId: +btn.dataset.lid }); break;
+      case 'auction_create': {
+        const itemId = ($('#auc-item') || {}).value;
+        const qty = parseInt(($('#auc-qty') || {}).value, 10) || 1;
+        const minBid = parseInt(($('#auc-min') || {}).value, 10) || 0;
+        const buyout = parseInt(($('#auc-buyout') || {}).value, 10) || 0;
+        const hours = parseInt(($('#auc-hours') || {}).value, 10) || 3;
+        act('auction_create', { itemId, qty, minBid, buyout, hours }); break;
+      }
+      case 'auction_bid': {
+        const amount = parseInt(($('#auc-amt-' + btn.dataset.aid) || {}).value, 10) || 0;
+        act('auction_bid', { auctionId: +btn.dataset.aid, amount }); break;
+      }
+      case 'auction_buyout': act('auction_bid', { auctionId: +btn.dataset.aid, amount: +btn.dataset.amt }); break;
+      case 'auction_cancel': act('auction_cancel', { auctionId: +btn.dataset.aid }); break;
       case 'sell': act('sell', { itemId: btn.dataset.item, qty: 999 }); break;
       case 'use': act('use', { itemId: btn.dataset.item }); break;
       case 'deposit': case 'withdraw': {

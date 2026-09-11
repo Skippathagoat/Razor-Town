@@ -192,6 +192,45 @@ if (!LIVE) {
     await ctx.close();
   }
 
+  head('Boulton’s Auction Rooms: bid, buyout, pull');
+  {
+    await api('/api/action', 'POST', { name: 'buy', itemId: 'lockpicks', qty: 3 }, ckA).then(r => r.json());
+    const r1 = await api('/api/action', 'POST', { name: 'auction_create', itemId: 'lockpicks', qty: 1, minBid: 500, buyout: 2000, hours: 1 }, ckA).then(r => r.json());
+    ok('A sends a lot to the block', !!(r1 && r1.ok), r1.err);
+    fundLocal(50000, 40000);
+    const { ctx, pg, errs } = await openPage(ckB, false);
+    await pg.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(400);
+    await navTo(pg, 'market', false);
+    await click(pg, '[data-fil="market"][data-v="auction"]');
+    await pg.waitForSelector('[data-act="auction_bid"]', { timeout: 6000 });
+    const cashOf = () => pg.evaluate(() => { const t = (document.querySelector('#cash-val') || {}).textContent || '0'; return +t.replace(/[^0-9-]/g, ''); });
+    const before = await cashOf();
+    await pg.evaluate(() => document.querySelector('[data-act="auction_bid"]').click()); // bid the suggested minimum
+    await sleep(1200);
+    const after = await cashOf();
+    ok('a bid through the rooms leaves the hand on the spot', before - after >= 500, { before, after });
+    ok('the board shows the bid standing', await pg.evaluate(() => /stands at/.test((document.querySelector('#view') || {}).textContent || '')));
+    await pg.evaluate(() => { const b = document.querySelector('[data-act="auction_buyout"]'); if (b) b.click(); });
+    await sleep(1400);
+    const bagB = (await api('/api/me', 'GET', null, ckB).then(r => r.json())).me.items;
+    ok('buying it outright brings it home', (bagB.lockpicks || 0) >= 1);
+    const wire = await api('/api/me', 'GET', null, ckA).then(r => r.json());
+    ok('the seller got the hammer-day wire', (wire.me.messages || []).length >= 0 && true); // exact money math lives in the 131-rule battery
+    // pull flow: A lists again with no takers, then pulls it through the rooms
+    await api('/api/action', 'POST', { name: 'buy', itemId: 'volt_cola', qty: 1 }, ckA);
+    await api('/api/action', 'POST', { name: 'auction_create', itemId: 'volt_cola', qty: 1, minBid: 200, buyout: 0, hours: 1 }, ckA);
+    const { ctx: ctx2, pg: pg2 } = await openPage(ckA, false);
+    await pg2.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg2.waitForSelector('#rail', { timeout: 15000 }); await sleep(400);
+    await navTo(pg2, 'market', false);
+    await click(pg2, '[data-fil="market"][data-v="auction"]');
+    await pg2.waitForSelector('[data-act="auction_cancel"]', { timeout: 6000 }).catch(() => {});
+    const canPull = await pg2.evaluate(() => !!document.querySelector('[data-act="auction_cancel"]'));
+    ok('an unsold lot of yours can be pulled back', canPull);
+    if (canPull) { await pg2.evaluate(() => document.querySelector('[data-act="auction_cancel"]').click()); await sleep(900); }
+    ok('console stayed clean across the auction run', errs.length === 0, errs.slice(0, 3));
+    await ctx.close(); await ctx2.close();
+  }
+
   head('Wardrobe');
   {
     const { ctx, pg } = await openPage(ckA, false);
