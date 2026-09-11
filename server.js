@@ -218,6 +218,9 @@ const routes = async (req, res, urlPath, q) => {
       deposit: () => W.doDeposit(id, body.amount),
       withdraw: () => W.doWithdraw(id, body.amount),
       casino: () => W.doCasino(id, body),
+      bazaar_list: () => W.listItem(id, body.itemId, body.qty, body.each, body.anon),
+      bazaar_buy: () => W.buyListing(id, body.listingId),
+      bazaar_cancel: () => W.cancelListing(id, body.listingId),
       faction_create: () => W.createFaction(id, body.factionName || body.name, body.tag, body.desc),
       faction_join: () => W.joinFaction(id, body.fid),
       faction_leave: () => W.leaveFaction(id),
@@ -241,7 +244,7 @@ const routes = async (req, res, urlPath, q) => {
       const out = fn();
       if (out && out.err) return send(res, 400, { err: out.err });
       if (out && out.p) { out.p.id = id; pushAll('p', { id, name: out.p.name, rep: out.p.reputation, level: out.p.level }); }
-      if (name === 'crime' || name === 'attack' || name === 'casino') pushAll('news', { n: 1 });
+      if (name === 'crime' || name === 'attack' || name === 'casino' || name === 'bazaar_buy') pushAll('news', { n: 1 });
       if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
@@ -254,6 +257,9 @@ const routes = async (req, res, urlPath, q) => {
   if (urlPath === '/api/world/leaders') {
     const kind = q.kind || 'rep';
     return send(res, 200, { kind, list: W.leaderboard(kind), me: accId ? W.myRank(kind, accId) : null });
+  }
+  if (urlPath === '/api/world/bazaar') {
+    return send(res, 200, W.bazaarView(accId));
   }
   if (urlPath === '/api/world/bounties') {
     const meP = accId ? W.loadSafe(accId) : null;

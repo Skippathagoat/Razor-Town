@@ -305,6 +305,106 @@ head('Casino — bandit, crown & anchor, hi-lo, the dog');
   ok('games the house does not run are refused and refunded', !!r12.err && load(id).money === 9000, r12);
 }
 
+
+// ---------------------------------------------------------------- regen & grants
+head('Happiness & training/interest grants');
+{
+  // happiness ticks back up on the 30-minute clock toward the property ceiling
+  const p = load(id); p.happy = 50; p._ref.happy = Date.now() - 90 * 60000; W.save(id, p);
+  W.ready(load(id));
+  ok('happiness climbs ~3% of the ceiling per tick', load(id).happy === 50 + 3 * Math.max(2, Math.round(load(id).max_happy * 0.03)), { happy: load(id).happy, max: load(id).max_happy });
+  ok('... but never past the ceiling', (() => { const q = load(id); q.happy = q.max_happy - 1; q._ref.happy = Date.now() - 60000 * 600; W.save(id, q); W.ready(load(id)); return load(id).happy === load(id).max_happy; })());
+  // a private gymnasium at home actually raises training gains
+  const before = W.ready(load(id)).bonuses.gymPct;
+  const q = load(id); const savedProp = q.property, savedUp = q.property_up;
+  q.property = 'manor'; q.property_up = ['gymroom']; W.save(id, q);
+  const after = W.ready(load(id)).bonuses.gymPct;
+  ok('the manor gymnasium feeds into training gains', after === before + 2, { before, after });
+  const r = load(id); r.property = savedProp; r.property_up = savedUp; W.save(id, r);
+  // accountancy school measurably raises bank interest
+  const aI = A.createAccount('ina', 'passpass1', 'user');
+  A.createPlayerForAccount(aI, { name: 'Ina Tereste', origin: 'factory' });
+  const iid = aI.id;
+  const interestAfter = (extraCourses) => {
+    const q = load(iid); q.money = 100; q.bank = 10000000; q._ref.bank = Date.now() - 60 * 60000; q.courses = extraCourses || {}; W.save(iid, q);
+    W.doDeposit(iid, 1); // touching the bank is what crediting runs off
+    const got = load(iid).bank - 10000000;
+    const tidy = load(iid); tidy.bank = 0; tidy.money = 0; W.save(iid, tidy);
+    return got;
+  };
+  const noClass = interestAfter(null);
+  const withClass = interestAfter({ accountancy: { at: Date.now() } });
+  ok('bank classes raise the effective interest', withClass > noClass, { noClass, withClass });
+
+}
+
+// ---------------------------------------------------------------- bazaar
+head('Bazaar — the citizens’ stall');
+{
+  const a3 = A.createAccount('bea', 'rivalpass', 'user');
+  A.createPlayerForAccount(a3, { name: 'Bea Trant', origin: 'street' });
+  const id3 = a3.id;
+  fund(id, 100000); fund(id3, 100000);
+  const put = (acc, item, n) => { const q = load(acc); q.items = q.items || {}; q.items[item] = n; W.save(acc, q); };
+  const DBH = require('../lib/db.js').getDb();
+
+  put(id, 'noir_whisky', 9);
+  const before = load(id).money;
+  ok('hanging a lot takes the goods out of the bag', (() => { const r = W.listItem(id, 'noir_whisky', 4, 1000, false); return r.ok && (load(id).items.noir_whisky || 0) === 5; })());
+  const row1 = DBH.prepare('SELECT * FROM listings WHERE seller_acc=?').get(id);
+  ok('the stall shows it by name', row1 && row1.qty === 4 && row1.each === 1000);
+  ok('listing refuses fakes and ghosts', !!W.listItem(id, 'dragon_eggs', 1, 10, false).err && !!W.listItem(id, 'noir_whisky', 99, 10, false).err);
+  ok('a price of nothing is refused', !!W.listItem(id, 'noir_whisky', 1, 0, false).err);
+
+  // quiet sale: the buyer sees a hooded figure and nobody's account id
+  put(id3, 'champagne', 3);
+  W.listItem(id3, 'champagne', 2, 42000, true);
+  const anonView = W.bazaarView(id).listings.find(x => x.itemId === 'champagne');
+  ok('a quiet stall sells secrets, not names', anonView && anonView.seller === 'A hooded figure' && anonView.anon === true && !('sellerAcc' in anonView), anonView);
+  ok('an open stall stands by its name', (() => { const v = W.bazaarView(id3).listings.find(x => x.itemId === 'noir_whisky'); return v && v.seller === 'Alf Cutler' && v.mine === false; })());
+  ok('... and flags your own lots to you', (() => { const v = W.bazaarView(id).listings.find(x => x.itemId === 'noir_whisky'); return v && v.mine === true; })());
+
+  // the 8-lot cap
+  for (let i = 0; i < 8; i++) { put(id, 'volt_cola', 1); W.listItem(id, 'volt_cola', 1, 50 + i, false); }
+  put(id, 'volt_cola', 1);
+  ok('the fence caps the stall at eight lots', (() => { const r = W.listItem(id, 'volt_cola', 1, 60, false); return !!r.err; })());
+
+  // a big quiet sale moves money the right way, pays the fence, and wakes the wire
+  const seller0 = load(id3).money, buyer0 = load(id).money;
+  const big = W.bazaarView(id).listings.find(x => x.itemId === 'champagne');
+  const cost = big.qty * big.each; // 2 × 42000 = 84000
+  const r = W.buyListing(id, big.id);
+  ok('buying a lot moves the goods', r.res && r.res.qty === 2 && (load(id).items.champagne || 0) === 2, r.res);
+  ok('the buyer pays the whole lot', load(id).money === buyer0 - cost, { before: buyer0, after: load(id).money });
+  ok('the seller is paid minus the 5% fence', load(id3).money === seller0 + cost - Math.round(cost * 0.05), { before: seller0, after: load(id3).money, expected: seller0 + cost - Math.round(cost * 0.05) });
+  ok('the lot leaves the board', !DBH.prepare('SELECT * FROM listings WHERE id=?').get(big.id));
+  ok('a sale at that size hits the wire', !!DBH.prepare("SELECT * FROM news WHERE message LIKE '%bazaar%' ORDER BY ts DESC LIMIT 1").get());
+  const sellerMsg = DBH.prepare('SELECT * FROM messages WHERE to_acc=? ORDER BY id DESC LIMIT 1').get(id3);
+  ok('the seller wakes to a wire about the sale', !!sellerMsg && /fence skimmed/.test(sellerMsg.body), sellerMsg && sellerMsg.body.slice(0, 80));
+
+  ok('you cannot buy your own stall', (() => { put(id, 'volt_cola', 1); W.listItem(id, 'volt_cola', 1, 70, false); const mine = W.bazaarView(id).listings.filter(x => x.mine)[0]; return !!W.buyListing(id, mine.id).err; })());
+  const broke = W.bazaarView(id).listings.filter(x => !x.mine)[0] || W.bazaarView(id).listings[0];
+  ok('nor a lot your pocket cannot carry', (() => { fund(id, 10); const rr = W.buyListing(id, broke.id); return !!rr.err && load(id).money === 10; })(), null) || fund(id, 100000);
+
+  // cancel: goods come home
+  const cancelTarget = W.bazaarView(id).listings.find(x => x.mine && x.itemId === 'noir_whisky');
+  const bagBefore = load(id).items.noir_whisky || 0;
+  const rc = W.cancelListing(id, cancelTarget.id);
+  ok('taking a lot down brings the goods home', rc.ok && (load(id).items.noir_whisky || 0) === bagBefore + cancelTarget.qty, { before: bagBefore, after: load(id).items.noir_whisky });
+  put(id3, 'rainy_ale', 2); W.listItem(id3, 'rainy_ale', 1, 40, false);
+  const notMine = W.bazaarView(id3).listings.filter(x => x.mine)[0];
+  ok('you cannot take down somebody else’s stall', !!W.cancelListing(id, notMine.id).err);
+
+  // bookkeeping class trims the fence's cut
+  const q = load(id3); q.courses = { commercialfrench: { at: Date.now() } }; W.save(id3, q); // Commercial French grants marketFee:-1
+  ok('schooling trims the fence', W.bazaarFeePct(load(id3)) === 4, W.bazaarFeePct(load(id3)));
+  const q2 = load(id3); delete q2.courses.commercialfrench; W.save(id3, q2);
+
+  // clear the stalls so later sections are undisturbed
+  DBH.prepare('DELETE FROM listings').run();
+  fund(id, 900000 - 25000);
+}
+
 // ---------------------------------------------------------------- cleanup
 head('Hygiene');
 ok('selling up returns the value and the safe', (() => {

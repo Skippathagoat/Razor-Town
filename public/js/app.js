@@ -487,6 +487,7 @@
         G.cache.factions = null; G.cache.factionsAt = 0;
       }
       if (name === 'bounty_place' || name === 'attack') { G.cache.bounties = null; G.cache.bountiesAt = 0; }
+      if (name.startsWith('bazaar')) { G.cache.bazaar = null; G.cache.bazaarAt = 0; }
       if (name === 'attack') { G.cache.targets = null; G.cache.targetsAt = 0; }
       if (r.p) applyMe(r.p, r.res);
       if (sceneMode === 'crime') resolveCrimeScene(r);
@@ -1082,9 +1083,53 @@
       <div class="vdesc">Everything is legal somewhere. Prices are set by the fences — no refunds, no receipts.</div></div>
       <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
       <div class="filterrow"><button class="minitab ${tab === 'buy' ? 'on' : ''}" data-fil="market" data-v="buy">🛒 Buy</button>
-      <button class="minitab ${tab === 'sell' ? 'on' : ''}" data-fil="market" data-v="sell">💰 Sell loot</button></div>
-      <div class="card" style="background:none;border:none;padding:0">
-      ${goods.map(id => marketRow(id, tab, me)).join('') || '<p style="color:var(--dim)">Nothing here. Keep crime-ing.</p>'}</div>`;
+      <button class="minitab ${tab === 'sell' ? 'on' : ''}" data-fil="market" data-v="sell">💰 Sell loot</button>
+      <button class="minitab ${tab === 'bazaar' ? 'on' : ''}" data-fil="market" data-v="bazaar">🧺 Bazaar</button></div>
+      ${tab === 'bazaar' ? '<div id="bz-wrap"></div>' : `<div class="card" style="background:none;border:none;padding:0">
+      ${goods.map(id => marketRow(id, tab, me)).join('') || '<p style="color:var(--dim)">Nothing here. Keep crime-ing.</p>'}</div>`}`;
+    if (tab === 'bazaar') renderBazaarInto($('#bz-wrap'));
+  }
+
+  // ---- BAZAAR (player stalls)
+  async function renderBazaarInto(wrap) {
+    const me = G.me;
+    try {
+      if (!G.cache.bazaar || Date.now() - (G.cache.bazaarAt || 0) > 15000) {
+        const r = await Net.get('/api/world/bazaar'); G.cache.bazaar = r.listings; G.cache.bazaarAt = Date.now();
+      }
+    } catch (e) { G.cache.bazaar = null; }
+    const ls = G.cache.bazaar || [];
+    const mine = ls.filter(x => x.mine);
+    const others = ls.filter(x => !x.mine);
+    const inv = Object.entries(me.items || {}).filter(([, q]) => q > 0);
+    wrap.innerHTML = `
+      <div class="card" style="margin-bottom:12px">
+        <div class="subhead" style="color:var(--gold)">🧺 The Bazaar</div>
+        <p style="color:var(--mut);font-size:12px;margin:4px 0 10px">Stalls run by citizens, set your own prices. The fence skims <b>5%</b> of every sale — a bookkeeping class trims a point. Buy is the whole lot.</p>
+        ${others.length ? others.map(x => `
+          <div class="itemrow">
+            <span class="ic">${x.icon}</span>
+            <div class="nm"><b>${esc(x.name)}</b><small>×${x.qty} · ${esc(x.seller)}${x.anon ? ' 🎭' : ''}</small></div>
+            <div class="qtychip" style="color:var(--cyn)">${money(x.each)}<small style="display:block;font-size:9.5px;color:var(--dim)">each</small></div>
+            <button class="btn sm" data-act="bazaar_buy" data-lid="${x.id}" ${me.money < x.qty * x.each ? 'disabled' : ''}>Buy lot ${money(x.qty * x.each)}</button>
+          </div>`).join('') : '<p style="color:var(--dim)">The stalls are bare. Be the first to hang a price.</p>'}
+      </div>
+      <div class="card">
+        <div class="subhead" style="color:var(--cyn)">Your stall ${mine.length ? `(${mine.length}/8)` : ''}</div>
+        ${mine.length ? mine.map(x => `
+          <div class="itemrow">
+            <span class="ic">${x.icon}</span>
+            <div class="nm"><b>${esc(x.name)}</b><small>×${x.qty} at ${money(x.each)} each${x.anon ? ' · quiet sale 🎭' : ''}</small></div>
+            <button class="btn sm danger" data-act="bazaar_cancel" data-lid="${x.id}">Take down</button>
+          </div>`).join('') : '<p style="color:var(--dim);font-size:12.5px">Nothing on your stall yet.</p>'}
+        <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px">
+          <div class="kv"><span class="k">What</span><span class="v"><select id="bz-item" style="max-width:230px">${inv.length ? inv.map(([id, q]) => `<option value="${id}">${(G.meta.items[id] || {}).icon || ''} ${esc((G.meta.items[id] || {}).name || id)} ×${q}</option>`).join('') : '<option value="">— bag is empty —</option>'}</select></span></div>
+          <div class="kv"><span class="k">How many</span><span class="v"><input id="bz-qty" type="number" min="1" value="1" style="width:80px;text-align:right"></span></div>
+          <div class="kv"><span class="k">Price each</span><span class="v"><input id="bz-each" type="number" min="1" value="500" step="50" style="width:110px;text-align:right"></span></div>
+          <div class="kv"><span class="k">Quiet sale</span><span class="v"><label style="display:flex;gap:6px;align-items:center;color:var(--mut);font-size:12.5px"><input id="bz-anon" type="checkbox"> stay a hooded figure 🎭</label></span></div>
+          <button class="btn gold" style="width:100%;margin-top:8px" data-act="bazaar_list" ${inv.length ? '' : 'disabled'}>Hang the price tag</button>
+        </div>
+      </div>`;
   }
   function marketRow(id, tab, me) {
     const it = G.meta.items[id];
@@ -1613,6 +1658,12 @@
       case 'job_quit': act('job_quit', {}); break;
       case 'work': act('work', {}); break;
       case 'buy': act('buy', { itemId: btn.dataset.item, qty: +btn.dataset.qty }); break;
+      case 'bazaar_list': {
+        const itemId = ($('#bz-item') || {}).value, qty = parseInt(($('#bz-qty') || {}).value, 10) || 1, each = parseInt(($('#bz-each') || {}).value, 10) || 0;
+        act('bazaar_list', { itemId, qty, each, anon: !!($('#bz-anon') || {}).checked }); break;
+      }
+      case 'bazaar_buy': act('bazaar_buy', { listingId: +btn.dataset.lid }); break;
+      case 'bazaar_cancel': act('bazaar_cancel', { listingId: +btn.dataset.lid }); break;
       case 'sell': act('sell', { itemId: btn.dataset.item, qty: 999 }); break;
       case 'use': act('use', { itemId: btn.dataset.item }); break;
       case 'deposit': case 'withdraw': {
