@@ -69,6 +69,54 @@ function readBody(req, max = 100000) {
   });
 }
 
+// ---------------------------------------------------------------- STRIPE (live pass fulfilment)
+// Raw bytes are required for the webhook signature check — never JSON-parse first.
+function readRawBody(req, max = 200000) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let total = 0;
+    req.on('data', c => { total += c.length; if (total > max) { req.destroy(); resolve(Buffer.concat(chunks)); return; } chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+function stripeSigOk(raw, header, secret) {
+  try {
+    const parts = {};
+    String(header || '').split(',').forEach(kv => { const i = kv.indexOf('='); parts[kv.slice(0, i)] = kv.slice(i + 1); });
+    const t = parts.t, v1 = parts.v1;
+    if (!t || !v1) return false;
+    if (Math.abs(Date.now() / 1000 - parseInt(t, 10)) > 300) return false;   // 5-minute tolerance
+    const expect = crypto.createHmac('sha256', secret).update(t + '.' + raw.toString('utf8')).digest('hex');
+    const a = Buffer.from(v1, 'utf8'), b = Buffer.from(expect, 'utf8');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+async function stripeWebhook(req, res) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET || '';
+  if (!secret) return send(res, 501, { err: 'Stripe webhook not configured on this server yet.' });
+  const raw = await readRawBody(req);
+  if (!stripeSigOk(raw, req.headers['stripe-signature'], secret)) return send(res, 400, { err: 'Bad signature.' });
+  let ev;
+  try { ev = JSON.parse(raw.toString('utf8')); } catch (e) { return send(res, 400, { err: 'Bad payload.' }); }
+  if (ev.type !== 'checkout.session.completed') return send(res, 200, { received: true, ignored: ev.type });
+  const sess = ev.data && ev.data.object ? ev.data.object : {};
+  const accId = parseInt(sess.client_reference_id || (sess.metadata && sess.metadata.acc_id) || '0', 10);
+  if (!accId) { console.error('stripe: session had no account reference', sess.id); return send(res, 200, { received: true, unassigned: true }); }
+  const db = dbm.getDb();
+  const acct = db.prepare('SELECT id, username FROM accounts WHERE id=?').get(accId);
+  if (!acct) { console.error('stripe: unknown account in session', sess.id, accId); return send(res, 200, { received: true, unknown_account: accId }); }
+  const evtRef = 'evt_' + String(ev.id || sess.id || '').slice(0, 60);
+  const dupe = db.prepare("SELECT 1 FROM pay_claims WHERE method='stripe' AND ref=? AND status='approved'").get(evtRef);
+  if (dupe) return send(res, 200, { received: true, duplicate: true });
+  const days = parseInt(process.env.STRIPE_PASS_DAYS || '7', 10) || 7;
+  const p = grantSubDays(db, accId, days);
+  db.prepare("INSERT INTO pay_claims (acc_id, ts, method, ref, status, decided_by, decided_ts) VALUES (?,?,?,?,'approved',0,?)").run(accId, Date.now(), 'stripe', evtRef, Date.now());
+  W.noteTo(accId, 0, 'The Wire Desk', '\uD83D\uDEE2\uFE0F Payment landed — your Wire Pass is live for ' + days + ' days (until ' + new Date(p.sub_until).toLocaleString() + '). Thank you for keeping the town running.');
+  W.logNews('news', '\uD83D\uDD12', 'A citizen just went gold over the wire.');
+  console.log('stripe: pass granted to', acct.username, '+', days, 'days via', evtRef);
+  return send(res, 200, { received: true, granted: days, account: acct.username });
+}
+
 function serveStatic(req, res, urlPath) {
   let p = urlPath;
   if (p === '/') p = '/index.html';
@@ -142,6 +190,7 @@ function me(accId) { return W.normalize(W.load(accId)); }
 const routes = async (req, res, urlPath, q) => {
   const method = req.method;
   const accId = authOf(req);
+  if (urlPath === '/api/stripe/webhook' && method === 'POST') return stripeWebhook(req, res);
   const body = method === 'POST' ? await readBody(req) : null;
 
   // banned accounts are dead on arrival — existing tokens stop working everywhere
@@ -404,10 +453,19 @@ const routes = async (req, res, urlPath, q) => {
     const id = guard(req, res); if (!id) return;
     const db = dbm.getDb();
     const pending = db.prepare("SELECT id, ts, method, ref FROM pay_claims WHERE acc_id=? AND status='pending' ORDER BY ts DESC LIMIT 1").get(id);
+    const base = process.env.PASS_PAY_LINK || '';
+    const acct = db.prepare('SELECT email FROM accounts WHERE id=?').get(id);
+    let linkUrl = base;
+    if (base) {
+      const sep = base.includes('?') ? '&' : '?';
+      linkUrl = base + sep + 'client_reference_id=' + id + (acct && acct.email ? '&prefilled_email=' + encodeURIComponent(acct.email) : '');
+    }
     return send(res, 200, {
-      link: process.env.PASS_PAY_LINK || '',
-      provider: process.env.PASS_PAY_PROVIDER || '',
+      link: base,
+      linkUrl,
+      provider: process.env.PASS_PAY_PROVIDER || 'Stripe',
       label: process.env.PASS_PAY_LABEL || 'Wire Pass — 1 week',
+      autofulfill: !!process.env.STRIPE_WEBHOOK_SECRET,
       pendingClaim: pending || null
     });
   }

@@ -36,7 +36,12 @@ Stack used here: your GitHub repo → Northflank builds the included **`Dockerfi
     |---|---|---|
     | `DB_PATH` | `/data/world.db` | puts the whole world on the persistent volume |
     | `SESSION_SECRET` | *(optional)* any long random string | fixes logins forever; otherwise one is generated on the volume automatically |
-    | `FOUNDER_USER` / `FOUNDER_PASS` / `FOUNDER_NAME` | *(optional)* | only if you want different founder credentials **before** the first boot |
+    | `FOUNDER_USER` / `FOUNDER_PASS` / `FOUNDER_NAME`
+| `PASS_PAY_LINK` | *(optional)* | your Stripe **Payment Link** URL (`https://buy.stripe.com/…`) — the gold pass button opens this |
+| `STRIPE_WEBHOOK_SECRET` | *(optional)* | `whsec_…` from the webhook you point at `/api/stripe/webhook` — turns fulfilment **automatic** (no founder claims) |
+| `STRIPE_PASS_DAYS` | `7` | days granted per completed checkout |
+| `PASS_PAY_LABEL` | `Wire Pass — 1 week` | the label on the gold button |
+| `PASS_PAY_PROVIDER` | `Stripe` | which name the checkout line mentions | | *(optional)* | only if you want different founder credentials **before** the first boot |
 
     `PORT` is already `8787` inside the image, so nothing else is needed.
 
@@ -108,3 +113,22 @@ run once from the Northflank **Shell/Exec** tab:
 ```bash
 node tools/founder.js reset
 ```
+
+## 🪙 Real-money pass (Stripe) — go live in four steps
+
+1. **Stripe dashboard → Products** → create the Wire Pass product and a **Payment Link** for it
+   (Settings: after checkout, redirect to the game URL is nice but not required).
+2. **Set the env vars on Northflank** (Service → Environment):
+   - `PASS_PAY_LINK=https://buy.stripe.com/<yours>` — the gold button opens this automatically
+   - `STRIPE_WEBHOOK_SECRET=whsec_…` — from step 3, makes it fully automatic
+3. **Stripe dashboard → Developers → Webhooks → Add endpoint**
+   `https://<your-game-url>/api/stripe/webhook`, listening for **`checkout.session.completed`** only.
+   Grab its *Signing secret* — that's the `STRIPE_WEBHOOK_SECRET` value.
+4. **Buy a pass yourself in test mode first.** Stripe's "Send test webhook" button on the
+   endpoint page uses ITS OWN signed event without your account reference, so the log will show
+   `unassigned` — expected. The real check is a live-link $X checkout: gold lands within ~60 s and
+   a message from the Wire Desk lands in your inbox.
+
+The link carries each player's account id (`client_reference_id`) and prefills their email, so
+fulfilment never asks who paid. The old founder claim flow stays as fallback whenever the webhook
+isn't wired, and replays are deduped by Stripe event id.

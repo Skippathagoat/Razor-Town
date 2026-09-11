@@ -2403,10 +2403,12 @@
       <div class="modal-card" style="max-width:440px">
         <div class="subhead" style="color:var(--gold)">💳 Support the town — real-money pass</div>
         <p style="color:var(--mut);font-size:12px;margin:0 0 12px">Razor Town stays free. The gold pass is a real-money thank-you that lands <b>directly with the founder</b> — no middleman, ever.</p>
-        ${cfg.link ? `<a class="btn gold big" style="width:100%;justify-content:center" href="${esc(cfg.link)}" target="_blank" rel="noopener noreferrer">${esc(cfg.label)} — ${cfg.provider ? 'pay via ' + esc(cfg.provider) : 'open secure checkout'} ↗</a>
-        <p style="color:var(--dim);font-size:11px;margin:8px 0 0">Checkout runs in a new tab on the provider's own page — card details never touch Razor Town.</p>`
+        ${cfg.link ? `<a class="btn gold big" style="width:100%;justify-content:center" href="${esc(cfg.linkUrl || cfg.link)}" target="_blank" rel="noopener noreferrer">${esc(cfg.label)} — ${cfg.provider ? 'pay via ' + esc(cfg.provider) : 'open secure checkout'} ↗</a>
+        <p style="color:var(--dim);font-size:11px;margin:8px 0 0">Checkout runs in a new tab on Stripe's own page — card details never touch Razor Town.${cfg.autofulfill ? ' <b style="color:var(--ok)">The pass switches itself on about a minute after the card clears — no claim needed.</b>' : ''}</p>`
         : `<p style="color:var(--mut);font-size:12px;margin:0 0 10px">The founder's checkout link goes live shortly. File your claim below and they'll sort you on the Wire the second it's up.</p>`}
         ${pending ? `<div class="kv" style="border-bottom:none"><span>Claim #${pending.id}</span><b style="color:var(--warn)">waiting on the founder — filed ${new Date(pending.ts).toLocaleString()}</b></div>`
+        : cfg.autofulfill ? `<p style="color:var(--dim);font-size:11.5px;margin:12px 0 0">Done paying? Close this and watch the gold banner — it flips on its own. (If five minutes pass with nothing, write the founder from Messages.)</p>
+        <div style="display:flex;gap:8px;margin-top:12px"><button class="btn ghost" data-act="close-modal">Got it</button></div>`
         : `<div class="field" style="margin-top:12px"><label>Your name or payment reference</label>
            <input id="pay-ref" maxlength="120" placeholder="e.g. the email or name you paid with">
            </div>
