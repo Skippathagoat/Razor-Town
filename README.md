@@ -58,7 +58,10 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
 is a fault worth reporting).
 
-**Verify the systems yourself:** `node tools/check-systems.js` runs 82 rule-level assertions (property, upkeep, education, merits, bounties, and every casino table — dealt naturals, busts, doubles, five-card tricks, wheel pockets, bands of three) against a throwaway world in `/tmp` — it never touches the live ledger. `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) and proves the same process keeps serving.
+**Verify the systems yourself:** `node tools/check-systems.js` runs 105 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, and every casino table — dealt naturals, busts, doubles, five-card tricks, wheel pockets, bands of three) against a throwaway world in `/tmp` — it never touches the live ledger. `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) and proves the same process keeps serving. `node tools/e2e/qa.mjs` drives a real headless browser through all 19 tabs on desktop and phone, the whole casino floor, a full two-citizen bazaar sale, and the character editor (22 checks; one-time browser setup with `tools/e2e/setup-qa.sh`).
+
+### The bazaar
+Beside the fence sits a citizens' market: hang lots from your own bag at your price (8 lots max, sold as whole lots). The fence skims 5% — a Commercial French diploma trims a point — anonymous stalls show only *"A hooded figure"*, sellers are paid while offline and wake to a wire, and a sale over $50k makes the town paper.
 
 **Controls:** full keyboard shortcuts (see Help in-game, e.g. `c` crimes, `a` attack, `Esc` menu) *and* a thumb-friendly bottom nav on mobile. Menu/button based throughout — no movement controls.
 
