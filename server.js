@@ -12,6 +12,7 @@ const A = require('./lib/accounts.js');
 const W = require('./lib/world.js');
 const C = require('./lib/game/content.js');
 const boot = require('./lib/bootstrap.js');
+const E = require('./lib/game/engine.js');
 
 // First boot anywhere = playable world: seeds NPC citizens + gangs and creates the
 // founder account when the database is empty. Idempotent, so restarts are cheap.
@@ -98,7 +99,33 @@ function guard(req, res) {
   return accId;
 }
 
-function withId(id, pj){ const m = W.publicView(pj); m.id = id; return m; }
+// ---------------------------------------------------------------- founder dev tools + payments
+const DEV_USERS = (process.env.DEV_ACCOUNTS || 'ghost,killa1979').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+const _devCache = new Map();
+function isDevAcc(accId) {
+  if (accId == null) return false;
+  if (_devCache.has(accId)) return _devCache.get(accId);
+  let f = false;
+  try { const a = dbm.getDb().prepare('SELECT username FROM accounts WHERE id=?').get(accId); f = !!(a && DEV_USERS.includes(String(a.username).toLowerCase())); } catch (e) {}
+  _devCache.set(accId, f); return f;
+}
+function devOf(req, res) {
+  const id = authOf(req);
+  if (!id) { send(res, 401, { err: 'Sign in first.' }); return null; }
+  if (!isDevAcc(id)) { send(res, 403, { err: 'Founder tools only.' }); return null; }
+  return id;
+}
+dbm.getDb().exec(`CREATE TABLE IF NOT EXISTS pay_claims (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, acc_id INTEGER NOT NULL, ts INTEGER NOT NULL,
+  method TEXT NOT NULL DEFAULT 'other', ref TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending',
+  decided_by INTEGER, decided_ts INTEGER)`);
+function grantSubDays(db, accId, days) {
+  const p = W.load(accId);
+  p.sub_until = Math.max(Date.now(), p.sub_until || 0) + days * 86400000;
+  W.save(accId, p);
+  return p;
+}
+function withId(id, pj){ const m = W.publicView(pj); m.id = id; m.dev = isDevAcc(id); return m; }
 function metaPayload(){
   return { crimes: C.CRIMES, crimeCats: C.CRIME_CATS, items: C.ITEMS, jobs: C.JOBS, gyms: C.GYMS, origins: C.ORIGINS, achievements: C.ACHIEVEMENTS,
     courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS };
@@ -201,6 +228,120 @@ const routes = async (req, res, urlPath, q) => {
     if (typeof body.bio === 'string') p.bio = String(body.bio).replace(/[<>&]/g, '').slice(0, 120);
     W.save(id, p);
     return send(res, 200, { p: withId(id, p) });
+  }
+
+  // ==================== founder dev tools ====================
+  if (urlPath === '/api/dev/panel' && method === 'GET') {
+    const id = devOf(req, res); if (!id) return;
+    const db = dbm.getDb();
+    const players = db.prepare('SELECT a.id acc_id, a.username, p.name, p.json FROM accounts a JOIN players p ON p.acc_id=a.id WHERE a.id>0 ORDER BY a.id').all().slice(0, 300).map(r => {
+      const pj = JSON.parse(r.json);
+      return { acc_id: r.acc_id, username: r.username, name: r.name, level: W.publicView(pj).level || (pj.level || 1), money: pj.money || 0, bank: pj.bank || 0,
+        jail_until: pj.jail_until || 0, hosp_until: pj.hosp_until || 0,
+        sub: { active: E.subOn(pj), founder: !!pj.sub_founder, until: pj.sub_until || 0 }, dev: isDevAcc(r.acc_id) };
+    });
+    const claims = db.prepare("SELECT c.id, c.acc_id, c.ts, c.method, c.ref, c.status, a.username, p.name FROM pay_claims c JOIN accounts a ON a.id=c.acc_id JOIN players p ON p.acc_id=c.acc_id WHERE c.status='pending' ORDER BY c.ts DESC").all();
+    return send(res, 200, { players, claims });
+  }
+
+  if (urlPath === '/api/dev/self' && method === 'POST') {
+    const id = devOf(req, res); if (!id) return;
+    const op = String(body.op || '');
+    const clampAmt = (n, dflt) => { n = parseInt(n, 10); if (!Number.isFinite(n) || n === 0) n = dflt || 0; return Math.max(-50000000, Math.min(50000000, n)); };
+    if (op === 'reset_self') {
+      const cur = W.load(id);
+      const fresh = A.defaultPlayerJson({ name: cur.name, origin: cur.origin || 'street', avatar: cur.avatar, bio: cur.bio });
+      fresh._acc = id;
+      fresh.sub_founder = cur.sub_founder;      // founder tier survives a wipe, by design
+      fresh.sub_until = cur.sub_until;
+      W.save(id, fresh);
+      return send(res, 200, { ok: true, me: withId(id, fresh) });
+    }
+    const p = W.load(id);
+    switch (op) {
+      case 'grant_cash': p.money = (p.money || 0) + clampAmt(body.amount, 100000); break;
+      case 'grant_bank': p.bank = (p.bank || 0) + clampAmt(body.amount, 500000); break;
+      case 'refill': p.life = p.max_life; p.energy = p.max_energy; p.nerve = p.max_nerve; p.happy = 100; break;
+      case 'clear_status': p.jail_until = 0; p.hosp_until = 0; break;
+      case 'grant_item': {
+        const it = String(body.item || ''); if (!C.ITEMS[it]) return send(res, 400, { err: 'No such item.' });
+        const q = Math.max(1, Math.min(99, parseInt(body.qty, 10) || 1));
+        p.items = p.items || {}; p.items[it] = (p.items[it] || 0) + q; break;
+      }
+      case 'set_level': {
+        const lvl = Math.max(1, Math.min(100, parseInt(body.level, 10) || 1));
+        let acc = 0, need = 300;
+        for (let i = 1; i < lvl; i++) { acc += need; need = Math.floor(need * 1.06) + 100; }
+        p.xp = acc; break;
+      }
+      default: return send(res, 400, { err: 'Unknown op: ' + op });
+    }
+    W.save(id, p);
+    return send(res, 200, { ok: true, me: withId(id, p) });
+  }
+
+  if (urlPath === '/api/dev/world' && method === 'POST') {
+    const id = devOf(req, res); if (!id) return;
+    const db = dbm.getDb();
+    const op = String(body.op || '');
+    if (op === 'announce') {
+      const msg = String(body.message || '').replace(/[<>&]/g, '').slice(0, 200);
+      if (!msg) return send(res, 400, { err: 'Say something.' });
+      W.logNews('announce', '\uD83D\uDCE3', 'FOUNDER: ' + msg);
+      pushAll('news', { n: 1 });
+      return send(res, 200, { ok: true });
+    }
+    if (op === 'pay_decide') {
+      const claimId = parseInt(body.claim_id, 10);
+      const claim = db.prepare('SELECT * FROM pay_claims WHERE id=?').get(claimId);
+      if (!claim || claim.status !== 'pending') return send(res, 400, { err: 'No pending claim with that id.' });
+      const approve = !!body.approve;
+      if (approve) grantSubDays(db, claim.acc_id, 7);
+      db.prepare('UPDATE pay_claims SET status=?, decided_by=?, decided_ts=? WHERE id=?').run(approve ? 'approved' : 'declined', id, Date.now(), claimId);
+      return send(res, 200, { ok: true, decided: approve ? 'approved' : 'declined' });
+    }
+    const target = parseInt(body.target, 10);
+    const trow = db.prepare('SELECT 1 FROM players WHERE acc_id=?').get(target);
+    if (!trow) return send(res, 400, { err: 'No such player.' });
+    if (target === id) return send(res, 400, { err: 'Use Self tools for your own sheet.' });
+    const tp = W.load(target);
+    switch (op) {
+      case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
+      case 'clear_status': tp.jail_until = 0; tp.hosp_until = 0; break;
+      case 'grant_sub': grantSubDays(db, target, Math.max(1, Math.min(30, parseInt(body.days, 10) || 7))); break;
+      case 'revoke_sub': {
+        const a = db.prepare('SELECT username FROM accounts WHERE id=?').get(target);
+        if (a && C.WIRE_PASS.founders.includes(String(a.username).toLowerCase())) return send(res, 400, { err: 'Founders carry the pass forever.' });
+        tp.sub_until = 0; break;
+      }
+      default: return send(res, 400, { err: 'Unknown op: ' + op });
+    }
+    W.save(target, tp);
+    return send(res, 200, { ok: true });
+  }
+
+  // ==================== real-money pass payments ====================
+  if (urlPath === '/api/pay/config' && method === 'GET') {
+    const id = guard(req, res); if (!id) return;
+    const db = dbm.getDb();
+    const pending = db.prepare("SELECT id, ts, method, ref FROM pay_claims WHERE acc_id=? AND status='pending' ORDER BY ts DESC LIMIT 1").get(id);
+    return send(res, 200, {
+      link: process.env.PASS_PAY_LINK || '',
+      provider: process.env.PASS_PAY_PROVIDER || '',
+      label: process.env.PASS_PAY_LABEL || 'Wire Pass — 1 week',
+      pendingClaim: pending || null
+    });
+  }
+  if (urlPath === '/api/pay/claim' && method === 'POST') {
+    const id = guard(req, res); if (!id) return;
+    const method = ['stripe', 'paypal', 'other'].includes(body.method) ? body.method : 'other';
+    const ref = String(body.ref || '').replace(/[<>&]/g, '').trim().slice(0, 120);
+    if (!ref) return send(res, 400, { err: 'Drop your name or payment reference so the founder can match it.' });
+    const db = dbm.getDb();
+    const dupe = db.prepare("SELECT 1 FROM pay_claims WHERE acc_id=? AND status='pending'").get(id);
+    if (dupe) return send(res, 429, { err: 'You already have a claim waiting for the founder.' });
+    const r = db.prepare('INSERT INTO pay_claims (acc_id, ts, method, ref) VALUES (?,?,?,?)').run(id, Date.now(), method, ref);
+    return send(res, 200, { ok: true, claim_id: r.lastInsertRowid });
   }
 
   // -- gameplay actions

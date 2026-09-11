@@ -1042,3 +1042,7 @@ body { color: var(--ink); }
 .pdiff.easy { color: var(--ok); background: rgba(87,214,141,.12); border: 1px solid rgba(87,214,141,.35); }
 .pdiff.med { color: var(--warn); background: rgba(232,160,76,.12); border: 1px solid rgba(232,160,76,.35); }
 .pdiff.hard { color: var(--bad); background: rgba(226,87,76,.12); border: 1px solid rgba(226,87,76,.35); }
+
+/* v5 modal overlay — restores pre-restyle grammar: .modal-back = dimmed click-catcher sibling, .modal-card = self-centering panel */
+#modal-root .modal-back{position:fixed; inset:0; z-index:200; background:rgba(4,5,10,.74); backdrop-filter:blur(4px);}
+#modal-root .modal-card{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:201; width:min(460px,94vw); max-height:86vh; overflow-y:auto; padding:22px 18px; margin:0;}

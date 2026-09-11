@@ -29,7 +29,8 @@
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
     { id: 'msg', label: 'Messages', ico: '📨', key: 'n' },
     { id: 'profile', label: 'Profile', ico: '🧑‍🎤', key: 'p' },
-    { id: 'help', label: 'Help', ico: '❔', key: '/' }
+    { id: 'help', label: 'Help', ico: '❔', key: '/' },
+    { id: 'dev', label: 'Founder', ico: '🛠️', key: '0' }
   ];
   const FINGER = { st: 'Strength', de: 'Defense', sp: 'Speed', dx: 'Dexterity' };
   const TRAIN_GAP = 10;   // keep in step with lib/game/engine.js
@@ -517,7 +518,7 @@
       return `<button class="rail-item ${G.view === tid ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${tid}" ${disable ? 'disabled' : ''}><span class="ico">${tb.ico}</span><span class="rl">${tb.label}</span>${badge}<span class="kbd">${tb.key}</span></button>`;
     };
     let html = itemBtn('city');
-    for (const g of SIDE_GROUPS) {
+    for (const g of SIDE_GROUPS.map(g => (g.id === 'crew' && me.dev) ? { ...g, tabs: [...g.tabs, 'dev'] } : g)) {
       const hasCurrent = g.tabs.includes(G.view);
       const folded = G.sideFold[g.id] === true && !hasCurrent;
       const unreadHere = g.id === 'crew' && me.unread ? `<span class="rail-count">${me.unread}</span>` : '';
@@ -555,7 +556,7 @@
     v.scrollTop = 0;
     const jail = G.me.jail_until && G.me.jail_until > Date.now();
     const hosp = G.me.hosp_until && G.me.hosp_until > Date.now();
-    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, msg: renderMsg, profile: renderProfile, help: renderHelp };
+    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -829,7 +830,7 @@
   }
 
   function reRenderCurrent(res) {
-    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile };
+    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, dev: renderDev };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -963,6 +964,69 @@
 
   // ================================================================ VIEWS
   // ---- HOME
+  async function renderDev() {
+    const v = $('#view');
+    v.innerHTML = U.spinner('Opening the founder ledger…');
+    let panel;
+    try { panel = await Net.get('/api/dev/panel'); } catch (e) { v.innerHTML = `<div class="card"><p style="color:var(--bad)">${esc(e.message)}</p></div>`; return; }
+    const me = G.me;
+    const claims = panel.claims || [];
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🛠️ <span class="head">Founder Tools</span></div>
+      <div class="vdesc">Your sheet, your ledger. Founder accounts see this page — nobody else. Broadcasts are the only thing that goes to the wire.</div></div>
+      <div class="pill"><span>${panel.players.length} players in town</span> <b style="color:var(--cyn)">${claims.length} payment claims waiting</b></div></div>
+
+      <div class="card"><div class="subhead" style="color:var(--gold)">🧰 Self tools — ${esc(me.name)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn sm ok" data-act="dev_self" data-op="refill">Refill all bars</button>
+          <button class="btn sm" data-act="dev_self" data-op="clear_status">Clear jail & hospital</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="grant_cash">Give me $100,000 cash</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="grant_bank">Bank me $500,000</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <input class="in" id="dev-amt" style="width:130px" type="number" placeholder="amount">
+          <button class="btn sm" data-act="dev_self" data-op="grant_cash" data-amt="1">Cash ↑</button>
+          <button class="btn sm" data-act="dev_self" data-op="grant_bank" data-amt="1">Bank ↑</button>
+          <input class="in" id="dev-lvl" style="width:80px" type="number" min="1" max="100" placeholder="level">
+          <button class="btn sm" data-act="dev_self" data-op="set_level">Set my level</button>
+          <select class="in" id="dev-item" style="width:210px">${Object.entries(G.meta.items).map(([iid, it]) => `<option value="${iid}">${it.icon} ${esc(it.name)}</option>`).join('')}</select>
+          <input class="in" id="dev-qty" style="width:64px" type="number" min="1" max="99" value="1">
+          <button class="btn sm" data-act="dev_self" data-op="grant_item">Grant item</button>
+        </div>
+        <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="color:var(--bad);font-size:11px;font-weight:800;letter-spacing:.08em">DANGER:</span>
+          <input class="in" id="dev-wipe-confirm" style="width:200px" placeholder="type WIPE to unlock">
+          <button class="btn sm bad" data-act="dev_self" data-op="reset_self">Reset my character to brand new</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--cyn)">🌐 World tools — any player</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select class="in" id="dev-target" style="width:250px">${panel.players.map(tp => `<option value="${tp.acc_id}">${esc(tp.name)} (@${esc(tp.username)}) · L${tp.level} · $${(tp.money || 0).toLocaleString()}${tp.dev ? ' · DEV' : ''}</option>`).join('')}</select>
+          <input class="in" id="dev-wamt" style="width:120px" type="number" placeholder="amount" value="100000">
+          <button class="btn sm gold" data-act="dev_world" data-op="grant_cash">Give cash</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="clear_status">Clear jail / hospital</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="grant_sub">Give 7-day pass</button>
+          <button class="btn sm bad" data-act="dev_world" data-op="revoke_sub">Revoke pass</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input class="in" id="dev-msg" style="flex:1" maxlength="200" placeholder="announcement to the whole town wire (reads: FOUNDER: …)">
+          <button class="btn sm warn" data-act="dev_world" data-op="announce">Broadcast</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--gold)">💳 Payment claims</div>
+        ${claims.length ? claims.map(c => `<div class="itemrow"><span class="ic">💳</span>
+          <div class="nm"><b>#${c.id} · ${esc(c.name)} <small style="color:var(--dim)">@${esc(c.username)}</small></b>
+          <small>${esc(c.method)} · ref “${esc(c.ref)}” · filed ${new Date(c.ts).toLocaleString()}</small></div>
+          <div class="acts">
+            <button class="btn sm ok" data-act="dev_pay" data-claim="${c.id}" data-approve="1">Approve · 7-day pass</button>
+            <button class="btn sm bad" data-act="dev_pay" data-claim="${c.id}" data-approve="0">Decline</button>
+          </div></div>`).join('') : `<p style="color:var(--dim);font-size:12px;margin:4px 0 0">No claims waiting.</p>`}
+      </div>`;
+  }
+
   function renderCity() {
     const me = G.me, m = G.meta;
     const v = $('#view');
@@ -2116,23 +2180,107 @@
   function openPassModal() {
     const me = G.me; if (!me) return;
     const on = me.sub && me.sub.active;
+    const isFounder = me.sub && me.sub.founder;
     $('#modal-root').innerHTML = `<div class="modal-back" data-act="close-modal"></div>
-      <div class="modal card" style="max-width:430px">
-        <div class="subhead" style="color:var(--gold);font-size:15px">⚡ THE WIRE PASS</div>
-        <p style="color:var(--mut);font-size:13px;margin:10px 0">Seven days on the gold ledger. Serious people buy it because the maths is serious:</p>
-        <div class="passbuffs">
-          <div class="pb"><b>+60%</b><span>energy charge speed</span></div>
-          <div class="pb"><b>+25</b><span>maximum energy</span></div>
-          <div class="pb"><b>+5</b><span>nerve ceiling</span></div>
-          <div class="pb"><b>+8%</b><span>crime success</span></div>
-          <div class="pb"><b>+15%</b><span>gym gains</span></div>
-          <div class="pb"><b>−50%</b><span>stock & chain broker fees</span></div>
+      <div class="modal-card" style="max-width:440px">
+        <div class="subhead" style="color:var(--gold)">⚡ The Wire Pass</div>
+        <p style="color:var(--mut);font-size:12px;margin:0 0 12px">Seven days on the gold ledger. Serious people buy it because the maths is serious.</p>
+        ${[['+60%', 'energy charge speed'], ['+25', 'maximum energy'], ['+5', 'nerve ceiling'], ['+8%', 'crime success'], ['+15%', 'gym gains'], ['−50%', 'stock & chain broker fees']].map(([b, k]) => `<div class="kv"><span>${k}</span><b style="color:var(--gold)">${b}</b></div>`).join('')}
+        <div class="kv" style="border-bottom:none"><span>Tariff</span><b class="mono" style="color:var(--gold)">$150,000 in-game · 7 days</b></div>
+        <p style="font-size:12px;margin:12px 0;color:${on ? 'var(--ok)' : 'var(--dim)'}">${on ? (isFounder ? '⚡ You carry the founder tier — it never lapses. ∞' : 'Active until ' + new Date(me.sub.until).toLocaleString() + '. Renewals stack.') : 'Not running. $150,000 a week, plain and simple.'}</p>
+        ${isFounder ? `<div style="margin-top:8px"><button class="btn ghost" data-act="close-modal">Close</button></div>` : `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn gold" data-act="pass_buy" ${me.money < 150000 ? 'disabled' : ''}>${on ? 'Extend a week' : 'Go gold'} · $150,000</button>
         </div>
-        <p style="font-size:12.5px;margin:10px 0;color:${on ? 'var(--ok)' : 'var(--dim)'}">${on ? (me.sub.founder ? 'You carry the founder tier — it never lapses. ∞' : 'Active until ' + new Date(me.sub.until).toLocaleString() + '. Renewals stack on top.') : 'Not running. $150,000 a week, plain and simple.'}</p>
-        <div style="display:flex;gap:8px">
-          ${me.sub && me.sub.founder ? '' : `<button class="btn gold" data-act="pass_buy" ${me.money < 150000 ? 'disabled' : ''}>${on ? 'Extend a week' : 'Go gold'} · $150,000</button>`}
-          <button class="btn ghost" data-act="close-modal">Later</button>
-        </div></div>`;
+        <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn cyan" data-act="pay_window">💳 Pay with real money</button>
+          <span style="color:var(--dim);font-size:11px">keeps the town alive — lands with the founder</span>
+        </div>`}
+        </div>`;
+  }
+
+  async function openPayModal() {
+    const me = G.me; if (!me) return;
+    if (me.sub && me.sub.founder) { U.toast('Founders carry it forever — this window is for everyone else.', 'good'); return; }
+    if (!G.payCfg) { try { G.payCfg = await Net.get('/api/pay/config'); } catch (e) { U.toast(esc(e.message || 'Could not load payment config'), 'bad'); return; } }
+    const cfg = G.payCfg;
+    const pending = cfg.pendingClaim;
+    $('#modal-root').innerHTML = `<div class="modal-back" data-act="close-modal"></div>
+      <div class="modal-card" style="max-width:440px">
+        <div class="subhead" style="color:var(--gold)">💳 Support the town — real-money pass</div>
+        <p style="color:var(--mut);font-size:12px;margin:0 0 12px">Razor Town stays free. The gold pass is a real-money thank-you that lands <b>directly with the founder</b> — no middleman, ever.</p>
+        ${cfg.link ? `<a class="btn gold big" style="width:100%;justify-content:center" href="${esc(cfg.link)}" target="_blank" rel="noopener noreferrer">${esc(cfg.label)} — ${cfg.provider ? 'pay via ' + esc(cfg.provider) : 'open secure checkout'} ↗</a>
+        <p style="color:var(--dim);font-size:11px;margin:8px 0 0">Checkout runs in a new tab on the provider's own page — card details never touch Razor Town.</p>`
+        : `<p style="color:var(--mut);font-size:12px;margin:0 0 10px">The founder's checkout link goes live shortly. File your claim below and they'll sort you on the Wire the second it's up.</p>`}
+        ${pending ? `<div class="kv" style="border-bottom:none"><span>Claim #${pending.id}</span><b style="color:var(--warn)">waiting on the founder — filed ${new Date(pending.ts).toLocaleString()}</b></div>`
+        : `<div class="field" style="margin-top:12px"><label>Your name or payment reference</label>
+           <input id="pay-ref" maxlength="120" placeholder="e.g. the email or name you paid with">
+           </div>
+           <div style="display:flex;gap:8px;margin-top:12px">
+           <button class="btn ok" data-act="pay_claim" data-method="${cfg.link && /paypal/i.test(cfg.link) ? 'paypal' : cfg.link ? 'stripe' : 'other'}">${cfg.link ? "I've paid — file my claim" : 'File my claim anyway'}</button>
+           <button class="btn ghost" data-act="close-modal">Not yet</button></div>
+           <p style="color:var(--dim);font-size:11px;margin:8px 0 0">The founder checks claims personally — gold lands within a day, usually minutes.</p>`}
+        </div>`;
+  }
+
+  async function claimPay() {
+    const refEl = $('#pay-ref');
+    const ref = (refEl && refEl.value.trim()) || '';
+    if (!ref) { U.toast('Name or payment reference needed so the founder can match it.', 'bad'); return; }
+    const btn = document.querySelector('[data-act="pay_claim"]');
+    try {
+      const r = await Net.post('/api/pay/claim', { method: (btn && btn.dataset.method) || 'other', ref });
+      U.toast('Claim #' + r.claim_id + ' filed — watch your gold ledger.', 'good');
+      G.payCfg = null;
+      openPayModal();
+    } catch (e) { U.toast(esc(e.message || 'Could not file the claim'), 'bad'); }
+  }
+
+  // =============== FOUNDER DEV PANEL ===============
+
+  async function devSelf(btn) {
+    const op = btn.dataset.op;
+    if (op === 'reset_self') {
+      if (!($('#dev-wipe-confirm') && $('#dev-wipe-confirm').value.trim() === 'WIPE')) { U.toast('Type WIPE into the box first.', 'bad'); return; }
+      if (!confirm('Reset YOUR character to a brand-new citizen? Money, bank, items, stats, records — all gone. Sub + founder tier stay.')) return;
+    }
+    const payload = { op };
+    if (btn.dataset.amt) payload.amount = parseInt(($('#dev-amt') || { value: '' }).value, 10) || 0;
+    if (op === 'set_level') payload.level = parseInt(($('#dev-lvl') || { value: '' }).value, 10) || 1;
+    if (op === 'grant_item') { payload.item = ($('#dev-item') || { value: '' }).value; payload.qty = parseInt(($('#dev-qty') || { value: '' }).value, 10) || 1; }
+    try {
+      const r = await Net.post('/api/dev/self', payload);
+      if (r.me) { G.me = r.me; renderHUD(); renderRail(); }
+      U.toast('Dev: ' + op + ' done.', 'good');
+      if (op === 'reset_self') { nav('city'); } else { renderDev(); }
+    } catch (e) { U.toast(esc(e.message || 'Dev op failed'), 'bad'); }
+  }
+
+  async function devWorld(btn) {
+    const op = btn.dataset.op;
+    const payload = { op };
+    if (op === 'announce') {
+      payload.message = ($('#dev-msg') && $('#dev-msg').value.trim()) || '';
+      if (!payload.message) { U.toast('Write a message first.', 'bad'); return; }
+    } else {
+      payload.target = parseInt(($('#dev-target') || { value: '' }).value, 10);
+      if (!payload.target) { U.toast('Pick a player.', 'bad'); return; }
+      if (op === 'grant_cash') payload.amount = parseInt(($('#dev-wamt') || { value: '' }).value, 10) || 0;
+    }
+    try {
+      await Net.post('/api/dev/world', payload);
+      U.toast('Dev: ' + op + ' done.', 'good');
+      renderDev();
+    } catch (e) { U.toast(esc(e.message || 'Dev op failed'), 'bad'); }
+  }
+
+  async function devPayDecide(btn) {
+    try {
+      const r = await Net.post('/api/dev/world', { op: 'pay_decide', claim_id: parseInt(btn.dataset.claim, 10), approve: btn.dataset.approve === '1' });
+      U.toast('Claim ' + r.decided + '.', 'good');
+      renderDev();
+    } catch (e) { U.toast(esc(e.message || 'Could not decide'), 'bad'); }
   }
 
       case 'use': act('use', { itemId: btn.dataset.item }); break;
@@ -2178,6 +2326,11 @@
         break;
       }
       case 'pass_modal': openPassModal(); break;
+      case 'pay_window': openPayModal(); break;
+      case 'pay_claim': claimPay(); break;
+      case 'dev_self': devSelf(btn); break;
+      case 'dev_world': devWorld(btn); break;
+      case 'dev_pay': devPayDecide(btn); break;
       case 'pass_buy': act('pass_buy', {}); break;
       case 'pawn_sell': act('pawn_sell', { itemId: btn.dataset.item, qty: 999 }); break;
       case 'loan_take': { const amt = parseInt(($('#loan-amt') || {}).value, 10) || 0; act('loan_take', { amount: amt }); break; }
