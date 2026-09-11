@@ -36,12 +36,13 @@ you.)
 
 RUN
 ---
-  python3 tools/fixbot.py                     # headless patrol, forever
+  python3 tools/fixbot.py                     # watches the live site, forever
   python3 tools/fixbot.py --show              # open the medic's window so
                                               # you can watch it work
   python3 tools/fixbot.py --once              # single health check, exit
                                               # code 0 ok / 1 repaired / 2 needs a human
-  python3 tools/fixbot.py --url http://my-copy:9546   # watch a local copy
+  python3 tools/fixbot.py --url http://localhost:9546   # watch your local copy
+                                              # instead of the live one
   python3 tools/fixbot.py --every 20          # patrol every 20 s (default 30)
 
 Stop it with Ctrl+C.
@@ -56,7 +57,7 @@ import subprocess
 import sys
 import time
 
-DEFAULT_URL = os.environ.get("FIXBOT_URL", "http://localhost:9546")
+DEFAULT_URL = os.environ.get("FIXBOT_URL", "https://p01--razor-town--zynzxj4wfx54.code.run")
 REPORTS = pathlib.Path(__file__).resolve().parent / "fixbot-reports"
 
 # --------------------------------------------------------------------------
