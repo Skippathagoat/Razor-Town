@@ -309,10 +309,11 @@ const routes = async (req, res, urlPath, q) => {
       case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
       case 'clear_status': tp.jail_until = 0; tp.hosp_until = 0; break;
       case 'grant_sub': grantSubDays(db, target, Math.max(1, Math.min(30, parseInt(body.days, 10) || 7))); break;
+      case 'founder_sub': tp.sub_founder = true; break;
       case 'revoke_sub': {
         const a = db.prepare('SELECT username FROM accounts WHERE id=?').get(target);
         if (a && C.WIRE_PASS.founders.includes(String(a.username).toLowerCase())) return send(res, 400, { err: 'Founders carry the pass forever.' });
-        tp.sub_until = 0; break;
+        tp.sub_until = 0; tp.sub_founder = false; break;
       }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
