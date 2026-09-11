@@ -140,7 +140,7 @@ if (!LIVE) {
     await pg.goto(BASE, { waitUntil: 'domcontentloaded' });
     await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(400);
     await navTo(pg, 'casino', false);
-    ok('six tables on the floor', await pg.evaluate(() => document.querySelectorAll('#cas-tabs .chip').length) === 6);
+    ok('six tables on the floor', await pg.evaluate(() => document.querySelectorAll('#cas-tabs .minitab').length) === 6);
     for (const g of ['pontoon', 'wheel', 'bandit', 'crown', 'hilow']) {
       await click(pg, `#cas-tabs [data-game="${g}"]`);
       await pg.evaluate(() => { const b = document.querySelector('#cas-bet'); if (b) b.value = '100'; });
@@ -439,7 +439,7 @@ if (!LIVE) {
   await sleep(700);
   ok('boots into the city', !!(await pg.$('#rail')));
   await navTo(pg, 'casino', false);
-  ok('six tables live', await pg.evaluate(() => document.querySelectorAll('#cas-tabs .chip').length) === 6);
+  ok('six tables live', await pg.evaluate(() => document.querySelectorAll('#cas-tabs .minitab').length) === 6);
   await navTo(pg, 'market', false);
   await pg.evaluate(() => { const b = document.querySelector('[data-fil="market"][data-v="bazaar"]'); if (b) b.click(); });
   await sleep(600);

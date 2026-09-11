@@ -1300,12 +1300,13 @@
         const canUse = it.type !== 'loot' && it.type !== 'gear';
         return `<div class="itemrow"><span class="ic">${it.icon}</span>
         <div class="nm"><b>${esc(it.name)}</b>${it.equip ? ` <small style="color:var(--cyn)">${it.equip.slot === 'weapon' ? '+' + it.equip.atk + '% attack' : '+' + it.equip.def + '% defense'}</small>` : ''}<small>${esc(it.desc)}</small></div>
+        <div class="acts">
         <span class="qtychip">×${q}</span>
         ${typeof it.sell === 'number' ? `<span class="qtychip" style="color:var(--gold)">${money(it.sell * q)}</span>` : ''}
         ${it.equip ? `<button class="btn sm ok" data-act="equip" data-item="${id}">${it.equip.slot === 'weapon' ? 'Carry' : 'Wear'}</button>` : ''}
         ${canUse ? `<button class="btn sm" data-act="use" data-item="${id}">Use</button>` : ''}
         ${typeof it.sell === 'number' ? `<button class="btn sm ghost" data-act="sell" data-item="${id}">Sell</button>` : ''}
-        </div>`;
+        </div></div>`;
       }).join('')}</div>`;
   }
 
@@ -1626,8 +1627,8 @@
       <div class="vhead"><div><div class="vtitle">🎰 <span class="head">The Corner Betting Shop</span></div>
       <div class="vdesc">Six tables, one rule: the house always has an edge. The trick is knowing when to walk out the door.</div></div>
       <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
-      <div class="chiprow" style="margin-bottom:12px" id="cas-tabs">
-        ${CAS_GAMES.map(x => `<button class="chip ${CAS.game === x.id ? 'on' : ''}" data-act="casino-game" data-game="${x.id}">${x.ico} ${x.n}</button>`).join('')}
+      <div class="filterrow" id="cas-tabs">
+        ${CAS_GAMES.map(x => `<button class="minitab ${CAS.game === x.id ? 'on' : ''}" data-act="casino-game" data-game="${x.id}">${x.ico} ${x.n}</button>`).join('')}
       </div>
       <div class="card">
         <div class="subhead" style="color:var(--gold)">${gm.ico} ${gm.n}</div>
