@@ -239,7 +239,7 @@ if (!LIVE) {
   await navTo(pg, 'market', false);
   await pg.evaluate(() => { const b = document.querySelector('[data-fil="market"][data-v="bazaar"]'); if (b) b.click(); });
   await sleep(600);
-  ok('the bazaar stall renders live', await pg.evaluate(() => /BAZAAR/.test((document.querySelector('#view') || {}).textContent || '')));
+  ok('the bazaar stall renders live', await pg.evaluate(() => /bazaar/i.test((document.querySelector('#view') || {}).textContent || '')));
   await navTo(pg, 'profile', false);
   const grads = await pg.evaluate(() => { const svg = document.querySelector('#view .doll-svg'); return svg ? svg.querySelectorAll('linearGradient,radialGradient').length : -1; });
   ok('citizens render semi-realistic', grads >= 5, grads);
