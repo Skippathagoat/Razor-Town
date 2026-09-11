@@ -175,7 +175,7 @@
       </div>
       <div data-authpanel="login">
         <form data-form="login">
-          <div class="field"><label>Username</label><input name="u" autocomplete="username" placeholder="handle" maxlength="20" required></div>
+          <div class="field"><label>Username or email</label><input name="u" autocomplete="username" placeholder="handle or you@wherever.com" maxlength="120" required></div>
           <div class="field"><label>Password</label><input name="p" type="password" autocomplete="current-password" placeholder="••••••••" required></div>
           <div class="err"></div>
           <button class="btn primary big" style="width:100%" type="submit">Step into the yard →</button>
@@ -184,6 +184,7 @@
       </div>
       <div data-authpanel="register" style="display:none">
         <form data-form="register">
+          <div class="field"><label>Email</label><input name="e" type="email" autocomplete="email" placeholder="you@wherever.com" maxlength="120" required></div>
           <div class="field"><label>Username (login)</label><input name="u" autocomplete="username" maxlength="20" placeholder="e.g. cutler_street_alf" required></div>
           <div class="field"><label>Password</label><input name="p" type="password" autocomplete="new-password" placeholder="min 6 characters" required></div>
           <div class="err"></div>
@@ -213,9 +214,11 @@
       const u = form.u.value.trim(), p = form.p.value;
       errEl.textContent = '';
       if (which === 'register') {
+        const em = (form.e.value || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { errEl.textContent = 'That email does not look right.'; return; }
         if (p.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
         try { await Net.post('/api/validate', { profile: { name: u } }); } catch (e) { errEl.textContent = e.message; return; }
-        openCreator({ username: u, password: p });
+        openCreator({ username: u, password: p, email: em });
       } else {
         try {
           const r = await Net.post('/api/login', { username: u, password: p });
@@ -315,7 +318,7 @@
     try {
       await Net.post('/api/validate', { profile: { name: CREATOR.name } });
       const r = await Net.post('/api/register', {
-        username: G.creds.username, password: G.creds.password,
+        username: G.creds.username, password: G.creds.password, email: G.creds.email,
         profile: { name: CREATOR.name, origin: CREATOR.origin, avatar: avatarStr(), bio: $('#cbio').value }
       });
       enterGame(r.me);
@@ -323,9 +326,36 @@
   }
 
   // ================================================================ ENTER GAME
+  // Any account without a linked email is asked to add one once, up front — the game
+  // waits. From then on the email can log the account in (username keeps working too).
+  function renderEmailGate() {
+    G.needsEmail = true;
+    $('#modal-root').innerHTML = `
+      <div class="modal-back"></div>
+      <div class="modal-card" style="width:min(420px,94vw)">
+        <div class="subhead" style="color:var(--cyn)">📮 Hook an email to your ledger</div>
+        <p style="color:var(--mut);font-size:13px;line-height:1.5">One-time job for accounts from before the wire went up: add an email once. After this it can log you in, and the town uses it to prove you're a real player. Your character, cash and passes all stay exactly as they are.</p>
+        <div class="field"><label>Email</label><input id="gate-email" type="email" maxlength="120" placeholder="you@wherever.com" autocomplete="email"></div>
+        <div class="err" id="gate-err"></div>
+        <button class="btn primary big" style="width:100%" data-act="gate_email">Hook it up →</button>
+      </div>`;
+    const gi = $('#gate-email'); if (gi) gi.focus();
+  }
+  async function gateEmail() {
+    const em = ($('#gate-email') || { value: '' }).value.trim();
+    const err = $('#gate-err');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { if (err) err.textContent = 'That email does not look right.'; return; }
+    try {
+      await Net.post('/api/account/email', { email: em });
+      G.needsEmail = false; if (G.me) G.me.needs_email = false;
+      $('#modal-root').innerHTML = '';
+      U.toast('Email hooked. You can log in with it from now on.', 'good');
+    } catch (e) { if (err) err.textContent = e.message; }
+  }
   function enterGame(me) {
     G.me = me; G.authed = true; G.prev = me;
     screen('game');
+    if (me.needs_email) renderEmailGate();
     renderHUD();
     nav('city');
     if (!me.seen_tutorial) { Net.post('/api/seen').catch(() => {}); }
@@ -1013,6 +1043,33 @@
         <div style="display:flex;gap:8px;margin-top:10px">
           <input class="in" id="dev-msg" style="flex:1" maxlength="200" placeholder="announcement to the whole town wire (reads: FOUNDER: …)">
           <button class="btn sm warn" data-act="dev_world" data-op="announce">Broadcast</button>
+        </div>
+        <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
+        <div class="subhead" style="color:var(--dim);font-size:12px">🗂 Account directory — inspect, ban, reset</div>
+        <div style="display:grid;gap:6px">
+        ${panel.players.map(tp => {
+          const uuid = 'devx-' + tp.acc_id;
+          const badges = `${tp.sub && tp.sub.active ? '<span class="chip gold" style="min-height:18px;height:18px;padding:0 7px;font-size:9px">PASS</span>' : ''}${tp.dev ? '<span class="chip cyn" style="min-height:18px;height:18px;padding:0 7px;font-size:9px">DEV</span>' : ''}${tp.banned ? '<span class="chip bad" style="min-height:18px;height:18px;padding:0 7px;font-size:9px">BANNED</span>' : ''}`;
+          return `<div class="itemrow" style="align-items:center"><span class="ic">${tp.banned ? '⛔' : '🧑'}</span>
+            <div class="nm"><b>${esc(tp.name)} <small style="color:var(--dim)">@${esc(tp.username)}</small></b>
+            <small>L${tp.level} · $${(tp.money || 0).toLocaleString()} / bank $${(tp.bank || 0).toLocaleString()} ${badges}</small></div>
+            <div class="acts" style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn sm" data-act="dev_info" data-target="${tp.acc_id}" data-x="${uuid}">Inspect</button>
+              ${tp.banned ? `<button class="btn sm ok" data-act="dev_world" data-op="unban" data-tid="${tp.acc_id}">Unban</button>`
+                          : (tp.dev ? '' : `<button class="btn sm bad" data-act="dev_world" data-op="ban" data-tid="${tp.acc_id}">Ban</button>`)}
+              ${tp.dev ? '' : `<button class="btn sm" data-act="dev_world" data-op="set_password" data-tid="${tp.acc_id}">Set password</button>`}
+            </div></div>
+          <div class="card" id="${uuid}" style="display:none;margin:0 0 6px;background:var(--bg1)">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;font-size:12px">
+              <div><small class="dimtext">Account</small><br>#${tp.acc_id} · @${esc(tp.username)}</div>
+              <div><small class="dimtext">Email</small><br>${tp.email ? esc(tp.email) : '<span style="color:var(--bad)">not linked yet</span>'}</div>
+              <div><small class="dimtext">Password</small><br><span class="dimtext">one-way hashed — can't be read, only replaced</span></div>
+              <div><small class="dimtext">Joined</small><br>${tp.created ? new Date(tp.created).toLocaleDateString() : '—'}</div>
+              <div><small class="dimtext">Last active</small><br>${tp.active ? new Date(tp.active).toLocaleString() : '—'}</div>
+              <div><small class="dimtext">Ban</small><br>${tp.banned ? `<span style="color:var(--bad)">banned${tp.ban_reason ? ' — ' + esc(tp.ban_reason) : ''}</span>` : '<span style="color:var(--ok)">clean</span>'}</div>
+            </div>
+          </div>`;
+        }).join('')}
         </div>
       </div>
 
@@ -2081,7 +2138,8 @@
       const cid = e.target.closest('[data-crime]').dataset.crime;
       closeScene(); act('crime', { crimeId: cid }, 'crime');
     }
-    if (act === 'close-modal') { $('#modal-root').innerHTML = ''; }
+    if (act === 'close-modal') { if (G.needsEmail) { renderEmailGate(); return; } $('#modal-root').innerHTML = ''; }
+    if (act === 'gate_email') { gateEmail(); return; }
     if (act === 'save-look') { saveLook(); }
     if (act === 'sound') { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; openMenu(); }
     if (act === 'logout') { doLogout(); }
@@ -2264,9 +2322,20 @@
       payload.message = ($('#dev-msg') && $('#dev-msg').value.trim()) || '';
       if (!payload.message) { U.toast('Write a message first.', 'bad'); return; }
     } else {
-      payload.target = parseInt(($('#dev-target') || { value: '' }).value, 10);
+      payload.target = parseInt(btn.dataset.tid || (($('#dev-target') || { value: '' }).value), 10);
       if (!payload.target) { U.toast('Pick a player.', 'bad'); return; }
       if (op === 'grant_cash') payload.amount = parseInt(($('#dev-wamt') || { value: '' }).value, 10) || 0;
+      if (op === 'ban') {
+        payload.reason = (prompt('Reason for the ban (shown to nobody but founders, kept in the ledger):') || '').trim();
+        if (!confirm('Ban this account? They are locked out until you un-ban them.')) return;
+      }
+      if (op === 'unban') { if (!confirm('Lift the ban on this account?')) return; }
+      if (op === 'set_password') {
+        const pw = prompt('New password for this account (6+ characters):') || '';
+        if (pw.length < 6) { U.toast('Too short — cancelled.', 'bad'); return; }
+        payload.password = pw;
+        if (!confirm('Replace their password now? They will use the one you just typed.')) return;
+      }
     }
     try {
       await Net.post('/api/dev/world', payload);
@@ -2330,6 +2399,7 @@
       case 'pay_claim': claimPay(); break;
       case 'dev_self': devSelf(btn); break;
       case 'dev_world': devWorld(btn); break;
+      case 'dev_info': { const x = btn.dataset.x && document.getElementById(btn.dataset.x); if (x) x.style.display = x.style.display === 'none' ? '' : 'none'; break; }
       case 'dev_pay': devPayDecide(btn); break;
       case 'pass_buy': act('pass_buy', {}); break;
       case 'pawn_sell': act('pawn_sell', { itemId: btn.dataset.item, qty: 999 }); break;

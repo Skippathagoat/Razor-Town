@@ -994,8 +994,14 @@ body { color: var(--ink); }
 .xpbar { height: 6px; border-radius: 3px; background: var(--raise); overflow: hidden; }
 .xpbar i { display: block; height: 100%; background: #b48cf2; }
 
-/* chips & misc */
-.chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--raise); border: 1px solid var(--line); font-size: 10px; font-weight: 700; color: var(--mut); }
+/* chips & misc — chip grammar: pills for toolbars, cards for creator picks; swatch stays square */
+.chip { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: auto; min-height: 32px; padding: 8px 12px; border-radius: 6px; background: var(--raise); border: 1px solid var(--line); font-size: 11.5px; font-weight: 700; color: var(--mut); }
+.chip.sm { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+.chip.origin-card { display: block; height: auto; min-height: 0; padding: 12px 14px; font-size: 13px; text-align: left; border-radius: 8px; }
+.chip.origin-card b { display: block; font-size: 14px; color: var(--ink); font-weight: 800; }
+.chip.origin-card > span { display: block; margin-top: 5px; font-size: 11.5px; line-height: 1.45; color: var(--mut); font-weight: 400; }
+.chip.origin-card > span.tag { margin-top: 7px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; }
+.chip.swatch { height: 34px; width: 34px; min-height: 0; padding: 0; }
 .chip.gold { color: var(--gold); border-color: rgba(232,182,76,.4); }
 .chip.ok { color: var(--ok); } .chip.bad { color: var(--bad); } .chip.cyn { color: var(--cyn); }
 .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-variant-numeric: tabular-nums; }

@@ -94,6 +94,7 @@ function guard(req, res) {
   if (!accId) { send(res, 401, { err: 'Please log in.' }); return null; }
   const acc = dbm.getDb().prepare('SELECT * FROM accounts WHERE id=?').get(accId);
   if (!acc) { send(res, 401, { err: 'Account no longer exists.' }); return null; }
+  if (acc.banned) { send(res, 403, { err: 'This account has been banned.' }); return null; }
   const player = dbm.getDb().prepare('SELECT acc_id FROM players WHERE acc_id=?').get(accId);
   if (!player) { send(res, 401, { err: 'No character yet. Create one first.' }); return null; }
   return accId;
@@ -125,7 +126,12 @@ function grantSubDays(db, accId, days) {
   W.save(accId, p);
   return p;
 }
-function withId(id, pj){ const m = W.publicView(pj); m.id = id; m.dev = isDevAcc(id); return m; }
+function withId(id, pj){
+  const m = W.publicView(pj); m.id = id; m.dev = isDevAcc(id);
+  const a = dbm.getDb().prepare('SELECT email FROM accounts WHERE id=?').get(id);
+  m.needs_email = a ? !a.email : false;
+  return m;
+}
 function metaPayload(){
   return { crimes: C.CRIMES, crimeCats: C.CRIME_CATS, items: C.ITEMS, jobs: C.JOBS, gyms: C.GYMS, origins: C.ORIGINS, achievements: C.ACHIEVEMENTS,
     courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS };
@@ -138,10 +144,17 @@ const routes = async (req, res, urlPath, q) => {
   const accId = authOf(req);
   const body = method === 'POST' ? await readBody(req) : null;
 
+  // banned accounts are dead on arrival — existing tokens stop working everywhere
+  if (accId && !['/api/register', '/api/login', '/api/logout', '/api/health', '/api/meta', '/api/validate'].includes(urlPath)) {
+    const banRow = dbm.getDb().prepare('SELECT banned FROM accounts WHERE id=?').get(accId);
+    if (banRow && banRow.banned) return send(res, 403, { err: 'This account has been banned.' });
+  }
+
   // -- auth & onboarding
   if (urlPath === '/api/register' && method === 'POST') {
+    if (!body.email || !String(body.email).trim()) return send(res, 400, { err: 'You need an email to found an account.' });
     try {
-      const acc = A.createAccount(body.username, body.password, 'user');
+      const acc = A.createAccount(body.username, body.password, 'user', body.email);
       const form = body.profile || {};
       const pj = A.createPlayerForAccount(acc, form);
       const token = A.signToken(acc.id);
@@ -231,13 +244,22 @@ const routes = async (req, res, urlPath, q) => {
   }
 
   // ==================== founder dev tools ====================
+  if (urlPath === '/api/account/email' && method === 'POST') {
+    const id = guard(req, res); if (!id) return;
+    try {
+      const em = A.setEmail(id, body.email);
+      return send(res, 200, { ok: true, email: em });
+    } catch (e) { return send(res, 400, { err: e.message }); }
+  }
+
   if (urlPath === '/api/dev/panel' && method === 'GET') {
     const id = devOf(req, res); if (!id) return;
     const db = dbm.getDb();
-    const players = db.prepare('SELECT a.id acc_id, a.username, p.name, p.json FROM accounts a JOIN players p ON p.acc_id=a.id WHERE a.id>0 ORDER BY a.id').all().slice(0, 300).map(r => {
+    const players = db.prepare('SELECT a.id acc_id, a.username, a.email, a.banned, a.ban_reason, a.created_at, p.name, p.json, p.updated_at FROM accounts a JOIN players p ON p.acc_id=a.id WHERE a.id>0 ORDER BY a.id').all().slice(0, 300).map(r => {
       const pj = JSON.parse(r.json);
       return { acc_id: r.acc_id, username: r.username, name: r.name, level: W.publicView(pj).level || (pj.level || 1), money: pj.money || 0, bank: pj.bank || 0,
         jail_until: pj.jail_until || 0, hosp_until: pj.hosp_until || 0,
+        email: r.email || '', banned: !!r.banned, ban_reason: r.ban_reason || '', created: r.created_at || 0, active: r.updated_at || 0,
         sub: { active: E.subOn(pj), founder: !!pj.sub_founder, until: pj.sub_until || 0 }, dev: isDevAcc(r.acc_id) };
     });
     const claims = db.prepare("SELECT c.id, c.acc_id, c.ts, c.method, c.ref, c.status, a.username, p.name FROM pay_claims c JOIN accounts a ON a.id=c.acc_id JOIN players p ON p.acc_id=c.acc_id WHERE c.status='pending' ORDER BY c.ts DESC").all();
@@ -304,6 +326,25 @@ const routes = async (req, res, urlPath, q) => {
     const trow = db.prepare('SELECT 1 FROM players WHERE acc_id=?').get(target);
     if (!trow) return send(res, 400, { err: 'No such player.' });
     if (target === id) return send(res, 400, { err: 'Use Self tools for your own sheet.' });
+    const founderUnames = C.WIRE_PASS.founders;
+    const targetAcc = db.prepare('SELECT username FROM accounts WHERE id=?').get(target);
+    const targetUname = targetAcc ? String(targetAcc.username).toLowerCase() : '';
+    const untouchable = isDevAcc(target) || founderUnames.includes(targetUname);
+    if (op === 'ban') {
+      if (untouchable) return send(res, 400, { err: 'Founders cannot be banned.' });
+      const reason = String(body.reason || '').replace(/[<>&]/g, '').slice(0, 140);
+      db.prepare('UPDATE accounts SET banned=1, ban_reason=?, ban_by=?, ban_ts=? WHERE id=?').run(reason, id, Date.now(), target);
+      return send(res, 200, { ok: true });
+    }
+    if (op === 'unban') {
+      db.prepare("UPDATE accounts SET banned=0, ban_reason='', ban_by=0, ban_ts=0 WHERE id=?").run(target);
+      return send(res, 200, { ok: true });
+    }
+    if (op === 'set_password') {
+      if (untouchable) return send(res, 400, { err: 'Founder passwords are yours to keep — set them yourself.' });
+      try { A.setPassword(target, body.password); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 400, { err: e.message }); }
+    }
     const tp = W.load(target);
     switch (op) {
       case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;

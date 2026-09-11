@@ -51,7 +51,7 @@ async function api(pathname, method, body, cookie) {
   return r;
 }
 async function registerCitizen(un, pw, name, origin, avatar) {
-  const r = await api('/api/register', 'POST', { username: un, password: pw, profile: { name, origin, avatar, bio: '' } });
+  const r = await api('/api/register', 'POST', { username: un, password: pw, email: un + '@qa.test', profile: { name, origin, avatar, bio: '' } });
   if (!r.ok) throw new Error('register failed: ' + (await r.text()));
   return (r.headers.get('set-cookie') || '').split(';')[0];
 }
@@ -410,7 +410,7 @@ if (!LIVE) {
       shirt: document.querySelectorAll('[data-el-opt="shirt"]').length,
       accent: document.querySelectorAll('[data-el-opt="accent"]').length
     }));
-    ok('editor carries the full wardrobe (12/19/9/16/13)', counts.face === 12 && counts.hair === 19 && counts.skin === 9 && counts.shirt === 16 && counts.accent === 13, counts);
+    ok('editor carries the full wardrobe (12/25/9/35/25)', counts.face === 12 && counts.hair === 25 && counts.skin === 9 && counts.shirt === 35 && counts.accent === 25, counts);
     await pg.evaluate(() => document.querySelector('#modal-root [data-act="close-modal"]').click());
     await sleep(300);
     ok('close-modal actually closes', await pg.evaluate(() => document.querySelector('#modal-root').innerHTML === ''));
