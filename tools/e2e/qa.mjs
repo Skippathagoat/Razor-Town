@@ -5,8 +5,7 @@
  * browser through every tab, the casino floor, the bazaar, and the wardrobe.
  *
  * Live mode: node tools/e2e/qa.mjs --live https://<deployment-url>
- *   Boots a browser against the deployed build with a throwaway qa_sweeper probe account
- *   (scrubbed from the world at every boot by lib/seed.js purgeQAProbes — see server log)
+ *   Boots a browser against the deployed build with the permanent qa_sweeper citizen
  *   and watches /api/health for a mid-run redeploy.
  *
  * Needs the QA browser bits (kept OUT of the workspace snapshot on purpose):

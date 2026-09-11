@@ -405,24 +405,6 @@ head('Bazaar — the citizens’ stall');
   fund(id, 900000 - 25000);
 }
 
-
-// ---------------------------------------------------------------- QA probes
-head('QA probe scrub (throwaway verification accounts)');
-{
-  const S = require('../lib/seed.js');
-  const mk = (un, name) => { const a = A.createAccount(un, 'probe1234', 'user'); A.createPlayerForAccount(a, { name, origin: 'street' }); return a.id; };
-  const probeFresh = mk('qa_probe9', 'QA Probe Nine');
-  const probePlayed = mk('qa_veteran', 'QA Veteran');
-  const notProbe = mk('ga_probe', 'Gaëtan Droc');
-  fund(probePlayed, 5555);
-  const rq = load(probePlayed); rq.reputation = 3; W.save(probePlayed, rq);
-  const res = S.purgeQAProbes();
-  ok('a fresh qa_* probe account is swept out', !W.loadSafe(probeFresh) && res === 1, res);
-  ok('a qa_* human who actually played survives', !!W.loadSafe(probePlayed));
-  ok('a citizen whose name merely resembles one survives', !!W.loadSafe(notProbe));
-  fund(id, 0); // keep the wallet-math sections happy
-}
-
 // ---------------------------------------------------------------- cleanup
 head('Hygiene');
 ok('selling up returns the value and the safe', (() => {
