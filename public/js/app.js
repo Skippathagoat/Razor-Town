@@ -18,7 +18,7 @@
     { id: 'job', label: 'Job', ico: '💼', key: 'j' },
     { id: 'market', label: 'Market', ico: '🛒', key: 'm' },
     { id: 'items', label: 'Items', ico: '🎒', key: 'i' },
-    { id: 'bank', label: 'Bank', ico: '🏦', key: 'b' },
+    { id: 'bank', label: 'Finance', ico: '🏦', key: 'b' },
     { id: 'property', label: 'Property', ico: '🏠', key: 'y' },
     { id: 'college', label: 'College', ico: '🎓', key: 'u' },
     { id: 'merits', label: 'Merits', ico: '⭐', key: 'k' },
@@ -614,7 +614,7 @@
       </div>`;
     }).join('');
     v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🎓 <span class="head">Digbeth Technical College</span></div>
+      <div class="vhead"><div><div class="vtitle">🎓 <span class="head">Wireside College</span></div>
       <div class="vdesc">Evening classes for working men. One at a time, fees up front, and what you learn stays with you for good. The clever ones get better at everything else.</div></div>
       <div class="pill"><span>Passed</span> <b style="color:var(--gold)">${done.length}/${courseList.length}</b></div></div>
 
@@ -1150,6 +1150,16 @@
   }
 
   // ---- ITEMS (inventory)
+  function renderGearPanel(me) {
+    const eq = (me.equip) || {};
+    const slotRow = (slot, icon, label) => {
+      const cur = eq[slot] && (G.meta.items[eq[slot]] || {}).name ? (G.meta.items[eq[slot]].icon + ' ' + G.meta.items[eq[slot]].name) : null;
+      return `<div class="kv"><span class="k">${icon} ${label}</span><span class="v" style="display:flex;gap:6px;align-items:center">${cur ? `<b style="color:var(--ink)">${cur}</b><button class="btn sm ghost" data-act="unequip" data-slot="${slot}">Strip</button>` : '<span style="color:var(--dim)">— nothing</span>'}</span></div>`;
+    };
+    return `<div class="card" style="margin-bottom:10px"><div class="subhead" style="color:var(--gold)">What you're carrying on you</div>
+      ${slotRow('weapon', '🔫', 'Iron')}${slotRow('armour', '🦺', 'Plate')}</div>`;
+  }
+
   function renderItems() {
     const me = G.me, m = G.meta;
     const v = $('#view');
@@ -1160,31 +1170,62 @@
       <div class="vhead"><div><div class="vtitle">🎒 <span class="head">Inventory</span></div>
       <div class="vdesc">Loot, consumables and boosters. Unused gear can be fenced for cash.</div></div>
       <div class="pill"><span>Total resale</span> <b class="mono" style="color:var(--gold)">${money(worth)}</b></div></div>
-      ${owned.length === 0 ? `<div class="card"><p style="color:var(--dim);text-align:center">You're carrying nothing. A little sad, honestly.</p></div>` : ''}
+      ${renderGearPanel(me)}
+      ${owned.length === 0 ? `<div class="card"><p style="color:var(--dim);text-align:center">You're carrying nothing. Head down the market.</p></div>` : ''}
       <div class="card" style="background:none;border:none;padding:0">
       ${grouped.map(([id, q]) => {
         const it = m.items[id];
-        const canUse = it.type !== 'loot';
+        const canUse = it.type !== 'loot' && it.type !== 'gear';
         return `<div class="itemrow"><span class="ic">${it.icon}</span>
-        <div class="nm"><b>${esc(it.name)}</b><small>${esc(it.desc)}</small></div>
+        <div class="nm"><b>${esc(it.name)}</b>${it.equip ? ` <small style="color:var(--cyn)">${it.equip.slot === 'weapon' ? '+' + it.equip.atk + '% attack' : '+' + it.equip.def + '% defense'}</small>` : ''}<small>${esc(it.desc)}</small></div>
         <span class="qtychip">×${q}</span>
         ${typeof it.sell === 'number' ? `<span class="qtychip" style="color:var(--gold)">${money(it.sell * q)}</span>` : ''}
+        ${it.equip ? `<button class="btn sm ok" data-act="equip" data-item="${id}">${it.equip.slot === 'weapon' ? 'Carry' : 'Wear'}</button>` : ''}
         ${canUse ? `<button class="btn sm" data-act="use" data-item="${id}">Use</button>` : ''}
         ${typeof it.sell === 'number' ? `<button class="btn sm ghost" data-act="sell" data-item="${id}">Sell</button>` : ''}
         </div>`;
       }).join('')}</div>`;
   }
 
+  function renderGearPanel(me) {
+    const eq = (me.equip) || {};
+    const slotRow = (slot, icon, label) => {
+      const curId = eq[slot];
+      const cur = curId && (G.meta.items[curId] || {}).name ? (G.meta.items[curId].icon + ' ' + G.meta.items[curId].name) : null;
+      return `<div class="kv"><span class="k">${icon} ${label}</span><span class="v" style="display:flex;gap:6px;align-items:center">${cur ? `<b style="color:var(--ink)">${cur}</b><button class="btn sm ghost" data-act="unequip" data-slot="${slot}">Strip</button>` : '<span style="color:var(--dim)">— nothing</span>'}</span></div>`;
+    };
+    return `<div class="card" style="margin-bottom:10px"><div class="subhead" style="color:var(--gold)">Iron & plate</div>
+      ${slotRow('weapon', '🔫', 'Weapon')}${slotRow('armour', '🦺', 'Armour')}</div>`;
+  }
+
   // ---- BANK
+  // ---- FINANCE: branch, the big board, and the chains
+  const FIN = { sub: 'bank' };
+  function spark(hist) {
+    if (!hist || hist.length < 2) return '';
+    const w = 96, h = 30, min = Math.min(...hist), max = Math.max(...hist), span = (max - min) || 1;
+    const pts = hist.map((v, i) => `${(i / (hist.length - 1) * w).toFixed(1)},${(h - 2 - (v - min) / span * (h - 4)).toFixed(1)}`).join(' ');
+    const up = hist[hist.length - 1] >= hist[0];
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;opacity:.9"><polyline fill="none" stroke="${up ? 'var(--ok)' : 'var(--mag)'}" stroke-width="1.8" points="${pts}"/></svg>`;
+  }
   function renderBank() {
     const me = G.me;
     const v = $('#view');
+    const sub = FIN.sub || 'bank';
+    if (sub === 'stocks') { renderStocksInto(v); return; }
+    if (sub === 'crypto') { renderCryptoInto(v); return; }
+    const ir = (0.04 * (me.bonuses && (1 + 0) ? 1 : 1));
     v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🏦 <span class="head">The Exchange Bank</span></div>
-      <div class="vdesc">Park cash safely and it quietly earns interest (~4%/hour). Cash on you can be taken in fights.</div></div></div>
+      <div class="vhead"><div><div class="vtitle">🏦 <span class="head">The Wire Exchange Bank</span></div>
+      <div class="vdesc">Your branch, the big board and the chains — every balance in one chair.</div></div>
+      <div class="filterrow">
+        <button class="minitab on" data-fil="finance" data-v="bank">Branch</button>
+        <button class="minitab" data-fil="finance" data-v="stocks">📈 Stocks</button>
+        <button class="minitab" data-fil="finance" data-v="crypto">🪙 Crypto</button>
+      </div></div>
       <div class="grid2">
         <div class="card"><div class="subhead">On you</div><div class="bigstat"><div class="num" style="color:var(--gold)">${money(me.money)}</div><div class="lab">carrying cash — lootable</div></div></div>
-        <div class="card"><div class="subhead">Safe deposit</div><div class="bigstat"><div class="num" style="color:var(--cyn)">${money(me.bank)}</div><div class="lab">earning interest</div></div></div>
+        <div class="card"><div class="subhead">Safe deposit</div><div class="bigstat"><div class="num" style="color:var(--cyn)">${money(me.bank)}</div><div class="lab">earning ~4%/hour interest</div></div></div>
       </div>
       <div class="card"><div class="subhead">Move money</div>
         <div class="grid2" style="align-items:end;gap:8px">
@@ -1195,7 +1236,66 @@
           </div>
         </div>
         <p style="color:var(--dim);font-size:11.5px;margin-top:10px">Total deposited over time: ${money(me.total_deposits)}</p></div>
-      <div class="card"><div class="subhead">Security tip</div><p style="color:var(--mut);font-size:12.5px">Attackers can only take a cut of the cash you're carrying. The bank is your armor — interest is the reward for using it.</p></div>`;
+      <div class="card"><div class="subhead">Security tip</div><p style="color:var(--mut);font-size:12.5px">Attackers can only take a cut of the cash you're carrying. The branch is armour — interest is the reward for using it.</p></div>`;
+  }
+  async function renderStocksInto(v) {
+    const me = G.me;
+    let d = null;
+    try { d = await Net.get('/api/world/stocks'); } catch (e) {}
+    if (!d) { v.innerHTML = `<div class="card"><p style="color:var(--dim)">The big board is dark. Try again.</p></div>`; return; }
+    const rows = d.stocks.map(s => `
+      <div class="itemrow">
+        <span class="ic">${s.icon}</span>
+        <div class="nm"><b>${s.sym}</b> <small style="display:block">${esc(s.name)}</small>
+          <small>held <b>${s.held}</b>${s.held ? ' (' + money(s.heldValue) + ')' : ''} · <span style="color:${s.chg >= 0 ? 'var(--ok)' : 'var(--mag)'}">${s.chg >= 0 ? '▲' : '▼'} ${Math.abs(s.chg)}%</span> on the session</small></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <b class="mono" data-price="${s.price}">${money(s.price)}</b>${spark(s.hist)}
+          <div style="display:flex;gap:4px">
+            <input data-qty="${s.sym}" type="number" min="1" value="10" style="width:64px;text-align:right">
+            <button class="btn sm ok" data-act="stock_buy" data-sym="${s.sym}" ${me.money < s.price * 1.01 ? 'disabled' : ''}>Buy</button>
+            ${s.held ? `<button class="btn sm ghost" data-act="stock_sell" data-sym="${s.sym}">Sell</button>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">📈 <span class="head">The Big Board</span></div>
+      <div class="vdesc">Six listed firms, one tape, five-minute ticks. Broker takes ${(d.fee * 100).toFixed(1)}% each way. Portfolio: <b style="color:var(--gold)">${money(d.portValue)}</b></div></div>
+      <div class="filterrow">
+        <button class="minitab" data-fil="finance" data-v="bank">Branch</button>
+        <button class="minitab on" data-fil="finance" data-v="stocks">📈 Stocks</button>
+        <button class="minitab" data-fil="finance" data-v="crypto">🪙 Crypto</button>
+      </div></div>
+      <div class="card" style="background:none;border:none;padding:0">${rows}</div>`;
+  }
+  async function renderCryptoInto(v) {
+    const me = G.me;
+    let d = null;
+    try { d = await Net.get('/api/world/crypto'); } catch (e) {}
+    if (!d) { v.innerHTML = `<div class="card"><p style="color:var(--dim)">The chains are quiet. Try again.</p></div>`; return; }
+    const rows = d.coins.map(s => `
+      <div class="itemrow">
+        <span class="ic">${s.icon}</span>
+        <div class="nm"><b>${s.sym}</b> <small style="display:block">${esc(s.name)}</small>
+          <small>wallet <b>${s.held}</b>${s.held ? ' (' + money(s.heldValue) + ')' : ''} · <span style="color:${s.chg >= 0 ? 'var(--ok)' : 'var(--mag)'}">${s.chg >= 0 ? '▲' : '▼'} ${Math.abs(s.chg)}%</span>, ten-minute ticks</small></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <b class="mono">${money(s.price)}</b>${spark(s.hist)}
+          <div style="display:flex;gap:4px">
+            <input data-amt="${s.sym}" type="number" min="1" value="100" style="width:84px;text-align:right">
+            <button class="btn sm ok" data-act="crypto_buy" data-sym="${s.sym}">Buy $</button>
+            ${s.held ? `<input data-sqty="${s.sym}" type="number" min="0" value="${s.held}" step="0.0001" style="width:84px;text-align:right"><button class="btn sm ghost" data-act="crypto_sell" data-sym="${s.sym}">Settle</button>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🪙 <span class="head">The Cage — crypto exchange</span></div>
+      <div class="vdesc">Chain settlement through the Cage at ${(d.fee * 100).toFixed(1)}% friction. Wallet: <b style="color:var(--gold)">${money(d.walletValue)}</b>${d.rigs ? ` · ${d.rigs} mining rig${d.rigs > 1 ? 's' : ''} hashing ${d.mineRate} NGT/h each` : ''}</div></div>
+      <div class="filterrow">
+        <button class="minitab" data-fil="finance" data-v="bank">Branch</button>
+        <button class="minitab" data-fil="finance" data-v="stocks">📈 Stocks</button>
+        <button class="minitab on" data-fil="finance" data-v="crypto">🪙 Crypto</button>
+      </div></div>
+      ${d.rigs === 0 ? '<div class="card" style="margin-bottom:8px"><p style="color:var(--dim);font-size:12.5px;margin:0">A <b>Crypto Mining Rig</b> in your bag hashes NGT straight into your wallet around the clock. The rigs surface in heists and on the market.</p></div>' : ''}
+      <div class="card" style="background:none;border:none;padding:0">${rows}</div>`;
   }
 
   // ---- CASINO
@@ -1515,7 +1615,7 @@
     const v = $('#view');
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">❔ <span class="head">How the city works</span></div>
-      <div class="vdesc">Razor Town is an open online life of crime in 1920s Birmingham. There's no finish line — the town keeps score and your legend grows.</div></div></div>
+      <div class="vdesc">Razor Town is an open online life of crime, 2026. There's no finish line — the Wire keeps score and your legend grows.</div></div></div>
       <div class="grid2">
         <div class="card"><div class="subhead">The daily rhythm</div>
           <ul style="color:var(--mut);font-size:13px;line-height:2;list-style:none;padding:0">
@@ -1532,7 +1632,7 @@
             <span><span class="kbd" style="border:1px solid var(--line2);border-radius:5px;padding:0 5px">Esc</span></span><span>Menu</span></div></div>
         <div class="card"><div class="subhead">Build a life</div>
           <ul style="color:var(--mut);font-size:13px;line-height:2;list-style:none;padding:0">
-            <li>🎓 <b style="color:var(--ink)">College</b> — evening classes at Digbeth Technical. Pass a course and the gain never leaves you.</li>
+            <li>🎓 <b style="color:var(--ink)">College</b> — evening classes at Wireside College. Pass a course and the gain never leaves you.</li>
             <li>🏠 <b style="color:var(--ink)">Property</b> — a better address raises how happy you can get (and happy men train harder). Rent is charged daily.</li>
             <li>⭐ <b style="color:var(--ink)">Merits</b> — one point per level. Spend them on permanent perks.</li>
             <li>🎯 <b style="color:var(--ink)">Bounties</b> — post money on a name. Whoever puts that man in hospital collects the pot, less a 5% cut.</li>
@@ -1544,7 +1644,7 @@
         <div style="display:flex;gap:8px;margin-top:8px">
           <button class="btn sm" data-act="sound">${G.sound ? '🔊 Sound on' : '🔇 Sound off'}</button>
           <button class="btn sm ghost" data-act="menu">☰ Game menu</button></div>
-        <p style="color:var(--dim);font-size:11px;margin-top:10px">Razor Town is an original work — styled after 1920s Birmingham razor gangs, with 100% our own names, jobs and fiction.</p></div>`;
+        <p style="color:var(--dim);font-size:11px;margin-top:10px">Razor Town is an original work — styled after classic crime-city browser games, with 100% our own names, jobs and fiction.</p></div>`;
   }
 
   // ================================================================ EDIT LOOK (modal)
@@ -1618,7 +1718,7 @@
     const inv = Object.entries(me.items || {}).filter(([, q]) => q > 0);
     wrap.innerHTML = `
       <div class="card" style="margin-bottom:12px">
-        <div class="subhead" style="color:var(--gold)">🔨 Boulton's Auction Rooms, Snow Hill</div>
+        <div class="subhead" style="color:var(--gold)">🔨 The Wire Auction House · Central Yard</div>
         <p style="color:var(--mut);font-size:12px;margin:4px 0 10px">Gavel and estate sales. A bid leaves your hand the moment it lands; if you are outbid it walks straight back. Hammer still: <b>${data.feePct}%</b> to the house. Sessions run ${data.hours.map(h => h + 'h').join(' / ')}.</p>
         ${open.length ? open.map(x => `
           <div class="itemrow" style="align-items:flex-start">
@@ -1734,6 +1834,20 @@
       case 'auction_buyout': act('auction_bid', { auctionId: +btn.dataset.aid, amount: +btn.dataset.amt }); break;
       case 'auction_cancel': act('auction_cancel', { auctionId: +btn.dataset.aid }); break;
       case 'sell': act('sell', { itemId: btn.dataset.item, qty: 999 }); break;
+      case 'equip': act('equip', { itemId: btn.dataset.item }); break;
+      case 'unequip': act('unequip', { slot: btn.dataset.slot }); break;
+      case 'stock_buy': case 'stock_sell': {
+        const qty = parseInt((document.querySelector(`[data-qty=\"${btn.dataset.sym}\"]`) || {}).value, 10) || 0;
+        act(name, { sym: btn.dataset.sym, qty }); break;
+      }
+      case 'crypto_buy': {
+        const amount = parseFloat((document.querySelector(`[data-amt=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
+        act(name, { sym: btn.dataset.sym, amount }); break;
+      }
+      case 'crypto_sell': {
+        const qty = parseFloat((document.querySelector(`[data-sqty=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
+        act(name, { sym: btn.dataset.sym, qty }); break;
+      }
       case 'use': act('use', { itemId: btn.dataset.item }); break;
       case 'deposit': case 'withdraw': {
         const amt = parseInt($('#bank-amt').value, 10) || 1000;

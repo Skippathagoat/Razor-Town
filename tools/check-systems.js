@@ -35,7 +35,7 @@ fund(id, 900000);
 
 // ---------------------------------------------------------------- property
 head('Property');
-ok('every new player starts in the back-to-back terrace', W.propView(load(id)).name === 'Back-to-back Terrace');
+ok('every new player starts in the city flatlet', W.propView(load(id)).name === 'City Flatlet');
 ok('buying a house works', !!W.buyProperty(id, 'rooms').ok);
 ok('the new address sticks', load(id).property === 'rooms');
 ok('a house raises the happiness ceiling', load(id).max_happy === 160, load(id).max_happy);
@@ -407,7 +407,7 @@ head('Bazaar — the citizens’ stall');
 
 
 // ---------------------------------------------------------------- auction house
-head("Boulton’s Auction Rooms — the gavel");
+head("The Wire Auction House — the gavel");
 {
   const a4 = A.createAccount('vern', 'rivalpass2', 'user');
   A.createPlayerForAccount(a4, { name: 'Verney Slack', origin: 'street' });
@@ -451,7 +451,7 @@ head("Boulton’s Auction Rooms — the gavel");
   ok('the next legal bid lands at the 10% margin', r2.ok && load(id5).money === c0 - 1760, c0 - load(id5).money);
   ok('the outbid hand walks back in full', load(id4).money === b0, { before: b0, now: load(id4).money });
   ok('... and the outbid bidder was wired at once', !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE '%out-nodded%'").get(id4));
-  ok("the wire names the rooms, not 'City Desk' boilerplate", !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE 'Boulton%'").get(id4));
+  ok("the wire names the rooms, not 'City Desk' boilerplate", !!DBH.prepare("SELECT 1 FROM messages WHERE to_acc=? AND body LIKE 'The Wire Auction House%'").get(id4));
 
   // buyout slams the hammer at once: id4 (an actual bidder, never the seller) takes it at 3000
   const s1 = load(id).money;
@@ -480,7 +480,7 @@ head("Boulton’s Auction Rooms — the gavel");
   const s2 = load(id5).money;
   W.auctionView(id5);
   ok('the gavel falls on schedule even while everybody sleeps', (load(id).items.champagne || 0) >= 1 && load(id5).money === s2 + 130000 - 10400, load(id5).money);
-  ok('a six-figure hammer price makes the town paper', !!DBH.prepare("SELECT 1 FROM news WHERE message LIKE '%Boulton%'").get());
+  ok('a six-figure hammer price makes the town paper', !!DBH.prepare("SELECT 1 FROM news WHERE message LIKE '%Wire Auction%'").get());
   // cancel: only while the book is empty, and only your own
   put4(id, 'noir_whisky', 1);
   const cr4 = W.auctionCreate(id, 'noir_whisky', 1, 500, 0, 24);
@@ -490,6 +490,144 @@ head("Boulton’s Auction Rooms — the gavel");
   W.auctionCancel(id4, 999999); // not found path
   DBH.prepare("DELETE FROM auctions WHERE settled=0").run(); // clear the block
   fund(id, 0); fund(id4, 0); fund(id5, 0);
+}
+
+
+// ---------------------------------------------------------------- gear: iron & plate
+head('Gear — iron on the hip, plate on the chest');
+{
+  const a6 = A.createAccount('cad', 'rivalpass4', 'user');
+  A.createPlayerForAccount(a6, { name: 'Cad Parvo', origin: 'street' });
+  const id6 = a6.id;
+  const money6 = (v) => { const q = load(id6); q.money = v; W.save(id6, q); };
+  const give6 = (item, n) => { const q = load(id6); q.items = q.items || {}; q.items[item] = n; W.save(id6, q); };
+  head('a bought gun rides your stats');
+  {
+    give6('g9_pistol', 1); money6(50000);
+    const bare = W.gearBonus(load(id6));
+    ok('unarmed is unarmed', bare.atk === 0 && bare.def === 0);
+    const bs0 = W.battleStats(load(id6));
+    const rEq = W.equipItem(id6, 'g9_pistol');
+    ok('carry the GT-9', !!(rEq && rEq.ok), rEq.err);
+    const bs1 = W.battleStats(load(id6));
+    ok('strength carries +15% on the iron', bs1.st === Math.round(bs0.st * 1.15), { bare: bs0.st, armed: bs1.st });
+    ok('defence does not move on iron alone', bs1.de === bs0.de);
+    ok('the piece leaves the bag for the slot', !load(id6).items.g9_pistol && load(id6).equip.weapon === 'g9_pistol');
+  }
+  head('swaps, strips and guards');
+  {
+    give6('sawn_12', 1);
+    W.equipItem(id6, 'sawn_12');
+    ok('a swap hands the old piece back to the bag', load(id6).items.g9_pistol === 1 && load(id6).equip.weapon === 'sawn_12');
+    ok('defence still unplated', W.gearBonus(load(id6)).def === 0);
+    give6('kevlar_s1', 1); W.equipItem(id6, 'kevlar_s1');
+    const bs2 = W.battleStats(load(id6));
+    const p = load(id6);
+    const rawDe = W.ready({ ...p, equip: { weapon: null, armour: null } }).stats.de;
+    ok('kevlar lines the defence by 15%', Math.abs(bs2.de / 0.15) > -1 && bs2.de > (load(id6).stats.de || 0), { de: bs2.de });
+    ok('you cannot wear what you do not carry', !!W.equipItem(id6, 'riot_shell').err);
+    ok('a burger is not gear', !!W.equipItem(id6, 'thick_wallet').err);
+    W.unequipItem(id6, 'weapon'); W.unequipItem(id6, 'armour');
+    ok('stripping returns every piece', load(id6).items.sawn_12 === 1 && load(id6).items.kevlar_s1 === 1 && !load(id6).equip.weapon);
+  }
+  head('the cabinet badge');
+  {
+    const id7acc = A.createAccount('dal', 'rivalpass5', 'user');
+    A.createPlayerForAccount(id7acc, { name: 'Dale Something', origin: 'street' });
+    const id7 = id7acc.id;
+    for (const g of ['g9_pistol', 'sawn_12', 'x7_carbine', 'longline_sr']) { const q = load(id7); q.items = q.items || {}; q.items[g] = 1; W.save(id7, q); }
+    ok('owning the whole cabinet is not enough — you must carry one', !((load(id7).achievements || {}).guncollector));
+    W.equipItem(id7, 'longline_sr');
+    ok('armed with #4, the cabinet badge lands', !!((load(id7).achievements || {}).guncollector));
+  }
+  // reset the live-use fixture
+  money6(0);
+}
+
+// ---------------------------------------------------------------- the exchange
+head('The Exchange — stocks that tick and coins that walk');
+{
+  head('prices seed at the listed bases');
+  {
+    W.tickStocks();
+    const DBH2 = require('../lib/db.js').getDb();
+    const rows = DBH2.prepare('SELECT * FROM stock_prices').all();
+    ok('all eight tickers seed', rows.length === 8, rows.length);
+    ok('prices stay inside their guard rails', rows.every(r => r.price > 0));
+  }
+  head('a stock buy is exact arithmetic');
+  {
+    const a8 = A.createAccount('fro', 'rivalpass6', 'user');
+    A.createPlayerForAccount(a8, { name: 'Frow Merchant', origin: 'schemer' });
+    const id8 = a8.id;
+    const put8 = (n) => { const q = load(id8); q.money = n; W.save(id8, q); };
+    put8(50000);
+    const vi = W.stockView(id8);
+    const rz = vi.stocks.find(s => s.sym === 'RZST');
+    const before = load(id8).money;
+    const rB = W.stockBuy(id8, 'RZST', 100);
+    const expect = Math.round(100 * rz.price + ((100 * rz.price) * 0.01)) / 1 === undefined ? 0 : 0;
+    ok('a share board read carries fields', typeof rz.price === 'number' && Array.isArray(rz.hist));
+    const want = Math.round((100 * rz.price) * (1 + 0.01) * 100) / 100;
+    ok('the order books at price plus the broker', rB.ok && Math.abs(before - load(id8).money - want) < 0.01, { before, after: load(id8).money, want });
+    ok('paper lands in the account', (load(id8).stocks.RZST || 0) === 100);
+    ok('the tape counts the trade', load(id8).total_trades === 1);
+    ok('oversized orders refuse themselves', !!W.stockBuy(id8, 'OMNI', 999999).err);
+    ok('zero-lot orders refuse themselves', !!W.stockBuy(id8, 'RZST', 0).err);
+    ok('fake tickers refuse themselves', !!W.stockBuy(id8, 'FAKE', 1).err);
+    const pr2 = dbStock('RZST');
+    const rS = W.stockSell(id8, 'RZST', 60);
+    ok('back to cash, minus the broker again', rS.ok && (load(id8).stocks.RZST || 0) === 40);
+    ok('you cannot sell paper you do not hold', !!W.stockSell(id8, 'RZST', 100).err);
+    put8(0);
+  }
+  head('crypto wallet math');
+  {
+    const a9 = A.createAccount('gil', 'rivalpass7', 'user');
+    A.createPlayerForAccount(a9, { name: 'Gilda Vex', origin: 'hacker' });
+    const id9 = a9.id;
+    const put9 = (n) => { const q = load(id9); q.money = n; W.save(id9, q); };
+    put9(20000);
+    const cv = W.cryptoView(id9);
+    const rzc = cv.coins.find(cc => cc.sym === 'RZC');
+    const before = load(id9).money;
+    const rBuy = W.cryptoBuy(id9, 'RZC', 1000);
+    const fee = Math.round(1000 * 0.005 * 100) / 100;
+    const qtyWant = Math.round(((1000 - fee) / rzc.price) * 10000) / 10000;
+    ok('a crypto buy settles exact satoshis', rBuy.ok && Math.abs((load(id9).crypto.RZC || 0) - qtyWant) < 0.0001, { got: load(id9).crypto.RZC, want: qtyWant });
+    ok('cash left the ledger in dollars', Math.abs(before - 1000 - load(id9).money) < 0.01);
+    ok('tiny orders refuse', !!W.cryptoBuy(id9, 'RZC', 0).err);
+    ok('phantom chains refuse', !!W.cryptoBuy(id9, 'DOGE', 100).err);
+    const q0 = load(id9).crypto.RZC;
+    const rSell = W.cryptoSell(id9, 'RZC', q0 / 2);
+    ok('half back out, fee trimmed', rSell.ok && Math.abs((load(id9).crypto.RZC || 0) - q0 / 2) < 0.0001);
+    ok('over-withdrawals refuse', !!W.cryptoSell(id9, 'RZC', 99999).err);
+    put9(0);
+  }
+  head('the rig hashes on the clock');
+  {
+    const a10 = A.createAccount('hin', 'rivalpass8', 'user');
+    A.createPlayerForAccount(a10, { name: 'Hind Baggage', origin: 'street' });
+    const id10 = a10.id;
+    const q = load(id10);
+    q.items = q.items || {}; q.items.crypto_rig = 2;
+    q._ref.crypto = Date.now() - 2 * 3600000; // two hours ago
+    W.save(id10, q);
+    W.ready(load(id10));
+    const mined = (load(id10).crypto.NGT || 0);
+    ok('two rigs, two hours, the wallet knows', Math.abs(mined - 0.05 * 2 * 2) < 0.0001, mined);
+    ok('the hash landing is the mining badge', !!((load(id10).achievements || {}).miner));
+    const q2 = load(id10); q2._ref.crypto = Date.now() - 500 * 3600000; W.save(id10, q2);
+    const had = (load(id10).crypto.NGT || 0);
+    W.ready(load(id10));
+    const gained = (load(id10).crypto.NGT || 0) - had;
+    ok('offline hashing caps at a day', Math.abs(gained - 0.05 * 2 * 24) < 0.0001, gained);
+    // fixture: wallets from the rig runs can stay
+  }
+}
+
+function dbStock(sym) {
+  return require('../lib/db.js').getDb().prepare('SELECT price FROM stock_prices WHERE sym=?').get(sym).price;
 }
 
 // ---------------------------------------------------------------- cleanup

@@ -223,6 +223,12 @@ const routes = async (req, res, urlPath, q) => {
       auction_create: () => W.auctionCreate(id, body.itemId, body.qty, body.minBid, body.buyout, body.hours),
       auction_bid: () => W.auctionBid(id, body.auctionId, body.amount),
       auction_cancel: () => W.auctionCancel(id, body.auctionId),
+      equip: () => W.equipItem(id, body.itemId),
+      unequip: () => W.unequipItem(id, body.slot),
+      stock_buy: () => W.stockBuy(id, body.sym, body.qty),
+      stock_sell: () => W.stockSell(id, body.sym, body.qty),
+      crypto_buy: () => W.cryptoBuy(id, body.sym, body.amount),
+      crypto_sell: () => W.cryptoSell(id, body.sym, body.qty),
       bazaar_cancel: () => W.cancelListing(id, body.listingId),
       faction_create: () => W.createFaction(id, body.factionName || body.name, body.tag, body.desc),
       faction_join: () => W.joinFaction(id, body.fid),
@@ -247,7 +253,7 @@ const routes = async (req, res, urlPath, q) => {
       const out = fn();
       if (out && out.err) return send(res, 400, { err: out.err });
       if (out && out.p) { out.p.id = id; pushAll('p', { id, name: out.p.name, rep: out.p.reputation, level: out.p.level }); }
-      if (name === 'crime' || name === 'attack' || name === 'casino' || name === 'bazaar_buy' || name === 'auction_bid') pushAll('news', { n: 1 });
+      if (/^(crime|attack|casino|bazaar_buy|auction_bid|stock_buy|stock_sell|crypto_buy|crypto_sell)$/.test(name)) pushAll('news', { n: 1 });
       if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
@@ -266,6 +272,12 @@ const routes = async (req, res, urlPath, q) => {
   }
   if (urlPath === '/api/world/auctions') {
     return send(res, 200, W.auctionView(accId));
+  }
+  if (urlPath === '/api/world/stocks') {
+    return send(res, 200, W.stockView(accId));
+  }
+  if (urlPath === '/api/world/crypto') {
+    return send(res, 200, W.cryptoView(accId));
   }
   if (urlPath === '/api/world/bounties') {
     const meP = accId ? W.loadSafe(accId) : null;
