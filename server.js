@@ -34,6 +34,7 @@ function pushAll(event, data) {
   for (const res of sseClients) { try { res.write(msg); } catch (_) {} }
 }
 function tickAll() {
+  try { W.raceView(null); } catch (_) {}   // keeps the Circuit board settling even with nobody watching
   const msg = `event: tick\ndata: {}\n\n`;
   for (const res of sseClients) { try { res.write(msg); } catch (_) {} }
 }
@@ -268,6 +269,12 @@ const routes = async (req, res, urlPath, q) => {
   // -- me (200 + {me:null} when logged out, so the client can probe quietly)
   if (urlPath === '/api/jail' && method === 'GET') return send(res, 200, { inmates: W.jailBoard() });
 
+  if (urlPath === '/api/world/races' && method === 'GET') {
+    const rid = authOf(req);
+    if (!rid) return send(res, 401, { err: 'Sign in first.' });
+    return send(res, 200, W.raceView(rid));
+  }
+
   if (urlPath === '/api/me' && method === 'GET') {
     const id = authOf(req);
     if (id) {
@@ -491,6 +498,9 @@ const routes = async (req, res, urlPath, q) => {
       bail_other: () => W.prisonBailOther(id, body.targetId ? parseInt(body.targetId, 10) : 0),
       daily: () => W.dailyClaim(id),
       wire: () => W.wireCash(id, body),
+      spin_wheel: () => W.wheelSpin(id),
+      race_bet: () => W.raceBet(id, body),
+      heist_walk: () => W.heistWalk(id, body.group),
       train: () => W.doTrain(id, body.stat, body.gymId),
       work: () => W.doWork(id),
       attack: () => W.doAttack(id, body.targetId),
@@ -712,3 +722,7 @@ setInterval(tickAll, 4000);
 
 const PORT = process.env.PORT || 8787;
 server.listen(PORT, '0.0.0.0', () => console.log(`Razor Town listening on http://0.0.0.0:${PORT}`));
+
+// a live Circuit round must never die unpaid on deploy — settle before Northflank swaps the process, then EXIT
+// (installing a SIGTERM handler suppresses node's default terminate, so exit explicitly or deploys hang)
+process.on('SIGTERM', () => { try { W.raceSettleNow(); } catch (_) {} process.exit(0); });

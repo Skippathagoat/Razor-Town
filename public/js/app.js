@@ -579,6 +579,7 @@
   function nav(view, arg) {
     if (!G.me) return;
     G.view = view;
+    clearRaceTimer();
     $$('.rail-item').forEach(x => x.classList.toggle('on', x.dataset.nav === view));
     $$('.mnav-item').forEach(x => x.classList.toggle('on', x.dataset.nav === view));
     $$('.rail-item').forEach(x => { if (x.disabled && ['crime','gym','job','attack','casino'].includes(x.dataset.nav)) return; });
@@ -1304,10 +1305,26 @@
       <div class="vdesc">Every job costs nerve + energy. Higher skills raise your odds and payout. Success keeps a spree alive — busts end it.</div></div>
       ${!jail && !hosp ? `<div class="pill"><span style="color:var(--mut)">🧠 Nerve</span> <b class="mono" style="color:var(--ok)">${Math.floor(me.nerve)}</b><span style="color:var(--dim)">/</span><b class="mono">${me.max_nerve}</b></div>` : ''}</div>
       <div class="filterrow">${cats.map(([id, name, ic]) => `<button class="minitab ${cat === id ? 'on' : ''}" data-fil="cat" data-v="${id}">${ic} ${name}</button>`).join('')}</div>
+      ${heistStrip(me)}
       <div class="card" style="background:none;border:none;padding:0">
       ${list.map((c) => crimeRow(c, me)).join('') || '<p style="color:var(--dim)">Nothing here yet.</p>'}
       </div>`;
     U.bindTimers(v);
+  }
+  function heistStrip(me) {
+    const hs = me.heists || {};
+    const names = { courier: 'The Exchange Run', ledger: 'The Ghost Ledger', crown: 'The Crown Suite' };
+    const acts = Object.entries(hs).filter(([, h]) => h && ((h.stage || 0) > 0 || (h.cool || 0) > Date.now()));
+    if (!acts.length) return '';
+    return `<div class="card" style="padding:10px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;border-color:rgba(212,175,55,.35)">
+      <span style="font-size:10.5px;letter-spacing:1.2px;color:var(--gold)">🎯 OPEN HEISTS</span>${acts.map(([g, h]) => {
+        const cooling = (h.cool || 0) > Date.now();
+        const stg = h.stage || 0;
+        return `<div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">${names[g] || g}</b>
+          ${cooling ? `<small style="color:var(--dim)">crew lying low ${Math.ceil((h.cool - Date.now()) / 60000)}m</small>`
+            : `<span style="color:var(--gold);letter-spacing:2px">${'●'.repeat(stg)}${'○'.repeat(3 - stg)}</span><small style="color:var(--mut)">stage ${stg} banked</small>
+               <button class="chip sm" data-act="heist_walk" data-group="${g}">Walk away</button>`}
+        </div>`; }).join('')}</div>`;
   }
   function crimeRow(c, me) {
     const nerveCost = c.nerve;
@@ -1322,7 +1339,15 @@
     const meetLvl = me.level >= (c.lvl || 1);
     const hasNerve = me.nerve >= nerveCost;
     const hasEnergy = me.energy >= energyCost;
-    const canDo = meetLvl && hasNerve && hasEnergy && !(me.jail_until) && !(me.hosp_until);
+    let canDo = meetLvl && hasNerve && hasEnergy && !(me.jail_until) && !(me.hosp_until);
+    let heistNote = '';
+    if (c.heist) {
+      const hh = (me.heists && me.heists[c.heist.group]) || { stage: 0, cool: 0 };
+      const stageWords = ['the recon', 'the approach'];
+      if ((hh.cool || 0) > Date.now()) { heistNote = '💤 crew lying low after the score'; canDo = false; }
+      else if ((hh.stage || 0) + 1 !== c.heist.step) { heistNote = (hh.stage || 0) >= c.heist.step ? '✔ banked — next stage is the live one' : '🔒 finish ' + (stageWords[c.heist.step - 2] || 'earlier stages') + ' first'; canDo = false; }
+      else heistNote = '🎯 chain stage ' + c.heist.step + ' of 3 armed';
+    }
     const chance = crimeChance(me, c);
     const highRisk = !meetLvl && (c.req.dx || 0) > me.stats.dx + 40;
     const banner = !meetLvl ? 'lvl ' + c.lvl : '';
@@ -1330,7 +1355,8 @@
       <div class="req ${meetLvl ? 'reqmeet' : 'reqmiss'}"><span>${c.nerve}</span><small>nerve</small></div>
       <div class="main"><b>${esc(c.name)}${banner ? ` <span style="color:var(--bad)">(${banner})</span>` : ''}</b>
       <span>${esc(c.blurb)}</span>
-      <span style="color:var(--dim)">⚡ ${energyCost} energy · ${reqStats ? 'needs ' + reqStats : 'no stat req'}</span></div>
+      <span style="color:var(--dim)">⚡ ${energyCost} energy · ${reqStats ? 'needs ' + reqStats : 'no stat req'}</span>
+      ${heistNote ? `<span style="color:${heistNote[0] === '🎯' ? 'var(--gold)' : 'var(--mut)'};font-weight:600">${heistNote}</span>` : ''}</div>
       <div class="cmeta"><div class="pay mono">${money(c.cash[0])}–${money(c.cash[1])}</div>
       <div class="chance"><i class="${chance >= 60 ? 'ok' : chance >= 35 ? 'gold' : 'bad'}" style="width:${Math.min(100, chance)}%;background:${chance >= 60 ? 'var(--ok)' : chance >= 35 ? 'var(--gold)' : 'var(--bad)'}"></i></div>
       <div class="cost" style="color:${chance >= 60 ? 'var(--ok)' : chance >= 35 ? 'var(--gold)' : 'var(--bad)'}">${Math.round(chance)}% odds</div></div></button>`;
@@ -1769,13 +1795,16 @@
   // ---- CASINO
   // ================================================================ CASINO
   const CAS = { game: 'pontoon', spot: 'red', pick: 'crown', guess: 'higher', res: null };
+  const RACE = { sel: 0, snap: null, off: 0, timer: null, ticker: null };
   const CAS_GAMES = [
     { id: 'pontoon', ico: '♠️', n: 'Blackjack', blurb: 'Beat the dealer to 21. A natural 21 pays 3:2 — five under 21 pays 2:1.' },
     { id: 'greyhound', ico: '🚀', n: 'CRASH', blurb: 'The 2026 classic. Your multiplier rockets 1x, 2x, 5x… until it all comes down. You ride it to the end tonight.' },
     { id: 'wheel', ico: '🎡', n: 'Roulette', blurb: 'Single zero on the drum. Colours and odds pay 1:1, dozens and columns 2:1, a number 35:1.' },
     { id: 'bandit', ico: '🎰', n: 'Slots', blurb: 'Three reels, instant settle. A pair returns your stake — triple sevens pay 60 to 1.' },
     { id: 'crown', ico: '🎲', n: 'Dice', blurb: 'Back one of the six signs. Every die that lands on it pays your stake times the count.' },
-    { id: 'hilow', ico: '🎴', n: 'HiLo', blurb: 'One card shows. Call the next higher or lower and double your money. Ties go to the house.' }
+    { id: 'hilow', ico: '🎴', n: 'HiLo', blurb: 'One card shows. Call the next higher or lower and double your money. Ties go to the house.' },
+    { id: 'spin', ico: '🍀', n: 'Big Wheel', blurb: 'One free spin every day. Keep the streak alive and the whole board fattens in your favour.' },
+    { id: 'races', ico: '🏁', n: 'The Circuit', blurb: 'Six riders, real book odds, settled in minutes. Bets close when the flag drops.' }
   ];
   function pcard(c, back) {
     if (back) return `<div class="pcard back"><span>✦</span></div>`;
@@ -1877,17 +1906,9 @@
     const me = G.me;
     const v = $('#view');
     const gm = CAS_GAMES.find(x => x.id === CAS.game);
-    const handOpen = CAS.game === 'pontoon' && ((CAS.res && CAS.res.game === 'pontoon' && CAS.res.stage === 'hand') || (!CAS.res && me.pontoon));
-    v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🎰 <span class="head">The Corner Betting Shop</span></div>
-      <div class="vdesc">Six tables, one rule: the house always has an edge. The trick is knowing when to walk out the door.</div></div>
-      <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
-      <div class="filterrow" id="cas-tabs">
-        ${CAS_GAMES.map(x => `<button class="minitab ${CAS.game === x.id ? 'on' : ''}" data-act="casino-game" data-game="${x.id}">${x.ico} ${x.n}</button>`).join('')}
-      </div>
-      <div class="card">
-        <div class="subhead" style="color:var(--gold)">${gm.ico} ${gm.n}</div>
-        <p style="color:var(--mut);font-size:12.5px;margin:4px 0 12px">${gm.blurb}</p>
+    const special = CAS.game === 'spin' || CAS.game === 'races';
+    const handOpen = !special && CAS.game === 'pontoon' && ((CAS.res && CAS.res.game === 'pontoon' && CAS.res.stage === 'hand') || (!CAS.res && me.pontoon));
+    const core = special ? `<div id="cas-special"></div>` : `
         ${casOptions()}
         ${handOpen ? '' : `<div class="kv" style="max-width:330px;margin:10px auto 0"><span class="k">Bet</span><span class="v" style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap">
           <input id="cas-bet" type="number" min="10" value="1000" step="100" style="width:110px;text-align:right">
@@ -1897,8 +1918,143 @@
           <button class="btn gold big" id="cas-go" data-act="casino">${CAS.game === 'pontoon' ? '♠️ Deal the cards' : CAS.game === 'greyhound' ? '🎲 Back the dog' : CAS.game === 'wheel' ? '🎡 Spin the wheel' : CAS.game === 'bandit' ? '🎰 Pull the lever' : CAS.game === 'crown' ? '⚓ Roll the dice' : '🎴 Call the card'}</button>
         </div>`}
         <div id="cas-stage" style="margin-top:16px;min-height:110px;display:flex;align-items:center;justify-content:center;border-top:1px dashed var(--line);padding-top:14px">${casStageHtml(me)}</div>
-        <p style="color:var(--dim);font-size:11px;margin-top:10px;text-align:center">Bets from $10 to $1,000,000. Wins put money on your name — the street keeps score.</p>
+        <p style="color:var(--dim);font-size:11px;margin-top:10px;text-align:center">Bets from $10 to $1,000,000. Wins put money on your name — the street keeps score.</p>`;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🎰 <span class="head">The Corner Betting Shop</span></div>
+      <div class="vdesc">Tables, wheels and street odds. The house always has an edge — the trick is knowing when to walk out the door.</div></div>
+      <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
+      <div class="filterrow" id="cas-tabs">
+        ${CAS_GAMES.map(x => `<button class="minitab ${CAS.game === x.id ? 'on' : ''}" data-act="casino-game" data-game="${x.id}">${x.ico} ${x.n}</button>`).join('')}
+      </div>
+      <div class="card">
+        <div class="subhead" style="color:var(--gold)">${gm.ico} ${gm.n}</div>
+        <p style="color:var(--mut);font-size:12.5px;margin:4px 0 12px">${gm.blurb}</p>
+        ${core}
       </div>`;
+    if (CAS.game === 'spin') mountSpin($('#cas-special'));
+    if (CAS.game === 'races') mountCircuit($('#cas-special'));
+  }
+
+  // ---- THE BIG WHEEL — one free daily spin, drawn server-side, spun client-side
+  function mountSpin(el) {
+    if (!el) return;
+    const sp = (G.me && G.me.spin) || { spun: false, streak: 0, nextStreak: 1, mult: 1, segs: [] };
+    const segs = sp.segs.length ? sp.segs : ['BUSTED', '$2,000', '$5,000', 'CIGS ×10', '$12,000', 'ENERGY +30', '$25,000', 'JACKPOT $150k'];
+    el.innerHTML = `
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;justify-content:center;padding-top:6px">
+        <div style="position:relative;width:238px;height:238px;flex:0 0 auto">
+          <div id="bigwheel" style="position:absolute;inset:8px;border-radius:50%;border:2px solid rgba(212,175,55,.45);box-shadow:0 0 22px #000a inset, 0 6px 18px #0008"></div>
+          <div style="position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:22px;z-index:3;filter:drop-shadow(0 2px 3px #000)">🔻</div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffe9a8, var(--gold));color:#241a06;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;box-shadow:0 3px 10px #000c;pointer-events:none">🍀</div>
+        </div>
+        <div style="min-width:210px;flex:1;max-width:320px">
+          <div class="kv"><span class="k">Spin streak</span><span class="v"><b>${sp.streak} day${sp.streak === 1 ? '' : 's'}</b></span></div>
+          <div class="kv"><span class="k">${sp.spun ? 'Tomorrow spins as' : 'Today spins as'}</span><span class="v"><b style="color:var(--gold)">day ${sp.nextStreak}${sp.mult > 1 ? ` · ×${sp.mult}` : ''}</b></span></div>
+          <div id="spin-result" style="min-height:44px;color:var(--mut);font-size:12.5px;margin-top:10px">${sp.spun ? 'The wheel is turned for today — midnight brings it back round.' : 'The wedges you see are the wedges for this spin. One pull, no buy-in.'}</div>
+          <button class="btn gold big" style="margin-top:8px" id="spin-go" data-act="spin_wheel" ${sp.spun ? 'disabled' : ''}>🍀 ${sp.spun ? 'Back after midnight' : 'Spin the Big Wheel'}</button>
+        </div>
+      </div>`;
+    const disc = $('#bigwheel');
+    if (!disc) return;
+    disc.style.background = `conic-gradient(${segs.map((s, i) => `${i % 2 ? '#241b10' : '#2e2415'} ${i * 45}deg ${(i + 1) * 45}deg`).join(',')})`;
+    disc.style.border = '2px solid rgba(212,175,55,.45)';
+    segs.forEach((lab, i) => {
+      const th = i * 45 + 22.5;   // label sits in the middle of its wedge
+      const labEl = document.createElement('div');
+      labEl.textContent = lab;
+      labEl.style.cssText = `position:absolute;top:50%;left:50%;width:86px;margin-left:-43px;margin-top:-7px;font-size:10px;font-weight:800;letter-spacing:.2px;text-align:center;color:${lab === 'BUSTED' ? 'var(--bad)' : '#e8d9b0'};pointer-events:none;transform:rotate(${th}deg) translate(78px,0) rotate(90deg);`;
+      disc.appendChild(labEl);
+    });
+  }
+
+  async function spinGo() {
+    const go = $('#spin-go'); if (go) go.disabled = true;
+    let r;
+    try { r = await Net.post('/api/action', { name: 'spin_wheel' }); }
+    catch (e) { U.toast(esc(e.message || 'The wheel stalls.'), 'bad'); if (go) go.disabled = false; return; }
+    if (!r || !r.res) { if (go) go.disabled = false; return; }
+    const disc = $('#bigwheel');
+    const th = r.res.index * 45 + 22.5;   // pointer must land mid-wedge, not on a seam
+    const finalDeg = 360 * 6 + ((360 - th + 360) % 360);
+    if (disc) {
+      disc.style.transition = 'transform 4.6s cubic-bezier(.12,.86,.16,1)';
+      requestAnimationFrame(() => { disc.style.transform = `rotate(${finalDeg}deg)`; });
+    }
+    SND && SND.roll && SND.roll();
+    setTimeout(() => {
+      if (r.p) applyMe(r.p);   // re-renders the panel — then we paint the result on the FRESH nodes
+      const out2 = document.getElementById('spin-result');
+      if (out2) out2.innerHTML = `<b style="font-size:15px;color:${r.res.kind === 'none' ? 'var(--bad)' : 'var(--gold)'}">${esc(r.res.label)}</b><div style="margin-top:4px;color:var(--mut)">${esc(r.res.text || '')}</div>`;
+      U.toast(r.res.kind === 'none' ? 'BUSTED — nothing today.' : 'The wheel pays: ' + r.res.label, r.res.kind === 'none' ? 'bad' : 'good');
+      const won = r.res.kind !== 'none' && r.res.amount >= 20000;
+      if (won && FX.confetti) FX.confetti();
+    }, 4900);
+  }
+
+  // ---- THE CIRCUIT — live board: runners, odds, tickets, settle
+  function clearRaceTimer() {
+    if (RACE.timer) { clearTimeout(RACE.timer); RACE.timer = null; }
+    if (RACE.ticker) { clearInterval(RACE.ticker); RACE.ticker = null; }
+  }
+  async function refreshCircuit() {
+    const el = document.getElementById('cas-special');
+    if (!el || CAS.game !== 'races' || G.view !== 'casino') { clearRaceTimer(); return; }
+    clearRaceTimer();
+    await mountCircuit(el);
+  }
+  async function mountCircuit(el) {
+    clearRaceTimer();
+    if (!el) return;
+    el.innerHTML = `<div class="skeleton" style="min-height:170px"></div>`;
+    let snap;
+    try { snap = await Net.get('/api/world/races'); }
+    catch (e) { el.innerHTML = `<p style="color:var(--bad);text-align:center;padding:18px 0">The board is dark — ${esc(e.message || 'no signal from the pit')}.</p>`; return; }
+    RACE.snap = snap; RACE.off = snap.now - Date.now();
+    const srvNow = () => Date.now() + RACE.off;
+    drawCircuit(el, srvNow);
+    RACE.ticker = setInterval(() => {
+      const cd = document.getElementById('race-cd');
+      if (!cd || !RACE.snap) return;
+      const now = srvNow(); const r = RACE.snap.round;
+      const lt = !r.settled ? (now < r.openUntil ? r.openUntil - now : r.runUntil - now) : 0;
+      cd.textContent = lt > 0 ? Math.ceil(lt / 1000) + 's' : '—';
+    }, 500);
+  }
+  function drawCircuit(el, srvNow) {
+    if (RACE.timer) { clearTimeout(RACE.timer); RACE.timer = null; }   // one flip timer at a time
+    const s = RACE.snap; if (!s) return;
+    const now = srvNow(); const r = s.round;
+    const ph = r.settled ? 'RESULT' : (now < r.openUntil ? 'BETTING' : 'RUNNING');
+    const rICOS = ['🏍️', '🏎️', '🛵', '⚡', '🚲', '🛺'];
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div><b>Round ${r.id}</b> <span class="qtychip" style="margin-left:8px;color:${ph === 'BETTING' ? 'var(--ok)' : ph === 'RUNNING' ? 'var(--gold)' : 'var(--dim)'}">${ph === 'BETTING' ? '🟢 BETS OPEN' : ph === 'RUNNING' ? '🏁 THEY\'RE OFF' : '⚑ SETTLED'}</span></div>
+        <div class="mono" id="race-cd" style="font-size:16px;color:var(--gold)">—</div>
+      </div>
+      <div style="margin-top:10px">${r.runners.map((x, i) => {
+        const mine = r.bets.filter(b => b.me && b.ri === i);
+        const crowd = r.bets.filter(b => b.ri === i).length;
+        const winner = r.settled && r.winner === i;
+        return `<button class="crime ${(ph === 'BETTING' || winner) ? '' : 'dim'}" data-act="race_runner" data-ri="${i}" ${ph === 'BETTING' ? '' : 'disabled'} style="width:100%;margin-bottom:6px;text-align:left">
+          <div class="req ${winner ? '' : ''}" style="${winner ? 'border-color:var(--gold);color:var(--gold)' : ''}"><span>${winner ? '🏆' : x.odds.toFixed(1)}</span><small>${winner ? 'won' : 'odds'}</small></div>
+          <div class="main"><b>${rICOS[i] || '🏁'} ${esc(x.n)}</b>
+          <span>${mine.length ? `<b style="color:var(--gold)">${mine.map(b => `your $${b.stake.toLocaleString()} @ ${b.odds.toFixed(1)} → pays $${Math.round(b.stake * b.odds).toLocaleString()}`).join(' · ')}</b>` : (ph === 'BETTING' ? (crowd ? crowd + ' ticket' + (crowd > 1 ? 's' : '') + ' on this rider' : 'the board has no love for this one yet') : `pays ${x.odds.toFixed(1)} to 1`)}</span>
+          </div>
+          ${ph === 'BETTING' ? `<div class="cta">${RACE.sel === i ? 'BACK IT ↓' : 'PICK'}</div>` : (r.settled ? `<div class="cta">${winner ? 'WINNER' : '—'}</div>` : '')}
+        </button>`; }).join('')}</div>
+      ${ph === 'BETTING' ? `<div class="kv" style="max-width:400px;margin:12px auto 0"><span class="k">Stake</span><span class="v" style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap">
+        <input id="race-bet" type="number" min="10" value="1000" step="100" style="width:110px;text-align:right">
+        ${[100, 1000, 10000].map(a => `<button class="chip sm qb" data-act="race_qb" data-v="${a}">${a >= 1000 ? (a / 1000) + 'k' : a}</button>`).join('')}
+        <button class="btn gold sm" id="race-go" data-act="race_bet">Place ticket</button>
+      </span></div>
+      <p style="color:var(--dim);font-size:11px;text-align:center;margin-top:8px">Pick a rider above, then stake. Five tickets max a round · payout is stake × odds · refunds never come.</p>` : ''}
+      ${ph === 'RESULT' ? `<p style="color:var(--mut);font-size:12.5px;text-align:center;margin-top:10px">${esc(r.runners[r.winner].n)} takes it${r.bets.some(b => b.me && b.ri === r.winner) ? ' — <b style="color:var(--gold)">your ticket lands.</b>' : r.bets.some(b => b.me) ? ' — your ticket tears.' : '.'} Next walk-up opens in seconds.</p>` : ''}
+      ${(s.hist && s.hist.length) ? `<div style="border-top:1px dashed var(--line);margin-top:14px;padding-top:10px;font-size:12px;color:var(--mut)"><b style="color:var(--dim);font-size:10.5px;letter-spacing:1px">RECENT FLAGS</b><br>${s.hist.map(h => `<span class="qtychip" style="margin:6px 6px 0 0">R${h.id} → ${esc(h.winnerName)}</span>`).join('')}</div>` : ''}`;
+    // ride straight into the moment the next walk-up opens — never drift past it
+    const flipAt = (ph === 'RESULT' && r.nextOpenAt) ? r.nextOpenAt : (ph === 'BETTING' ? r.openUntil : r.runUntil);
+    if (ph !== 'RESULT' || r.nextOpenAt) {
+      RACE.timer = setTimeout(refreshCircuit, Math.min(32000, Math.max(350, flipAt - srvNow() + 400)));
+    }
   }
 
   // ---- FACTION
@@ -2517,7 +2673,19 @@
         const amt = parseInt($('#bank-amt').value, 10) || 1000;
         act(actN, { amount: amt }); break;
       }
-      case 'casino-game': CAS.game = btn.dataset.game; CAS.res = null; renderCasino(); break;
+      case 'casino-game': clearRaceTimer(); CAS.game = btn.dataset.game; CAS.res = null; renderCasino(); break;
+      case 'spin_wheel': spinGo(); break;
+      case 'race_qb': { const bi = $('#race-bet'); if (bi) { bi.value = btn.dataset.v; bi.focus(); } break; }
+      case 'race_runner': { RACE.sel = parseInt(btn.dataset.ri, 10) || 0; const el = document.getElementById('cas-special'); if (el) { drawCircuit(el, () => Date.now() + RACE.off); } break; }
+      case 'race_bet': {
+        const stake = parseInt(($('#race-bet') || {}).value, 10) || 0;
+        const go = $('#race-go'); if (go) go.disabled = true;
+        const rr = await Net.post('/api/action', { name: 'race_bet', runner: RACE.sel, stake }).catch(err => { U.toast(esc(err.message || 'Bet refused'), 'bad'); return null; });
+        if (rr && rr.ok) { if (rr.p) applyMe(rr.p); U.toast(rr.res.text, 'good'); await refreshCircuit(); }
+        if (go) go.disabled = false;
+        break;
+      }
+      case 'heist_walk': { await actCatch('heist_walk', { group: btn.dataset.group }); break; }
       case 'casino-opt': {
         CAS[btn.dataset.k] = btn.dataset.v;
         const row = btn.parentElement;
