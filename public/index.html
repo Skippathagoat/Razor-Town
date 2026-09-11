@@ -34,11 +34,19 @@
   <div class="creator-wrap" id="creator-wrap"></div>
 </section>
 
-<!-- ============ GAME SCREEN ============ -->
+<!-- ============ GAME SCREEN — sidebar yard + top points line, torn-grammar shell ============ -->
 <section id="screen-game" class="screen">
-  <header id="hud" class="hud"></header>
-  <div id="game-body">
+  <aside id="side">
+    <button class="side-logo" data-nav="city" title="Razor Town — home">
+      <img src="img/emblem.png" alt="">
+      <span class="sl-word">RAZOR<em>TOWN</em></span>
+      <span class="sl-year">'26</span>
+    </button>
     <nav id="rail" class="rail"></nav>
+  </aside>
+  <div class="side-scrim" data-act="side_toggle"></div>
+  <div id="main-col">
+    <header id="hud" class="hud"></header>
     <main id="view" class="view"></main>
   </div>
   <footer id="mobile-nav" class="mobile-nav"></footer>

@@ -361,43 +361,49 @@
   }
 
   // ================================================================ HUD
+  // slim points line across the top of the page — torn-grammar header: numbers first, money, wire, bells
   function renderHUD() {
     const me = G.me; if (!me) return;
     const jail = me.jail_until && me.jail_until > Date.now();
     const hosp = me.hosp_until && me.hosp_until > Date.now();
+    const point = (id, icon, label, v, max, extra) => `
+      <div class="hpoint ${id}" title="${label}: ${Math.round(v)} / ${Math.round(max)}${extra || ''}">
+        <span class="hp-ico">${icon}</span><span class="hp-lbl">${label}</span>
+        <span class="hp-val mono">${Math.round(v)}</span><span class="hp-max mono">/ ${Math.round(max)}</span>
+        <span class="hp-bar"><span class="hp-fill ${id}" style="width:${pct(v, max)}%"></span></span>
+      </div>`;
     $('#hud').innerHTML = `
-      <button class="hud-logo" data-nav="city"><img src="img/emblem.png" alt=""><span>RAZOR<span class="tiny">T O W N</span></span></button>
-      <div class="hud-money">
-        <span class="lbl">Cash</span>
+      <button class="iconbtn side-burger" data-act="side_toggle" title="yard menu">☰</button>
+      ${!jail && !hosp ? `<div class="hud-points">
+        ${point('life', '❤', 'Life', me.life, me.max_life)}
+        ${point('energy', '⚡', 'Energy', me.energy, me.max_energy, ' — refills every 30 minutes')}
+        ${point('nerve', '🧠', 'Nerve', me.nerve, me.max_nerve, ' — refills every 30 minutes')}
+        ${point('happy', '🙂', 'Happy', me.happy, 100)}
+        ${point('xp', '⭐', 'XP', me.xpInto, me.xpNeed)}
+      </div>` : `<div class="hud-lockchip">${hosp ? '🏥 In the hospital' : '⛓ In jail'} — the clock is your only friend here.</div>`}
+      <div class="hud-spacer"></div>
+      <div class="hud-money" title="cash on you (lootable) / branch balance">
         <span class="cash mono" id="cash-val">${money(me.money)}</span>
         <span class="banked mono" id="bank-val">🏦 ${money(me.bank)}</span>
       </div>
-      <div class="hud-bars">
-        ${!jail && !hosp ? hbar('life', me.life, me.max_life, '❤', 'Life') : ''}
-        ${!jail && !hosp ? hbar('energy', me.energy, me.max_energy, '⚡', 'Energy') : ''}
-        ${!jail && !hosp ? hbar('nerve', me.nerve, me.max_nerve, '🧠', 'Nerve') : ''}
-        ${!jail && !hosp ? hbar('happy', me.happy, 100, '🙂', 'Happiness') : ''}
-        ${hbar('xp', me.xpInto, me.xpNeed, '⭐', 'Experience')}
-      </div>
-      <div class="hud-spacer"></div>
-      <div class="hud-stats">
-        <span class="hstat" title="Level"><span class="hl">level</span><span class="hv">${me.level}</span></span>
-        <span class="hstat" title="Battle rating"><span class="hl">rating</span><span class="hv">${Math.floor(me.total)}</span></span>
-        <span class="hstat" title="Reputation on the street"><span class="hl">rep</span><span class="hv">${me.reputation.toLocaleString()}</span></span>
+      <div class="hud-meta">
+        <span class="hstat" title="Level"><span class="hl">LV</span><span class="hv">${me.level}</span></span>
+        <span class="hstat" title="Battle rating"><span class="hl">RAT</span><span class="hv">${Math.floor(me.total)}</span></span>
+        <span class="hstat" title="Reputation"><span class="hl">REP</span><span class="hv">${me.reputation.toLocaleString()}</span></span>
       </div>
       ${me.sub && me.sub.active ? `<button class="passchip" data-act="pass_modal" title="Wire Pass active${me.sub.founder ? ' — founder tier, never lapses' : ' — renew before ' + new Date(me.sub.until).toLocaleDateString()}"><span>WIRE&nbsp;PASS</span><b>${me.sub.founder ? '∞' : Math.max(1, Math.ceil((me.sub.until - Date.now()) / 86400000)) + 'd'}</b></button>` : `<button class="passchip dim" data-act="pass_modal" title="The Wire Pass — faster charge, steadier hand, friendlier brokers. $150,000 a week."><span>WIRE&nbsp;PASS</span><b>GO&nbsp;GOLD</b></button>`}
       <span class="pill online" id="online-pill" title="live events + city pulse"><span class="dot"></span><span class="oltext">Live</span></span>
-      <span class="pill" title="players online right now">👥 <span id="online-count">…</span></span>
+      <span class="pill hud-online" title="players online right now">👥 <span id="online-count">…</span></span>
       <button class="iconbtn" data-act="chat_toggle" id="chat-btn" title="The Wire — live city chatter">💬<span class="unread-badge hidden" id="chat-badge"></span></button>
       <button class="iconbtn" data-nav="msg" title="Wire Messages${me.unread ? ' — ' + me.unread + ' unread' : ''}">📨${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>
       <button class="iconbtn ${(jail || hosp) ? 'warn' : ''}" data-act="menu" title="Menu (Esc)">☰</button>`;
-    // live regen countdowns under the bars — re-stamped every second by tickClocks()
+    // regen + loan countdown strip — re-stamped every second
     const tline = $('#tickline');
     if (tline) tline.remove();
     if (!jail && !hosp && me.reftick) {
-      $('#hud .hud-bars').insertAdjacentHTML('afterend', `<div id="tickline">
-        <span class="tchip" id="tick-energy" title="next energy">⚡ +tick <b>--:--</b></span>
-        <span class="tchip" id="tick-nerve" title="next nerve">🧠 +1 <b>--:--</b></span>
+      $('#hud .hud-points').insertAdjacentHTML('afterend', `<div id="tickline">
+        <span class="tchip" id="tick-energy" title="next energy">⚡ <b>--:--</b></span>
+        <span class="tchip" id="tick-nerve" title="next nerve">🧠 <b>--:--</b></span>
         ${me.loan ? `<span class="tchip loan ${me.loan.due < Date.now() ? 'hot' : ''}" title="loan shark">🦈 ${'$' + (me.loan.owed || 0).toLocaleString()} <b id="tick-loan">--:--</b></span>` : ''}
       </div>`);
       tickClocks();
@@ -489,37 +495,52 @@
     if (me.loan) { const lEl = $('#tick-loan'); if (lEl) lEl.textContent = me.loan.due < Date.now() ? 'COLLECTING' : fmtClock(me.loan.due - Date.now()); }
   }
 
+  // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
+  const SIDE_GROUPS = [
+    { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
+    { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
+    { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
+  ];
   function renderRail() {
     const me = G.me;
     const jail = me.jail_until && me.jail_until > Date.now();
     const hosp = me.hosp_until && me.hosp_until > Date.now();
     const lock = (jail || hosp);
     const rail = $('#rail');
-    const avatarHTML = U.avatar(me, 36);
-    let items = '';
-    let section = '';
-    TABS.forEach((t, idx) => {
-      const pre = (idx === 0) ? '' : ((idx === 5) ? `<div class="rail-section">Empire</div>` : (idx === 9) ? `<div class="rail-section">Allies & Glory</div>` : '');
-      let disable = false;
-      if (lock && ['crime', 'gym', 'job', 'attack', 'casino'].includes(t.id)) disable = true;
-      const carried = Object.values(me.items || {}).reduce((a, b) => a + b, 0);
-      const badge = t.id === 'items' && carried ? `<span class="rail-count neutral">${carried}</span>` : '';
-      items += `${pre}<button class="rail-item ${G.view === t.id ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${t.id}" ${disable ? 'disabled' : ''}><span class="ico">${t.ico}</span>${t.label}${badge}<span class="kbd">${t.key}</span></button>`;
-    });
-    rail.innerHTML = `<div class="profile-chip" data-nav="profile">
-      <div class="pc-top">${avatarHTML}<div style="min-width:0"><b>${esc(me.name)}</b><span>⭐ Level ${me.level} · ${Math.floor(me.total)} rating</span></div></div>
-      <div class="pc-hp">${hbar('life', me.life, me.max_life, '❤', 'Life')}</div></div>${items}
-      <div class="rail-section">World</div>
-      <button class="rail-item ${G.view === 'leaders' ? 'on' : ''}" data-nav="leaders"><span class="ico">👑</span>The Gallery<span class="kbd">l</span></button>
-      <button class="rail-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="rail-count">${me.unread}</span>` : ''}<span class="kbd">n</span></button>
-      <button class="rail-item ${G.view === 'help' ? 'on' : ''}" data-nav="help"><span class="ico">❔</span>Help<span class="kbd">/</span></button>
-      ${lock ? `<div class="rail-section" style="color:var(--bad)">⛓ Locked (${hosp ? 'Hospital' : 'Jail'})</div>` : ''}`;
-    // mobile nav
+    if (!G.sideFold) G.sideFold = {};
+    const tabOf = (id) => TABS.find(t => t.id === id);
+    const carried = Object.values(me.items || {}).reduce((a, b) => a + b, 0);
+    const itemBtn = (tid) => {
+      const tb = tabOf(tid); if (!tb) return '';
+      const disable = lock && ['crime', 'gym', 'job', 'attack', 'casino'].includes(tid);
+      const badge = tid === 'items' && carried ? `<span class="rail-count neutral">${carried}</span>` : (tid === 'msg' && me.unread ? `<span class="rail-count">${me.unread}</span>` : '');
+      return `<button class="rail-item ${G.view === tid ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${tid}" ${disable ? 'disabled' : ''}><span class="ico">${tb.ico}</span><span class="rl">${tb.label}</span>${badge}<span class="kbd">${tb.key}</span></button>`;
+    };
+    let html = itemBtn('city');
+    for (const g of SIDE_GROUPS) {
+      const hasCurrent = g.tabs.includes(G.view);
+      const folded = G.sideFold[g.id] === true && !hasCurrent;
+      const unreadHere = g.id === 'crew' && me.unread ? `<span class="rail-count">${me.unread}</span>` : '';
+      html += `<button class="rail-group ${hasCurrent ? 'lit' : ''} ${folded ? 'folded' : ''}" data-sg="${g.id}"><span class="ico">${g.ico}</span><span class="rl">${g.name}</span>${unreadHere}<span class="chev">▾</span></button>
+        <div class="rail-groupbody ${folded ? 'folded' : ''}" id="sg-${g.id}">${g.tabs.map(itemBtn).join('')}</div>`;
+    }
+    if (lock) html += `<div class="rail-section" style="color:var(--bad)">⛓ Locked (${hosp ? 'Hospital' : 'Jail'})</div>`;
+    html += `<div class="rail-grow"></div>`;
+    html += `<div class="profile-chip" data-nav="profile" title="your page">
+      <div class="pc-top">${U.avatar(me, 34)}<div style="min-width:0"><b>${esc(me.name)}</b><span>⭐ ${me.level} · ${Math.floor(me.total)} rating</span></div></div>
+      <div class="pc-funds mono">$${(me.money || 0).toLocaleString()}</div></div>`;
+    rail.innerHTML = html;
+    $$('#rail [data-nav]').forEach(b => b.addEventListener('click', () => { nav(b.dataset.nav); document.body.classList.remove('side-open'); }));
+    $$('#rail [data-sg]').forEach(b => b.addEventListener('click', () => {
+      G.sideFold[b.dataset.sg] = !(G.sideFold[b.dataset.sg] === true);
+      renderRail();
+    }));
+    // mobile quick-row
     const mnav = $('#mobile-nav');
-    mnav.innerHTML = TABS.map(t => `<button class="mnav-item ${G.view === t.id ? 'on' : ''}" data-nav="${t.id}"><span class="ico">${t.ico}</span>${t.label}</button>`).join('')
-      + `<button class="mnav-item ${G.view === 'msg' ? 'on' : ''}" data-nav="msg"><span class="ico">📨</span>Messages${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>`;
+    const MOBILE_TABS = ['city', 'crime', 'items', 'bank', 'faction', 'msg'];
+    mnav.innerHTML = MOBILE_TABS.map(tid => { const tb = tabOf(tid); return `<button class="mnav-item ${G.view === tid ? 'on' : ''}" data-nav="${tid}"><span class="ico">${tb.ico}</span><span>${tb.label}</span>${tid === 'msg' && me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>`; }).join('')
+      + `<button class="mnav-item" data-act="side_toggle"><span class="ico">☰</span><span>Menu</span></button>`;
     $$('#mobile-nav [data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
-    $$('#rail [data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
   }
 
   // ================================================================ NAV
@@ -1019,7 +1040,7 @@
   // ---- CRIMES
   function renderCrime() {
     const me = G.me, m = G.meta;
-    const cats = [['all', 'All jobs', '🃏'], ...Object.entries(m.crimeCats)];
+    const cats = [['all', 'All jobs', '🃏'], ...Object.entries(m.crimeCats).map(([id, c]) => [id, (c && c.name) || id, (c && c.icon) || '•'])];
     const cat = G.filters.cat;
     const v = $('#view');
     const jail = me.jail_until && me.jail_until > Date.now();
@@ -1240,11 +1261,13 @@
     const price = tab === 'buy' ? it.buy : it.sell;
     return `<div class="itemrow"><span class="ic">${it.icon}</span>
       <div class="nm"><b>${esc(it.name)}</b><small>${esc(desc)}</small></div>
-      ${tab === 'sell' ? `<span class="qtychip">owned ×${owned}</span>` : ''}
-      <div class="qtychip" style="color:${tab === 'buy' ? 'var(--cyn)' : 'var(--gold)'}">${money(price)}</div>
-      ${tab === 'buy'
-        ? `<button class="btn sm buybtn" data-act="buy" data-item="${id}" data-qty="1">Buy 1</button>${it.type === 'use' && owned < 99 ? `<button class="btn sm" data-act="buy" data-item="${id}" data-qty="10">×10</button>` : ''}`
-        : `<button class="btn sm" data-act="sell" data-item="${id}">Sell all ×${owned}</button>`}
+      <div class="acts" style="display:flex;align-items:center;gap:6px;justify-content:flex-end;flex-shrink:0">
+        ${tab === 'sell' ? `<span class="qtychip">owned ×${owned}</span>` : ''}
+        <span class="qtychip" style="color:${tab === 'buy' ? 'var(--cyn)' : 'var(--gold)'}">${money(price)}</span>
+        ${tab === 'buy'
+          ? `<button class="btn sm buybtn" data-act="buy" data-item="${id}" data-qty="1">Buy 1</button>${it.type === 'use' && owned < 99 ? `<button class="btn sm" data-act="buy" data-item="${id}" data-qty="10">×10</button>` : ''}`
+          : `<button class="btn sm" data-act="sell" data-item="${id}">Sell all ×${owned}</button>`}
+      </div>
       </div>`;
   }
 
@@ -1643,7 +1666,7 @@
           <input placeholder="Gang name" id="fac-name" maxlength="24" style="flex:1;min-width:150px">
           <input placeholder="TAG" id="fac-tag" maxlength="4" style="width:90px;text-transform:uppercase">
           <button class="btn gold" data-act="faction_create">Found it</button></div>
-        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Level ${me.level >= 5 ? '' : '<span style=\"color:var(--bad)\">You need level 5</span> · '} \$200,000 founding fee ${me.money >= 200000 ? '' : '· <span style="color:var(--bad)">not enough cash</span>'}
+        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Founding needs level 5${me.level >= 5 ? ' ✓' : ' · <span style=\"color:var(--bad)\">you are level ' + me.level + '</span>'} and a \$200,000 fee${me.money >= 200000 ? ' ✓' : ' · <span style="color:var(--bad)">you are short</span>'}
         </p></div>`}
       <div class="grid2">${fs.map(f => `
         <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -2143,6 +2166,7 @@
       }
       case 'faction_join': act('faction_join', { fid: +btn.dataset.fid }); break;
       case 'faction_leave': act('faction_leave', {}); break;
+      case 'side_toggle': document.body.classList.toggle('side-open'); break;
       case 'chat_toggle': chatToggle(); break;
       case 'chat_send': {
         const inp = $('#cd-text');

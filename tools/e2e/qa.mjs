@@ -83,11 +83,28 @@ async function openPage(cookie, mobile) {
   }
   return { ctx, pg, errs };
 }
-const navTo = (pg, t, mobile) => pg.evaluate((root, t) => {
-  const b = [...document.querySelectorAll(`${root} [data-nav]`)].find(x => x.dataset.nav === t);
-  if (!b) throw new Error('no nav button ' + t);
-  b.scrollIntoView({ block: 'nearest' }); b.click();
-}, mobile ? '#mobile-nav' : '#rail', t).then(() => sleep(380));
+const navTo = async (pg, t, mobile) => {
+  if (mobile) {
+    // phones walk the same path a thumb does: quick-row if it's there, else Menu -> yard drawer
+    const onQuick = await pg.evaluate((t) => !!document.querySelector('#mobile-nav [data-nav="' + t + '"]'), t);
+    if (!onQuick) {
+      await pg.evaluate(() => { if (!document.body.classList.contains('side-open')) document.body.classList.add('side-open'); });
+    }
+    await pg.evaluate((t) => {
+      const b = document.querySelector(onQuick(t) ? ('#mobile-nav [data-nav="' + t + '"]') : ('#rail [data-nav="' + t + '"]'));
+      if (!b) throw new Error('no nav button ' + t);
+      b.scrollIntoView({ block: 'nearest' }); b.click();
+      document.body.classList.remove('side-open');
+      function onQuick(t) { return !!document.querySelector('#mobile-nav [data-nav="' + t + '"]'); }
+    }, t);
+    return sleep(380);
+  }
+  await pg.evaluate((t) => {
+    const b = [...document.querySelectorAll('#rail [data-nav]')].find(x => x.dataset.nav === t);
+    if (!b) throw new Error('no nav button ' + t);
+    b.scrollIntoView({ block: 'nearest' }); b.click();
+  }, t).then(() => sleep(380));
+};
 const viewTxt = (pg) => pg.evaluate(() => (document.querySelector('#view') || {}).textContent || '').then(t => t.replace(/\s+/g, ' ').trim().toUpperCase());
 const click = (pg, sel) => pg.evaluate(s => { const el = document.querySelector(s); if (!el) throw new Error('no el ' + s); el.click(); }, sel).then(() => sleep(150));
 
