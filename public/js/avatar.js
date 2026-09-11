@@ -806,6 +806,10 @@
 
     // head
     f += faceSVG(feat, hair, p.accent, cx, cy, sc, u);
+    // soft photo-real shading: cheek hollows + jaw rim (sits under hair hats)
+    f += `<ellipse cx="46" cy="57" rx="5.5" ry="8" fill="#000" opacity=".1"/>`;
+    f += `<ellipse cx="74" cy="57" rx="5.5" ry="8" fill="#000" opacity=".1"/>`;
+    f += `<path d="M44 68 Q60 75 76 68" fill="none" stroke="#000" stroke-width="1.4" opacity=".16"/>`;
     f += headwearSVG(hair, cx, cy, sc, u);
 
     // vignette + rim light
@@ -982,8 +986,30 @@
   function svgDataUri(s, size) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgFor(s, size)); }
   function dollDataUri(s, size, opts) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(doll(s, size, opts)); }
 
+  // ---------------------------------------------------------------- MUGSHOT
+  // Police-placard wrap around the portrait: height graduations + a booking strip.
+  // Used on the custody roster, profiles while jailed, and the yard header.
+  function mugshot(s, size, name) {
+    const inner = svgFor(s, 120);
+    const no = 100000 + (hash(s) % 899999);
+    let grid = '';
+    for (let y = 18; y <= 108; y += 10) grid += `<path d="M6 ${y} H114" stroke="#aeb6c2" stroke-width=".5" opacity=".35"/>`;
+    for (let x = 6; x <= 114; x += 9) grid += `<path d="M${x} 18 v4" stroke="#aeb6c2" stroke-width=".8" opacity=".6"/>`;
+    const nm = String(name || 'DETAINED').toUpperCase().slice(0, 16);
+    return `<svg viewBox="0 0 120 136" width="${size}" height="${Math.round(size * 136 / 120)}" role="img" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="136" fill="#111318"/>
+      <g>${inner}</g>
+      ${grid}
+      <rect x="0" y="0" width="120" height="12" fill="rgba(0,0,0,.55)"/>
+      <text x="6" y="9" font-family="monospace" font-size="7" fill="#cfd6e2" letter-spacing="1.4">RTPD&nbsp;&nbsp;${no}</text>
+      <rect x="0" y="122" width="120" height="14" fill="#e8e4d8"/>
+      <text x="6" y="132" font-family="sans-serif" font-size="7.6" font-weight="700" fill="#23231f" letter-spacing=".6">${nm}</text>
+      <text x="114" y="132" text-anchor="end" font-family="monospace" font-size="7" fill="#6b675c">HOLD</text>
+    </svg>`;
+  }
+
   window.AV = {
-    svgFor, doll, svgDataUri, dollDataUri, parts, wear,
+    svgFor, doll, mugshot, svgDataUri, dollDataUri, parts, wear,
     SKINS, SKIN_NAMES, HAIRS, SHIRTS, SHIRT_NAMES, SHIRT_STYLE, ACCENTS, ACCENT_NAMES, FACE_FEAT,
     nameOf(kind, i) {
       const t = { skin: SKIN_NAMES, hair: HAIRS.map(h => h.n), shirt: SHIRT_NAMES, accent: ACCENT_NAMES, face: FACE_FEAT.map(x => x.n) };

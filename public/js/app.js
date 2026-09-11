@@ -13,6 +13,7 @@
   const TABS = [
     { id: 'city', label: 'Home', ico: '🏙️', key: 'h' },
     { id: 'crime', label: 'Crimes', ico: '🧢', key: 'c', pulse: true },
+    { id: 'jail', label: 'Jail', ico: '⛓️', key: 'x' },
     { id: 'attack', label: 'Attack', ico: '⚔️', key: 'a' },
     { id: 'gym', label: 'Train', ico: '🏋️', key: 't' },
     { id: 'job', label: 'Job', ico: '💼', key: 'j' },
@@ -528,7 +529,7 @@
 
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
-    { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
+    { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -568,7 +569,7 @@
     }));
     // mobile quick-row
     const mnav = $('#mobile-nav');
-    const MOBILE_TABS = ['city', 'crime', 'items', 'bank', 'faction', 'msg'];
+    const MOBILE_TABS = ['city', 'crime', 'jail', 'items', 'bank', 'msg'];
     mnav.innerHTML = MOBILE_TABS.map(tid => { const tb = tabOf(tid); return `<button class="mnav-item ${G.view === tid ? 'on' : ''}" data-nav="${tid}"><span class="ico">${tb.ico}</span><span>${tb.label}</span>${tid === 'msg' && me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>`; }).join('')
       + `<button class="mnav-item" data-act="side_toggle"><span class="ico">☰</span><span>Menu</span></button>`;
     $$('#mobile-nav [data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
@@ -586,7 +587,9 @@
     v.scrollTop = 0;
     const jail = G.me.jail_until && G.me.jail_until > Date.now();
     const hosp = G.me.hosp_until && G.me.hosp_until > Date.now();
-    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev };
+    // cover lifecycle: the custody cover must never sit on the yard or the cells — and drops on release
+    if (!jail || view === 'crime' || view === 'jail') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
+    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -597,6 +600,7 @@
       const jail = me.jail_until && me.jail_until > Date.now();
       const hosp = me.hosp_until && me.hosp_until > Date.now();
       if (!jail && !hosp) return;
+      if (G.view === 'crime' || G.view === 'jail') return;   // the yard and the cells stay tappable behind bars
       const el = document.createElement('div');
       el.id = 'lock-cover'; el.className = 'cover';
       v.parentElement.style.position = 'relative';
@@ -860,7 +864,7 @@
   }
 
   function reRenderCurrent(res) {
-    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, dev: renderDev };
+    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -987,7 +991,7 @@
     const mult = (res.mult || 0);
     root.innerHTML = `<div class="modal scene active"><div class="scene-card ${res.win ? (mult > 2.4 ? 'jackpot' : 'win') : 'lose'}">
       <div class="scene-title">${res.win ? 'CASHED OUT' : 'CRASH!'}</div>
-      <div class="scene-sub">The Greyhound Dash · your run hit <b style="color:var(--cyn)">${mult.toFixed(2)}x</b> before the crash at ${(res.crash || 0).toFixed(2)}x</div>
+      <div class="scene-sub">CRASH · your line pumped to <b style="color:var(--cyn)">${mult.toFixed(2)}x</b> before coming down at ${(res.crash || 0).toFixed(2)}x</div>
       ${res.win ? `<div class="scene-cash">${money(res.pay)}</div>` : `<p style="color:var(--bad);font-weight:700">You lost ${money(res.bet)}.</p>`}
       <div class="scene-actions"><button class="btn primary" data-act="close-scene">Leave the floor</button></div></div></div>`;
   }
@@ -1058,7 +1062,10 @@
               ${tp.banned ? `<button class="btn sm ok" data-act="dev_world" data-op="unban" data-tid="${tp.acc_id}">Unban</button>`
                           : (tp.dev ? '' : `<button class="btn sm bad" data-act="dev_world" data-op="ban" data-tid="${tp.acc_id}">Ban</button>`)}
               ${tp.dev ? '' : `<button class="btn sm" data-act="dev_world" data-op="set_password" data-tid="${tp.acc_id}">Set password</button>`}
-              ${tp.dev ? '' : `<button class="btn sm bad" data-act="dev_world" data-op="delete_account" data-tid="${tp.acc_id}" data-uname="${esc(tp.username)}">Delete</button>`}
+              ${tp.dev ? '' : (G.devArm === tp.acc_id
+                ? `<span style="display:flex;gap:4px;align-items:center"><input class="in" id="dev-del-inp" style="width:130px;height:26px" placeholder="type @${esc(tp.username)}">
+                   <button class="btn sm bad" data-act="dev_del_go" data-tid="${tp.acc_id}" data-uname="${esc(tp.username)}">Strike off — this is forever</button></span>`
+                : `<button class="btn sm bad" data-act="dev_del_arm" data-tid="${tp.acc_id}" data-uname="${esc(tp.username)}">Delete</button>`)}
             </div></div>
           <div class="card" id="${uuid}" style="display:none;margin:0 0 6px;background:var(--bg1)">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;font-size:12px">
@@ -1098,7 +1105,7 @@
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">⛓ <span class="head">THE YARD</span></div>
       <div class="vdesc">Banged up with ${fmtDur(left)} left on the clock — but the sentence is only dead time if you let it be. Work, lift, play the man, buy the door, or go through the wall.</div></div>
-      <div class="pill"><span style="color:var(--bad)">⛓ ${fmtDur(left)} left</span> <b style="color:var(--gold)">🚬 ${pr.cigs} cigarettes</b></div></div>
+      <div class="pill" style="display:flex;align-items:center;gap:8px"><span style="width:34px;border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.2);display:inline-block">${AV.mugshot(me.avatar, 34, me.name)}</span><span style="color:var(--bad)">⛓ ${fmtDur(left)} left</span> <b style="color:var(--gold)">🚬 ${pr.cigs} cigarettes</b></div></div>
 
       <div class="card"><div class="subhead">🧺 Ways to make the time pay</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
@@ -1140,6 +1147,70 @@
     } catch (e) { U.toast('⚠️ ' + esc(e.message), 'bad'); }
   }
 
+  // ---- THE CELLS — live custody roster; post anyone's bail
+  async function renderJail() {
+    const me = G.me, v = $('#view');
+    const now = Date.now();
+    if (me.jail_until && me.jail_until > now) { renderPrison(); return; }   // your own stretch: the yard
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">⛓️ <span class="head">The Cells</span></div>
+      <div class="vdesc">The custody roster, live. Friends, family and creative accountants open each other's doors here — paid to the state, never the citizen.</div></div>
+      <div id="jail-board" style="max-width:680px"><div class="skeleton"></div></div>`;
+    try {
+      const d = await Net.get('/api/jail');
+      const el = document.getElementById('jail-board'); if (!el || G.view !== 'jail') return;
+      const rows = (d.inmates || []);
+      if (!rows.length) { el.innerHTML = `<div class="card" style="text-align:center"><p style="color:var(--dim);font-size:13px;margin:6px 0">The cells are quiet right now. Even the regulars are walking around outside.</p></div>`; return; }
+      el.innerHTML = rows.map(r => {
+        const mins = Math.max(1, Math.ceil(r.left / 60000));
+        const can = (me.money + me.bank) >= r.bail && me.acc_id !== r.id;
+        return `<div class="card" style="display:flex;gap:10px;align-items:center;padding:9px 10px;width:100%;box-sizing:border-box;margin:0 0 10px 0">
+          <div style="width:56px;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.14)">${AV.mugshot(r.avatar, 56, r.name)}</div>
+          <div style="flex:1;min-width:0"><b>${esc(r.name)}</b> <span style="color:var(--dim);font-size:12px">lvl ${r.level}${r.busts ? ' · ' + r.busts + ' escape' + (r.busts > 1 ? 's' : '') + ' priors' : ''}</span>
+            <div style="color:var(--mut);font-size:12px">⏱ ${mins} min left</div></div>
+          <div style="text-align:right"><div class="mono" style="color:var(--gold);font-weight:800">$${r.bail.toLocaleString()}</div>
+            <button class="btn sm ${can ? 'gold' : 'ghost'}" data-act="bail_other" data-tid="${r.id}" ${can ? '' : 'disabled'} title="${can ? 'Post their bail' : (me.acc_id === r.id ? 'That one is yours to serve' : 'Short across cash + bank')}">Post bail</button></div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      const el = document.getElementById('jail-board');
+      if (el) el.innerHTML = '<div class="card"><p style="color:var(--dim)">The custody desk is not answering. Try again in a minute.</p></div>';
+    }
+  }
+  async function bailOther(btn) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const r = await Net.post('/api/action', { name: 'bail_other', targetId: parseInt(btn.dataset.tid, 10) || 0 });
+      if (r.p) applyMe(r.p, r.res);
+      U.toast(esc((r.res && r.res.text) || 'Bail posted.'), 'good');
+      renderHUD(); renderRail();
+      if (G.view === 'jail') renderJail();
+    } catch (e) { U.toast('⚠️ ' + esc(e.message), 'bad'); btn.disabled = false; }
+  }
+  async function dailyClaim() {
+    try {
+      const r = await Net.post('/api/action', { name: 'daily' });
+      if (r.p) applyMe(r.p, r.res);
+      U.toast(esc((r.res && r.res.text) || 'Collected.'), 'good');
+      SND.win && SND.win();
+      renderHUD();
+      if (G.view === 'city') renderCity();
+    } catch (e) { U.toast('⚠️ ' + esc(e.message), 'bad'); }
+  }
+  async function wireGo() {
+    const to = ($('#wire-to') || { value: '' }).value.trim();
+    const amount = parseInt(($('#wire-amt') || { value: '' }).value, 10) || 0;
+    const note = ($('#wire-note') || { value: '' }).value.trim();
+    try {
+      const r = await Net.post('/api/action', { name: 'wire', to, amount, note });
+      if (r.p) applyMe(r.p, r.res);
+      U.toast(esc((r.res && r.res.text) || 'Wire sent.'), 'good');
+      renderHUD();
+      if (G.view === 'bank') renderBank();
+    } catch (e) { U.toast('⚠️ ' + esc(e.message), 'bad'); }
+  }
+
   function renderCity() {
     const me = G.me, m = G.meta;
     const v = $('#view');
@@ -1149,7 +1220,11 @@
     const ctab = G.filters.city || 'yard';
     if (ctab === 'shops') { renderShopsInto(v); return; }
     if (ctab === 'board') { renderMissionsInto(v); return; }
-    v.innerHTML = `
+    const dly = me.daily || { streak: 0, claimed: false, next: 400 + (me.level || 1) * 25 };
+    const dailyCard = dly.claimed
+      ? `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px"><span style="font-size:18px">✨</span><div style="flex:1;font-size:12.5px;color:var(--dim)"><b style="color:var(--ok)">Daily Strike collected.</b> Streak ${dly.streak} day${dly.streak === 1 ? '' : 's'} — tomorrow pays $${dly.next.toLocaleString()}.</div></div>`
+      : `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px;border-color:rgba(226,183,20,.5)"><span style="font-size:18px">⚡</span><div style="flex:1;font-size:12.5px"><b>Daily Strike</b> <span style="color:var(--dim)">— streak ${dly.streak} day${dly.streak === 1 ? '' : 's'}${dly.streak ? ' — claim to keep it alive' : ''}</span></div><button class="btn sm gold" data-act="daily_claim">Collect $${dly.next.toLocaleString()}</button></div>`;
+    v.innerHTML = dailyCard + `
       <div class="vhead"><div><div class="vtitle">🏙️ <span class="head">RAZOR TOWN</span></div>
       <div class="vdesc">${inJail ? 'You are behind bars — your time will pass.' : inHosp ? 'You are recovering in the hospital.' : 'The night is young and the yards are full of opportunity.'}</div></div>
       <div class="pill online"><span class="dot"></span><span class="oltext">The yard, live</span></div>
@@ -1510,13 +1585,15 @@
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;opacity:.9"><polyline fill="none" stroke="${up ? 'var(--ok)' : 'var(--mag)'}" stroke-width="1.8" points="${pts}"/></svg>`;
   }
   function renderBank() {
+    const wireCard = `<div class="card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:17px">📡</span><div><b style="font-size:14px">Wire cash to a citizen</b><div style="font-size:11.5px;color:var(--dim)">Person to person, settles instantly. 2% desk fee (min $5). They get a wire message either way.</div></div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><input id="wire-to" class="in" placeholder="citizen name (exact)" style="flex:1;min-width:130px"><input id="wire-amt" class="in" type="number" min="50" placeholder="$ amount" style="width:110px"><input id="wire-note" class="in" placeholder="note (optional)" maxlength="80" style="flex:1;min-width:120px"><button class="btn sm gold" data-act="wire_send">Send wire</button></div></div>`;
     const me = G.me;
     const v = $('#view');
     const sub = FIN.sub || 'bank';
     if (sub === 'stocks') { renderStocksInto(v); return; }
     if (sub === 'crypto') { renderCryptoInto(v); return; }
     const ir = (0.04 * (me.bonuses && (1 + 0) ? 1 : 1));
-    v.innerHTML = `
+    v.innerHTML = wireCard + `
       <div class="vhead"><div><div class="vtitle">🏦 <span class="head">The Wire Exchange Bank</span></div>
       <div class="vdesc">Your branch, the big board and the chains — every balance in one chair.</div></div>
       <div class="filterrow">
@@ -1693,12 +1770,12 @@
   // ================================================================ CASINO
   const CAS = { game: 'pontoon', spot: 'red', pick: 'crown', guess: 'higher', res: null };
   const CAS_GAMES = [
-    { id: 'pontoon', ico: '♠️', n: 'Pontoon', blurb: 'Beat the dealer to 21. Naturals pay 3:2 — five cards under 21 pays 2:1.' },
-    { id: 'greyhound', ico: '🐕', n: 'The Dog', blurb: 'The Greyhound Dash. Your multiplier climbs... until the dog falls over.' },
-    { id: 'wheel', ico: '🎡', n: 'The Wheel', blurb: 'Single zero on the drum. Colours and odds pay 1:1, dozens and columns 2:1, a number 35:1.' },
-    { id: 'bandit', ico: '🎰', n: 'The Bandit', blurb: 'Three reels. A pair returns your stake — three sevens pay 60 to 1.' },
-    { id: 'crown', ico: '⚓', n: 'Crown & Anchor', blurb: 'Back one of the six signs. Every die that lands on it pays your stake again.' },
-    { id: 'hilow', ico: '🎴', n: 'High-Low', blurb: 'One card shows. Call the next higher or lower and double your money. Ties go to the house.' }
+    { id: 'pontoon', ico: '♠️', n: 'Blackjack', blurb: 'Beat the dealer to 21. A natural 21 pays 3:2 — five under 21 pays 2:1.' },
+    { id: 'greyhound', ico: '🚀', n: 'CRASH', blurb: 'The 2026 classic. Your multiplier rockets 1x, 2x, 5x… until it all comes down. You ride it to the end tonight.' },
+    { id: 'wheel', ico: '🎡', n: 'Roulette', blurb: 'Single zero on the drum. Colours and odds pay 1:1, dozens and columns 2:1, a number 35:1.' },
+    { id: 'bandit', ico: '🎰', n: 'Slots', blurb: 'Three reels, instant settle. A pair returns your stake — triple sevens pay 60 to 1.' },
+    { id: 'crown', ico: '🎲', n: 'Dice', blurb: 'Back one of the six signs. Every die that lands on it pays your stake times the count.' },
+    { id: 'hilow', ico: '🎴', n: 'HiLo', blurb: 'One card shows. Call the next higher or lower and double your money. Ties go to the house.' }
   ];
   function pcard(c, back) {
     if (back) return `<div class="pcard back"><span>✦</span></div>`;
@@ -1718,15 +1795,15 @@
         <div class="numgrid">${nums.map(([n, cls]) => `<button class="numchip ${cls} ${CAS.spot === 'n:' + n ? 'on' : ''}" data-act="casino-opt" data-k="spot" data-v="${'n:' + n}">${n}</button>`).join('')}</div>`;
     }
     if (g === 'crown') {
-      const sigs = [['crown', '👑'], ['anchor', '⚓'], ['heart', '♥️'], ['diamond', '♦️'], ['club', '♣️'], ['spade', '♠️']];
-      return `<div class="chiprow">${sigs.map(([id, gy]) => chip('pick', id, `${gy} ${id[0].toUpperCase() + id.slice(1)}`)).join('')}</div>`;
+      const sigs = [['crown', '🚀', 'Rocket'], ['anchor', '🛰️', 'Satellite'], ['heart', '🎯', 'Bullseye'], ['diamond', '⚡', 'Strike'], ['club', '🐺', 'Wolf'], ['spade', '💎', 'Ice']];
+      return `<div class="chiprow">${sigs.map(([id, gy, nm]) => chip('pick', id, `${gy} ${nm}`)).join('')}</div>`;
     }
     if (g === 'hilow') return `<div class="chiprow">${chip('guess', 'higher', '⬆ Higher')}${chip('guess', 'lower', '⬇ Lower')}</div>`;
     return '';
   }
   function pontoonHandHtml(h, settledRes) {
     if (settledRes) {
-      const lab = { 'pontoon': '♠️ PONTOON! Naturals pay 3:2', 'five-card-trick': '✋ FIVE-CARD TRICK! Pays 2:1', 'dealer-bust': 'The dealer went bust', win: 'You beat the house', push: 'Push — stake returned', bust: 'BUST — over the 21', lose: 'The house takes it', 'house-pontoon': 'The dealer had a pontoon' }[settledRes.outcome] || settledRes.outcome;
+      const lab = { 'pontoon': '♠️ BLACKJACK! Naturals pay 3:2', 'five-card-trick': '✋ FIVE-CARD 21! Pays 2:1', 'dealer-bust': 'The dealer went over', win: 'You beat the house', push: 'Push — stake returned', bust: 'BUST — over the 21', lose: 'The house takes it', 'house-pontoon': 'The dealer hit a natural' }[settledRes.outcome] || settledRes.outcome;
       return `<div style="text-align:center">
         <div class="scene-sub" style="margin-bottom:6px">The house shows <b class="mono">${settledRes.dv}</b></div>
         <div class="pcard-row">${settledRes.dealer.map(c => pcard(c)).join('')}</div>
@@ -2004,7 +2081,7 @@
       </div></div>
       <div class="grid2 profile-grid">
         <div class="dollframe">
-          ${AV.doll(me.avatar, 210)}
+          ${(me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210)}
           <div class="dollname">${esc(me.name)}</div>
           <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}</div>
           <div class="dollbio">${esc(me.bio || '')}</div>
@@ -2407,6 +2484,24 @@
     } catch (e) { U.toast(esc(e.message || 'Dev op failed'), 'bad'); }
   }
 
+  function devDelArm(btn) {
+    G.devArm = parseInt(btn.dataset.tid, 10);
+    renderDev();
+    setTimeout(() => { const i = $('#dev-del-inp'); if (i) i.focus(); }, 30);
+  }
+  async function devDelGo(btn) {
+    const tid = parseInt(btn.dataset.tid, 10);
+    const want = String(btn.dataset.uname || '').trim().toLowerCase();
+    const got = (($('#dev-del-inp') || { value: '' }).value || '').trim().toLowerCase();
+    if (got !== want) { U.toast('Type the exact handle to strike them off.', 'bad'); return; }
+    G.devArm = null;
+    try {
+      await Net.post('/api/dev/world', { op: 'delete_account', target: tid });
+      U.toast('Account struck from the ledger.', 'good');
+      renderDev();
+    } catch (e) { U.toast(esc(e.message || 'Delete failed'), 'bad'); }
+  }
+
   async function devPayDecide(btn) {
     try {
       const r = await Net.post('/api/dev/world', { op: 'pay_decide', claim_id: parseInt(btn.dataset.claim, 10), approve: btn.dataset.approve === '1' });
@@ -2463,6 +2558,11 @@
       case 'dev_self': devSelf(btn); break;
       case 'dev_world': devWorld(btn); break;
       case 'prison': prisonGo(btn); break;
+      case 'bail_other': bailOther(btn); break;
+      case 'daily_claim': dailyClaim(); break;
+      case 'wire_send': wireGo(); break;
+      case 'dev_del_arm': devDelArm(btn); break;
+      case 'dev_del_go': devDelGo(btn); break;
       case 'dev_info': { const x = btn.dataset.x && document.getElementById(btn.dataset.x); if (x) x.style.display = x.style.display === 'none' ? '' : 'none'; break; }
       case 'dev_pay': devPayDecide(btn); break;
       case 'pass_buy': act('pass_buy', {}); break;

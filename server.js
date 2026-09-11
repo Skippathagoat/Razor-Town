@@ -217,6 +217,8 @@ const routes = async (req, res, urlPath, q) => {
   }
 
   // -- me (200 + {me:null} when logged out, so the client can probe quietly)
+  if (urlPath === '/api/jail' && method === 'GET') return send(res, 200, { inmates: W.jailBoard() });
+
   if (urlPath === '/api/me' && method === 'GET') {
     const id = authOf(req);
     if (id) {
@@ -345,6 +347,10 @@ const routes = async (req, res, urlPath, q) => {
       try { A.setPassword(target, body.password); return send(res, 200, { ok: true }); }
       catch (e) { return send(res, 400, { err: e.message }); }
     }
+    if (op === 'jail') {
+      const tj = W.devJail(parseInt(body.target, 10) || 0, body.minutes);
+      return tj.err ? send(res, 404, { err: tj.err }) : send(res, 200, { ok: true, jailed: tj.name, minutes: tj.minutes });
+    }
     if (op === 'delete_account') {
       if (untouchable) return send(res, 400, { err: 'Founders are eternal.' });
       const grow = db.prepare('SELECT name FROM players WHERE acc_id=?').get(target);
@@ -424,6 +430,9 @@ const routes = async (req, res, urlPath, q) => {
     const handlers = {
       crime: () => W.doCrime(id, body.crimeId),
       prison: () => W.prisonDo(id, body),
+      bail_other: () => W.prisonBailOther(id, body.targetId ? parseInt(body.targetId, 10) : 0),
+      daily: () => W.dailyClaim(id),
+      wire: () => W.wireCash(id, body),
       train: () => W.doTrain(id, body.stat, body.gymId),
       work: () => W.doWork(id),
       attack: () => W.doAttack(id, body.targetId),

@@ -1,7 +1,7 @@
 {
   "name": "razor-town",
   "version": "1.0.0",
-  "description": "Razor Town \u2014 an original 1920s Birmingham crime sim played in the browser (inspired by classic browser crime sims like Torn; 100% original fiction). Accounts, persistence, live city feed, gangs, market, betting and more.",
+  "description": "Razor Town — an original 1920s Birmingham crime sim played in the browser (inspired by classic browser crime sims like Torn; 100% original fiction). Accounts, persistence, live city feed, gangs, market, betting and more.",
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
