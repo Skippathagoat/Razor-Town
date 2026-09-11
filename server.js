@@ -25,6 +25,9 @@ if (world.purged && (world.purged.bots || world.purged.factions)) {
     world.purged.factions, 'seeded gangs,', world.purged.news, 'news rows,',
     world.purged.membersRemoved, 'players pulled out of those gangs');
 }
+if (world.purged && world.purged.probes) {
+  console.log('Purged QA probes ->', world.purged.probes, 'throwaway verification account(s) removed');
+}
 
 // ---------------------------------------------------------------- SSE hub
 const sseClients = new Set();
