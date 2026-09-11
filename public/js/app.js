@@ -1559,7 +1559,7 @@
       const cid = e.target.closest('[data-crime]').dataset.crime;
       closeScene(); act('crime', { crimeId: cid }, 'crime');
     }
-    if (act === 'close-modal') { root.innerHTML = ''; }
+    if (act === 'close-modal') { $('#modal-root').innerHTML = ''; }
     if (act === 'save-look') { saveLook(); }
     if (act === 'sound') { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; openMenu(); }
     if (act === 'logout') { doLogout(); }
