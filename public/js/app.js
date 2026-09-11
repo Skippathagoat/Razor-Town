@@ -1642,26 +1642,47 @@
     </div>`;
   }
   async function renderShopsInto(v) {
-    let d = null;
-    try { d = await Net.get('/api/shops'); } catch (e) {}
-    if (!d) { v.innerHTML = `<div class="card"><p style="color:var(--dim)">Shutters down. Try again.</p></div>`; return; }
+    const me = G.me;
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🏬 <span class="head">Corner Shops</span></div>
       <div class="vdesc">Three counters, three neighbourhoods. Shelves restock for you at midnight — what's gone is gone until then.</div></div>
-      ${cityTabsHTML('shops')}</div>
-      <div class="grid3">${d.shops.map(s => `
-        <div class="card shopcard"><div style="display:flex;justify-content:space-between;align-items:center">
-          <b>${s.icon} ${esc(s.name)}</b><span class="qtychip" style="color:var(--cyn)">${esc(s.area)}</span></div>
-          <p style="color:var(--dim);font-size:11.5px;margin:6px 0 10px">${esc(s.blurb)}</p>
-          ${s.stock.map(r => `<div class="itemrow" style="padding:7px 0">
-            <span class="ic">${r.icon || '📦'}</span>
-            <div class="nm"><b>${esc(r.name)}</b><small>${esc(r.desc || '')}</small></div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-              <b class="mono" style="color:var(--gold)">${money(r.price)}</b>
-              ${r.left > 0 ? `<button class="btn sm ok" data-act="shop_buy" data-shop="${s.id}" data-item="${r.item}">Buy <small style="opacity:.7">(${r.left}/${r.max} left)</small></button>`
-                           : '<span class="qtychip" style="color:var(--bad)">sold out</span>'}
-            </div></div>`).join('')}
-        </div>`).join('')}</div>`;
+      <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
+      ${cityTabsHTML('shops')}
+      <div class="shopgrid" id="shopgrid"><div class="card">${U.spinner('Opening the shutters…')}</div></div>`;
+    let d = null;
+    try { d = await Net.get('/api/shops'); } catch (e) {}
+    if (G.view !== 'city' || (G.filters.city || 'yard') !== 'shops') return;   // moved on while the shutters were opening
+    const grid = $('#shopgrid');
+    if (!grid) return;
+    if (!d || !d.shops || !d.shops.length) {
+      grid.innerHTML = `<div class="card" style="text-align:center"><p style="color:var(--dim);font-size:13px;margin:6px 0 12px">Shutters down. The wholesaler is late.</p><button class="btn sm cyan" data-fil="city" data-v="shops">Try again</button></div>`;
+      return;
+    }
+    grid.innerHTML = d.shops.map(s => `
+      <div class="card shopcard">
+        <div class="shop-head">
+          <span class="shop-ico">${s.icon}</span>
+          <div class="shop-title"><b>${esc(s.name)}</b><span class="shop-area">${esc(s.area)}</span></div>
+        </div>
+        <p class="shop-blurb">${esc(s.blurb)}</p>
+        <div class="shop-stock">
+          ${s.stock.map(r => {
+            const soldOut = r.left <= 0;
+            const afford = me.money >= r.price;
+            const stockCls = soldOut ? 'out' : (r.left === 1 ? 'low' : 'plenty');
+            const stockTxt = soldOut ? 'Sold out until midnight' : `${r.left} of ${r.max} left today`;
+            return `<div class="shop-item">
+              <span class="shop-item-ic">${r.icon || '📦'}</span>
+              <div class="shop-item-info"><b>${esc(r.name)}</b><small>${esc(r.desc || '')}</small><span class="shop-left ${stockCls}">${stockTxt}</span></div>
+              <div class="shop-buy">
+                <b class="mono shop-price">${money(r.price)}</b>
+                ${soldOut ? '<span class="shop-out">Gone</span>'
+                  : `<button class="btn sm ok" data-act="shop_buy" data-shop="${s.id}" data-item="${r.item}" ${afford ? '' : 'disabled'} title="${afford ? 'Buy one — ' + stockTxt.toLowerCase() : 'Short — the counter wants ' + money(r.price)}">Buy</button>`}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
   }
   async function renderMissionsInto(v) {
     let d = null;

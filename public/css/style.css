@@ -1052,3 +1052,36 @@ body { color: var(--ink); }
 /* v5 modal overlay — restores pre-restyle grammar: .modal-back = dimmed click-catcher sibling, .modal-card = self-centering panel */
 #modal-root .modal-back{position:fixed; inset:0; z-index:200; background:rgba(4,5,10,.74); backdrop-filter:blur(4px);}
 #modal-root .modal-card{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:201; width:min(460px,94vw); max-height:86vh; overflow-y:auto; padding:22px 18px; margin:0;}
+
+/* ==========================================================================
+   CORNER SHOPS — spaced-out counters.
+   Shops-only classes (nothing else in the town uses .shopgrid / .shop-*),
+   so the rest of the chrome is untouched.
+   ========================================================================== */
+.shopgrid { display:grid; gap:var(--sp-lg); grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); align-items:start; }
+.shopgrid .shopcard { margin:0; padding:var(--sp-lg); display:flex; flex-direction:column; border-top:2px solid rgba(95,215,228,.35); }
+.shop-head { display:flex; align-items:center; gap:var(--sp-md); margin-bottom:var(--sp-sm); min-width:0; }
+.shop-ico { width:40px; height:40px; flex:0 0 40px; display:flex; align-items:center; justify-content:center; font-size:20px; background:var(--raise); border:1px solid var(--line); border-radius:8px; }
+.shop-title { min-width:0; }
+.shop-title b { display:block; font-size:15px; color:var(--ink); line-height:1.25; }
+.shop-area { display:block; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--cyn); margin-top:3px; }
+.shop-blurb { font-size:12px; line-height:1.55; color:var(--mut); margin:0 0 var(--sp-md); min-height:37px; }
+.shop-stock { display:flex; flex-direction:column; }
+.shop-item { display:grid; grid-template-columns:40px minmax(0,1fr) auto; gap:var(--sp-md); align-items:start; padding:var(--sp-md) 0; border-top:1px solid var(--line); }
+.shop-item:last-child { padding-bottom:0; }
+.shop-item-ic { width:40px; height:40px; display:flex; align-items:center; justify-content:center; font-size:19px; background:var(--raise); border:1px solid var(--line); border-radius:8px; }
+.shop-item-info { min-width:0; }
+.shop-item-info b { display:block; font-size:13px; color:var(--ink); line-height:1.3; }
+.shop-item-info small { display:block; font-size:11.5px; color:var(--mut); line-height:1.5; margin-top:3px; }
+.shop-left { display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:99px; margin-top:7px; letter-spacing:.02em; }
+.shop-left.plenty { color:var(--cyn); background:rgba(95,215,228,.08); border:1px solid rgba(95,215,228,.3); }
+.shop-left.low { color:var(--warn); background:rgba(232,160,76,.1); border:1px solid rgba(232,160,76,.4); }
+.shop-left.out { color:var(--dim); background:transparent; border:1px dashed var(--line2); }
+.shop-buy { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:88px; padding-top:1px; }
+.shop-price { font-size:13px; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.shop-buy .btn { min-width:84px; }
+.shop-out { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); border:1px dashed var(--line2); border-radius:7px; padding:6px 10px; }
+@media (max-width:700px) {
+  .shop-blurb { min-height:0; }
+  .shop-buy { min-width:80px; }
+}
