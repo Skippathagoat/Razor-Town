@@ -385,10 +385,24 @@
         <span class="hstat" title="Battle rating"><span class="hl">rating</span><span class="hv">${Math.floor(me.total)}</span></span>
         <span class="hstat" title="Reputation on the street"><span class="hl">rep</span><span class="hv">${me.reputation.toLocaleString()}</span></span>
       </div>
+      ${me.sub && me.sub.active ? `<button class="passchip" data-act="pass_modal" title="Wire Pass active${me.sub.founder ? ' — founder tier, never lapses' : ' — renew before ' + new Date(me.sub.until).toLocaleDateString()}"><span>WIRE&nbsp;PASS</span><b>${me.sub.founder ? '∞' : Math.max(1, Math.ceil((me.sub.until - Date.now()) / 86400000)) + 'd'}</b></button>` : `<button class="passchip dim" data-act="pass_modal" title="The Wire Pass — faster charge, steadier hand, friendlier brokers. $150,000 a week."><span>WIRE&nbsp;PASS</span><b>GO&nbsp;GOLD</b></button>`}
       <span class="pill online" id="online-pill" title="live events + city pulse"><span class="dot"></span><span class="oltext">Live</span></span>
       <span class="pill" title="players online right now">👥 <span id="online-count">…</span></span>
+      <button class="iconbtn" data-act="chat_toggle" id="chat-btn" title="The Wire — live city chatter">💬<span class="unread-badge hidden" id="chat-badge"></span></button>
       <button class="iconbtn" data-nav="msg" title="Wire Messages${me.unread ? ' — ' + me.unread + ' unread' : ''}">📨${me.unread ? `<span class="unread-badge">${me.unread}</span>` : ''}</button>
       <button class="iconbtn ${(jail || hosp) ? 'warn' : ''}" data-act="menu" title="Menu (Esc)">☰</button>`;
+    // live regen countdowns under the bars — re-stamped every second by tickClocks()
+    const tline = $('#tickline');
+    if (tline) tline.remove();
+    if (!jail && !hosp && me.reftick) {
+      $('#hud .hud-bars').insertAdjacentHTML('afterend', `<div id="tickline">
+        <span class="tchip" id="tick-energy" title="next energy">⚡ +tick <b>--:--</b></span>
+        <span class="tchip" id="tick-nerve" title="next nerve">🧠 +1 <b>--:--</b></span>
+        ${me.loan ? `<span class="tchip loan ${me.loan.due < Date.now() ? 'hot' : ''}" title="loan shark">🦈 ${'$' + (me.loan.owed || 0).toLocaleString()} <b id="tick-loan">--:--</b></span>` : ''}
+      </div>`);
+      tickClocks();
+    }
+    if (!G._chatUp) { G._chatUp = true; setTimeout(startChatPulse, 600); } else ensureChatDock();
   }
   // Torn-style status bar: icon and value sit inside the bar
   function hbar(id, v, max, icon, label) {
@@ -399,6 +413,80 @@
   }
   function barBlock(id, v, max) {
     return hbar(id, v, max, id === 'life' ? '❤' : id === 'energy' ? '⚡' : id === 'nerve' ? '🧠' : '🙂', id);
+  }
+
+  // ==================== THE WIRE — live chat dock ====================
+  const CHAT = { open: false, chan: 'city', last: 0, unseen: 0, timer: null };
+  function ensureChatDock() {
+    if ($('#chatdock')) return;
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="chatdock" class="closed">
+        <div class="cd-head">
+          <span class="cd-title">📡 THE WIRE</span>
+          <button class="cd-tab on" data-cchat="city">CITY</button>
+          <button class="cd-tab" data-cchat="gang">GANG</button>
+          <span class="cd-grow"></span>
+          <button class="cd-x" data-act="chat_toggle">—</button>
+        </div>
+        <div class="cd-feed" id="cd-feed"></div>
+        <div class="cd-input">
+          <input id="cd-text" maxlength="280" placeholder="broadcast…" autocomplete="off">
+          <button class="btn sm cyan" data-act="chat_send">Send</button>
+        </div>
+      </div>`);
+    $('#cd-text').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const b = document.querySelector('[data-act="chat_send"]'); if (b) b.click(); } });
+    document.querySelectorAll('[data-cchat]').forEach(b => b.addEventListener('click', () => {
+      CHAT.chan = b.dataset.cchat; CHAT.last = 0; $('#cd-feed').innerHTML = '';
+      document.querySelectorAll('[data-cchat]').forEach(x => x.classList.toggle('on', x === b));
+      chatPull(true);
+    }));
+  }
+  function timeTiny(ts) { const d = new Date(ts); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+  async function chatPull(force) {
+    try {
+      const r = await Net.get('/api/chat?chan=' + CHAT.chan + '&since=' + CHAT.last);
+      if (!r || !r.items) return;
+      const feed = $('#cd-feed'); if (!feed) return;
+      if (force) { feed.innerHTML = ''; CHAT.last = 0; }
+      if (r.items.length === 0 && !CHAT.last && !feed.children.length) {
+        feed.innerHTML = `<div class="cd-sys">static… the ${CHAT.chan === 'gang' ? 'crew wire is quiet — only your gang hears this channel' : 'city wire is quiet. Say something worth repeating'}</div>`;
+        return;
+      }
+      for (const m of r.items) {
+        CHAT.last = Math.max(CHAT.last, m.id);
+        if (!document.querySelector(`#cd-feed [data-mid="${m.id}"]`)) {
+          const mine = G.me && m.name === G.me.name;
+          feed.insertAdjacentHTML('beforeend', `<div class="cd-msg ${mine ? 'mine' : ''}" data-mid="${m.id}">
+            <span class="cd-t">${timeTiny(m.ts)}</span> <b>${esc(m.name)}</b> <span>${esc(m.body)}</span></div>`);
+          if (!CHAT.open || document.hidden) { CHAT.unseen++; }
+        }
+      }
+      while (feed.children.length > 120) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
+      const badge = $('#chat-badge');
+      if (badge) { badge.textContent = CHAT.unseen > 99 ? '99' : CHAT.unseen; badge.classList.toggle('hidden', CHAT.unseen === 0); }
+    } catch (e) {}
+  }
+  function chatToggle() {
+    ensureChatDock();
+    CHAT.open = !CHAT.open;
+    $('#chatdock').classList.toggle('closed', !CHAT.open);
+    $('#chat-btn').classList.toggle('lit', CHAT.open);
+    if (CHAT.open) { CHAT.unseen = 0; const badge = $('#chat-badge'); if (badge) badge.classList.add('hidden'); CHAT.last = 0; $('#cd-feed').innerHTML = ''; chatPull(true); const i = $('#cd-text'); if (i) i.focus(); }
+  }
+  function startChatPulse() {
+    ensureChatDock();
+    setInterval(() => chatPull(false), 6000);   // the wire hums whether or not the door is open
+    chatPull(true);
+  }
+
+  function fmtClock(ms) { ms = Math.max(0, ms); const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000); return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  function tickClocks() {
+    const me = G.me; if (!me || !me.reftick) return;
+    const eIn = (me.reftick.energyIn || 0), nIn = (me.reftick.nerveIn || 0);
+    const eEl = $('#tick-energy b'); if (eEl) eEl.textContent = me.energy >= me.max_energy ? 'FULL' : fmtClock(eIn - (Date.now() - (G._tickAt || Date.now())));
+    const nEl = $('#tick-nerve b'); if (nEl) nEl.textContent = me.nerve >= me.max_nerve ? 'FULL' : fmtClock(nIn - (Date.now() - (G._tickAt || Date.now())));
+    if (me.loan) { const lEl = $('#tick-loan'); if (lEl) lEl.textContent = me.loan.due < Date.now() ? 'COLLECTING' : fmtClock(me.loan.due - Date.now()); }
   }
 
   function renderRail() {
@@ -502,6 +590,7 @@
   }
 
   function applyMe(meNew, res) {
+    G._tickAt = Date.now();
     if (!G.me) { G.me = meNew; renderHUD(); return; }
     const old = G.me;
     // floaters
@@ -859,10 +948,18 @@
     const origin = m.origins.find(o => o.id === me.origin);
     const inJail = me.jail_until && me.jail_until > Date.now();
     const inHosp = me.hosp_until && me.hosp_until > Date.now();
+    const ctab = G.filters.city || 'yard';
+    if (ctab === 'shops') { renderShopsInto(v); return; }
+    if (ctab === 'board') { renderMissionsInto(v); return; }
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🏙️ <span class="head">RAZOR TOWN</span></div>
       <div class="vdesc">${inJail ? 'You are behind bars — your time will pass.' : inHosp ? 'You are recovering in the hospital.' : 'The night is young and the yards are full of opportunity.'}</div></div>
-      <div class="pill online"><span class="dot"></span><span class="oltext">The yard, live</span></div></div>
+      <div class="pill online"><span class="dot"></span><span class="oltext">The yard, live</span></div>
+      <div class="filterrow">
+        <button class="minitab ${ctab === 'yard' ? 'on' : ''}" data-fil="city" data-v="yard">🏙️ The Yard</button>
+        <button class="minitab ${ctab === 'shops' ? 'on' : ''}" data-fil="city" data-v="shops">🏬 Corner Shops</button>
+        <button class="minitab ${ctab === 'board' ? 'on' : ''}" data-fil="city" data-v="board">🗃️ Mission Board</button>
+      </div></div>
 
       ${!me.seen_tutorial ? `
       <div class="card tut"><div class="vtitle" style="font-size:15px">🎯 <span class="head" style="font-size:15px">Your first 60 seconds</span></div>
@@ -1077,6 +1174,7 @@
     const me = G.me, m = G.meta;
     const v = $('#view');
     const tab = G.filters.market;
+    if (tab === 'pawn') { renderPawnInto(v, me, m); return; }
     const ids = Object.keys(m.items);
     const goods = ids.filter(id => tab === 'buy' ? typeof m.items[id].buy === 'number' : typeof m.items[id].sell === 'number' && me.items[id]);
     v.innerHTML = `
@@ -1086,7 +1184,8 @@
       <div class="filterrow"><button class="minitab ${tab === 'buy' ? 'on' : ''}" data-fil="market" data-v="buy">🛒 Buy</button>
       <button class="minitab ${tab === 'sell' ? 'on' : ''}" data-fil="market" data-v="sell">💰 Sell loot</button>
       <button class="minitab ${tab === 'bazaar' ? 'on' : ''}" data-fil="market" data-v="bazaar">🧺 Bazaar</button>
-      <button class="minitab ${tab === 'auction' ? 'on' : ''}" data-fil="market" data-v="auction">🔨 Auction</button></div>
+      <button class="minitab ${tab === 'auction' ? 'on' : ''}" data-fil="market" data-v="auction">🔨 Auction</button>
+      <button class="minitab ${tab === 'pawn' ? 'on' : ''}" data-fil="market" data-v="pawn">🏷️ Pawn</button></div>
       ${tab === 'bazaar' ? '<div id="bz-wrap"></div>' : tab === 'auction' ? '<div id="auc-wrap"></div>' : `<div class="card" style="background:none;border:none;padding:0">
       ${goods.map(id => marketRow(id, tab, me)).join('') || '<p style="color:var(--dim)">Nothing here. Keep crime-ing.</p>'}</div>`}`;
     if (tab === 'bazaar') renderBazaarInto($('#bz-wrap'));
@@ -1236,7 +1335,97 @@
           </div>
         </div>
         <p style="color:var(--dim);font-size:11.5px;margin-top:10px">Total deposited over time: ${money(me.total_deposits)}</p></div>
+      <div class="grid2">
+        <div class="card" style="border-color:rgba(229,72,94,.25)"><div class="subhead" style="color:var(--mag)">🦈 The Shark's Window</div>
+          ${me.loan ? `<p style="font-size:13px;margin:8px 0">You owe <b class="mono" style="color:${me.loan.due < Date.now() ? 'var(--bad)' : 'var(--gold)'}">${'$' + me.loan.owed.toLocaleString()}</b>
+            ${me.loan.due < Date.now() ? '<b style="color:var(--bad)">— past due. The collector is already walking.</b>' : 'due ' + new Date(me.loan.due).toLocaleString() + '.'}</p>
+          <div style="display:flex;gap:6px"><input id="loan-amt" type="number" min="1" value="${me.loan.owed}" style="width:120px"><button class="btn sm warn" data-act="loan_repay">Pay down</button></div>
+          <p style="color:var(--dim);font-size:11px;margin-top:6px">Late paper gets collected from your cash, then your vault — without asking.</p>`
+          : `<p style="color:var(--mut);font-size:12.5px;margin:8px 0">Fast paper when the branch says no: up to <b class="mono">${'$' + Math.max(10000, me.level * 10000).toLocaleString()}</b> at your level, <b>+25% vig</b>, 48 hours to make it good.</p>
+          <div style="display:flex;gap:6px"><input id="loan-amt" type="number" min="1000" placeholder="amount" style="width:120px"><button class="btn sm warn" data-act="loan_take">Take the money</button></div>`}
+        </div>
+        <div class="card panel-gold"><div class="subhead" style="color:var(--gold)">⚡ The Wire Pass</div>
+          ${me.sub && me.sub.active
+            ? `<p style="font-size:13px;margin:8px 0">Gold on the ledger${me.sub.founder ? ' — <b>founder tier, never lapses ∞</b>' : ' until <b>' + new Date(me.sub.until).toLocaleDateString() + '</b>'}.</p>
+               <p style="color:var(--mut);font-size:12px">+60% energy charge · +25 max energy · +5 max nerve · +8% crime success · +15% gym gains · half broker fees.</p>
+               ${me.sub.founder ? '' : '<button class="btn sm gold" data-act="pass_buy">Extend another week · $150,000</button>'}`
+            : `<p style="color:var(--mut);font-size:12.5px;margin:8px 0">Seven days running hot: <b>+60% energy charge</b>, <b>+25 max energy</b>, <b>+5 nerve cap</b>, <b>+8% crime success</b>, <b>+15% gym</b>, <b>half broker fees</b>.</p>
+               <button class="btn gold" data-act="pass_buy" ${me.money < 150000 ? 'disabled' : ''}>Go gold · $150,000</button>`}
+        </div>
+      </div>
       <div class="card"><div class="subhead">Security tip</div><p style="color:var(--mut);font-size:12.5px">Attackers can only take a cut of the cash you're carrying. The branch is armour — interest is the reward for using it.</p></div>`;
+  }
+  function cityTabsHTML(tab) {
+    return `<div class="filterrow">
+      <button class="minitab ${tab === 'yard' ? 'on' : ''}" data-fil="city" data-v="yard">🏙️ The Yard</button>
+      <button class="minitab ${tab === 'shops' ? 'on' : ''}" data-fil="city" data-v="shops">🏬 Corner Shops</button>
+      <button class="minitab ${tab === 'board' ? 'on' : ''}" data-fil="city" data-v="board">🗃️ Mission Board</button>
+    </div>`;
+  }
+  async function renderShopsInto(v) {
+    let d = null;
+    try { d = await Net.get('/api/shops'); } catch (e) {}
+    if (!d) { v.innerHTML = `<div class="card"><p style="color:var(--dim)">Shutters down. Try again.</p></div>`; return; }
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🏬 <span class="head">Corner Shops</span></div>
+      <div class="vdesc">Three counters, three neighbourhoods. Shelves restock for you at midnight — what's gone is gone until then.</div></div>
+      ${cityTabsHTML('shops')}</div>
+      <div class="grid3">${d.shops.map(s => `
+        <div class="card shopcard"><div style="display:flex;justify-content:space-between;align-items:center">
+          <b>${s.icon} ${esc(s.name)}</b><span class="qtychip" style="color:var(--cyn)">${esc(s.area)}</span></div>
+          <p style="color:var(--dim);font-size:11.5px;margin:6px 0 10px">${esc(s.blurb)}</p>
+          ${s.stock.map(r => `<div class="itemrow" style="padding:7px 0">
+            <span class="ic">${r.icon || '📦'}</span>
+            <div class="nm"><b>${esc(r.name)}</b><small>${esc(r.desc || '')}</small></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+              <b class="mono" style="color:var(--gold)">${money(r.price)}</b>
+              ${r.left > 0 ? `<button class="btn sm ok" data-act="shop_buy" data-shop="${s.id}" data-item="${r.item}">Buy <small style="opacity:.7">(${r.left}/${r.max} left)</small></button>`
+                           : '<span class="qtychip" style="color:var(--bad)">sold out</span>'}
+            </div></div>`).join('')}
+        </div>`).join('')}</div>`;
+  }
+  async function renderMissionsInto(v) {
+    let d = null;
+    try { d = await Net.get('/api/missions'); } catch (e) {}
+    if (!d) { v.innerHTML = `<div class="card"><p style="color:var(--dim)">The board is bare. Try again.</p></div>`; return; }
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🗃️ <span class="head">The Mission Board</span></div>
+      <div class="vdesc">Postings from the Wire itself. Do the job, collect the pay — some notes only unlock after the rest are burned.</div></div>
+      ${cityTabsHTML('board')}</div>
+      <div class="card" style="background:none;border:none;padding:0">${d.board.map(m => `
+        <div class="itemrow mission ${m.claimed ? 'claimed' : ''}">
+          <span class="ic">${m.icon}</span>
+          <div class="nm"><b>${esc(m.name)}</b> ${m.claimed ? '<span class="qtychip" style="color:var(--ok)">PAID</span>' : ''}
+            <small>${esc(m.desc)}</small>
+            <div class="prog"><div class="progfill" style="width:${Math.min(100, (m.prog / m.need) * 100).toFixed(0)}%"></div><span class="progtext">${m.prog}/${m.need} · pays ${money(m.reward.cash || 0)}${m.reward.item ? ' + hardware' : ''}</span></div>
+          </div>
+          ${m.claimed ? '' : (m.done ? `<button class="btn sm gold" data-act="mission_claim" data-mid="${m.id}">Collect</button>` : `<span class="qtychip">${m.prog}/${m.need}</span>`)}
+        </div>`).join('')}</div>`;
+  }
+  function marketTabsHTML(tab) {
+    return `<button class="minitab ${tab === 'buy' ? 'on' : ''}" data-fil="market" data-v="buy">🛒 Buy</button>
+      <button class="minitab ${tab === 'sell' ? 'on' : ''}" data-fil="market" data-v="sell">💰 Sell loot</button>
+      <button class="minitab ${tab === 'bazaar' ? 'on' : ''}" data-fil="market" data-v="bazaar">🧺 Bazaar</button>
+      <button class="minitab ${tab === 'auction' ? 'on' : ''}" data-fil="market" data-v="auction">🔨 Auction</button>
+      <button class="minitab ${tab === 'pawn' ? 'on' : ''}" data-fil="market" data-v="pawn">🏷️ Pawn</button>`;
+  }
+  function renderPawnInto(v, me, m) {
+    // instant money at 85% of fence — the broker pays now, not when a buyer wanders by
+    const rows = Object.keys(me.items || {}).map(id => {
+      const it = m.items[id];
+      if (!it || !it.sell) return '';
+      const each = Math.max(1, Math.floor(it.sell * 0.85));
+      const qty = me.items[id];
+      return `<div class="itemrow"><span class="ic">${it.icon || '📦'}</span>
+        <div class="nm"><b>${esc(it.name)}</b> <small>×${qty}</small><small>${esc(it.desc || '')}</small></div>
+        <span class="qtychip" style="color:var(--gold)">${money(each)}/ea</span>
+        <button class="btn sm warn" data-act="pawn_sell" data-item="${id}" title="pawn the lot for ${money(each * qty)} right now">Pawn ×${qty}</button></div>`;
+    }).filter(Boolean).join('');
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🏷️ <span class="head">The Pawn Window</span></div>
+      <div class="vdesc">Cash in hand, no questions, no waiting on a buyer. The broker pays 85% of fence value on the spot — the stall pays better if you can wait.</div></div>
+      <div class="filterrow">${marketTabsHTML('pawn')}</div></div>
+      ${rows || '<div class="card"><p style="color:var(--dim)">Nothing in the bag the broker wants. Steal better.</p></div>'}`;
   }
   async function renderStocksInto(v) {
     const me = G.me;
@@ -1444,6 +1633,7 @@
       }
       fs = G.cache.factions;
     } catch (e) { fs = []; }
+    if (me.faction) { await renderFactionCockpit(v); return; }
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🪓 <span class="head">The Gangs</span></div>
       <div class="vdesc">Strength in numbers. Found your own crew for \$200,000 at level 5+, or throw in with an existing one.</div></div></div>
@@ -1466,6 +1656,50 @@
           <div class="head" style="font-size:15px;margin-top:6px">No gangs yet</div>
           <p style="color:var(--mut);font-size:13px;margin-top:8px">Nobody has claimed this town yet. Found your own crew — \$200,000 and level 5 is all it takes — and your name goes on it.</p></div>`}</div>`;
   }
+
+  async function renderFactionCockpit(v) {
+    let d = null;
+    try { d = await Net.get('/api/faction/detail'); } catch (e) {}
+    if (!d || !d.faction) { nav('city'); return; }
+    const f = d.faction;
+    const meOfficer = f.myRole === 'leader' || f.myRole === 'officer';
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🪓 <span class="head">${esc(f.name)}</span> <span class="qtychip" style="color:var(--cyn)">[${esc(f.tag)}]</span></div>
+      <div class="vdesc">You ride as <b style="text-transform:capitalize">${f.myRole}</b> of this crew. ${rosterCount(f)} of ${f.cap} beds filled.</div></div></div>
+      ${f.announce ? `<div class="card panel-gold gangwire"><div class="subhead" style="color:var(--gold)">📣 The boss's wire <small style="color:var(--dim)">· ${esc(f.announce.by)} · ${new Date(f.announce.at).toLocaleDateString()}</small></div>
+        <p style="margin:8px 0 0;font-size:13.5px">${esc(f.announce.text)}</p></div>` : ''}
+      <div class="grid2">
+        <div class="card panel-gold"><div class="subhead" style="color:var(--gold)">🏦 The War Chest <b class="mono" style="float:right;color:var(--gold)">${money(f.bank)}</b></div>
+          <p style="color:var(--mut);font-size:12px;margin:8px 0">Everybody chips in; officers spend it on arrangements below. Upgrades bought from the chest run for the whole crew.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input id="fbank-amt" type="number" min="1" placeholder="amount" style="width:110px">
+            <button class="btn sm ok" data-act="fbank_in">Chip in</button>
+            ${meOfficer ? '<button class="btn sm ghost" data-act="fbank_out">Draw out</button>' : ''}
+          </div></div>
+        <div class="card"><div class="subhead">The Roster</div>
+          <div style="max-height:220px;overflow:auto">${f.roster.map(r => `
+            <div class="itemrow"><span class="ic">${r.role === 'leader' ? '👑' : r.role === 'officer' ? '🎖' : '🕶'}</span>
+              <div class="nm"><b>${esc(r.name)}</b><small>${r.role}${r.jailed ? ' · <b style="color:var(--bad)">INSIDE</b>' : ''} · lvl ${r.level}</small></div>
+              ${r.jailed && r.id !== G.me.id ? `<button class="btn sm warn" data-act="bust_out" data-tid="${r.id}" title="12 nerve · risky">Bust</button>` : ''}
+              ${f.myRole === 'leader' && r.id !== G.me.id ? `<button class="btn sm ghost" data-act="fpromote" data-tid="${r.id}" title="give / pull the stripe">${r.role === 'officer' ? 'Demote' : 'Promote'}</button>` : ''}
+            </div>`).join('')}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <small style="color:var(--dim)">Busting springs a crewmate off the block — costs 12 nerve, jail risk if it goes wrong.</small>
+            <button class="btn sm bad" data-act="faction_leave">Walk away</button>
+          </div></div>
+      </div>
+      <div class="card"><div class="subhead">🛠️ Crew Arrangements <small style="color:var(--dim)">paid from the war chest · every member feels them</small></div>
+        <div class="upgrid" style="margin-top:10px">${f.upgrades.map(u => `
+          <div class="upcard ${u.owned ? 'owned' : ''}">
+            <div class="upic">${u.icon}</div>
+            <div class="upnm"><b>${esc(u.name)}</b><small>${esc(u.desc)}</small></div>
+            ${u.owned ? '<span class="qtychip" style="color:var(--ok)">ACTIVE</span>'
+              : (meOfficer ? `<button class="btn sm gold" data-act="fupgrade" data-up="${u.id}" ${f.bank < u.cost ? 'disabled' : ''}>${money(u.cost)}</button>` : `<span class="qtychip">${money(u.cost)}</span>`)}
+          </div>`).join('')}</div></div>
+      ${f.myRole === 'leader' ? `<div class="card"><div class="subhead">📣 Put the word out</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><input id="fannounce" maxlength="200" placeholder="one line, the whole crew sees it" style="flex:1"><button class="btn sm cyan" data-act="fannounce">Pin it</button></div></div>` : ''}`;
+  }
+  function rosterCount(f) { return (f.roster || []).length; }
 
   // ---- ACHIEVEMENTS
   function renderAch() {
@@ -1849,6 +2083,34 @@
         const qty = parseFloat((document.querySelector(`[data-sqty=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
         act(actN, { sym: btn.dataset.sym, qty }); break;
       }
+  async function actCatch(name, payload) {
+    const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name })).catch(err => { U.toast(esc(err && err.message || 'The city shrugged.'), 'bad'); return null; });
+    if (r && (r.ok || r.p)) { if (r.p) applyMe(r.p, r.res); return r; }
+    if (r && r.err) { U.toast(esc(r.err), 'bad'); return null; }
+    return r;
+  }
+  function openPassModal() {
+    const me = G.me; if (!me) return;
+    const on = me.sub && me.sub.active;
+    $('#modal-root').innerHTML = `<div class="modal-back" data-act="close-modal"></div>
+      <div class="modal card" style="max-width:430px">
+        <div class="subhead" style="color:var(--gold);font-size:15px">⚡ THE WIRE PASS</div>
+        <p style="color:var(--mut);font-size:13px;margin:10px 0">Seven days on the gold ledger. Serious people buy it because the maths is serious:</p>
+        <div class="passbuffs">
+          <div class="pb"><b>+60%</b><span>energy charge speed</span></div>
+          <div class="pb"><b>+25</b><span>maximum energy</span></div>
+          <div class="pb"><b>+5</b><span>nerve ceiling</span></div>
+          <div class="pb"><b>+8%</b><span>crime success</span></div>
+          <div class="pb"><b>+15%</b><span>gym gains</span></div>
+          <div class="pb"><b>−50%</b><span>stock & chain broker fees</span></div>
+        </div>
+        <p style="font-size:12.5px;margin:10px 0;color:${on ? 'var(--ok)' : 'var(--dim)'}">${on ? (me.sub.founder ? 'You carry the founder tier — it never lapses. ∞' : 'Active until ' + new Date(me.sub.until).toLocaleString() + '. Renewals stack on top.') : 'Not running. $150,000 a week, plain and simple.'}</p>
+        <div style="display:flex;gap:8px">
+          ${me.sub && me.sub.founder ? '' : `<button class="btn gold" data-act="pass_buy" ${me.money < 150000 ? 'disabled' : ''}>${on ? 'Extend a week' : 'Go gold'} · $150,000</button>`}
+          <button class="btn ghost" data-act="close-modal">Later</button>
+        </div></div>`;
+  }
+
       case 'use': act('use', { itemId: btn.dataset.item }); break;
       case 'deposit': case 'withdraw': {
         const amt = parseInt($('#bank-amt').value, 10) || 1000;
@@ -1881,6 +2143,28 @@
       }
       case 'faction_join': act('faction_join', { fid: +btn.dataset.fid }); break;
       case 'faction_leave': act('faction_leave', {}); break;
+      case 'chat_toggle': chatToggle(); break;
+      case 'chat_send': {
+        const inp = $('#cd-text');
+        const body = inp ? inp.value.trim() : '';
+        if (!body) break;
+        const r = await Net.post('/api/action', { name: 'chat_msg', chan: CHAT.chan, body }).catch(err => { U.toast(esc(err.message), 'bad'); return null; });
+        if (r && r.ok) { inp.value = ''; CHAT.last = CHAT.last; await chatPull(false); }
+        break;
+      }
+      case 'pass_modal': openPassModal(); break;
+      case 'pass_buy': act('pass_buy', {}); break;
+      case 'pawn_sell': act('pawn_sell', { itemId: btn.dataset.item, qty: 999 }); break;
+      case 'loan_take': { const amt = parseInt(($('#loan-amt') || {}).value, 10) || 0; act('loan_take', { amount: amt }); break; }
+      case 'loan_repay': { const amt = parseInt(($('#loan-amt') || {}).value, 10) || 0; act('loan_repay', { amount: amt }); break; }
+      case 'shop_buy': act('shop_buy', { shopId: btn.dataset.shop, itemId: btn.dataset.item }); break;
+      case 'mission_claim': act('mission_claim', { mid: btn.dataset.mid }); break;
+      case 'fbank_in': { const amt = parseInt(($('#fbank-amt') || {}).value, 10) || 0; const r = await actCatch('fbank_in', { amount: amt }); if (r) renderFaction(); break; }
+      case 'fbank_out': { const amt = parseInt(($('#fbank-amt') || {}).value, 10) || 0; const r = await actCatch('fbank_out', { amount: amt }); if (r) renderFaction(); break; }
+      case 'fupgrade': { const r = await actCatch('fupgrade', { upId: btn.dataset.up }); if (r) { U.toast('Arrangement locked in.', 'good'); renderFaction(); } break; }
+      case 'fannounce': { const text = ($('#fannounce') || {}).value || ''; const r = await actCatch('fannounce', { text }); if (r) renderFaction(); break; }
+      case 'fpromote': { const r = await actCatch('fpromote', { targetId: +btn.dataset.tid }); if (r) renderFaction(); break; }
+      case 'bust_out': act('bust_out', { targetId: +btn.dataset.tid }); break;
       case 'msg': {
         const to = $('#msg-to') && $('#msg-to').value, body = $('#msg-body') && $('#msg-body').value;
         const ok = await Net.post('/api/action', { name: 'msg', to, body }).catch(err => { U.toast(esc(err.message), 'bad'); return null; });
@@ -1942,6 +2226,7 @@
     const cc = $('#lock-cover');
     if (cc) U.updateTimers(cc);
     if (G.view === 'college') tickCourse();
+    tickClocks();
     // re-render hud bars periodically (regeneration display)
   }, 1000);
   setInterval(() => {
@@ -1954,6 +2239,7 @@
       // lightweight: only update numbers/bars, no content churn every 5s
       const bagBefore = JSON.stringify((G.me && G.me.items) || {});
       G.me = Object.assign({}, G.me, r.me);
+      G._tickAt = Date.now();
       renderHUD();
       if (wasJ && !isJ) { unlockUI(); }
       if ($('#lock-cover')) U.updateTimers($('#lock-cover'));

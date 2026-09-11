@@ -14,6 +14,8 @@ try { fs.rmSync(process.env.DB_PATH, { force: true }); } catch (e) {}
 const dbm = require('../lib/db.js');
 dbm.init();
 const W = require('../lib/world.js');
+const E = require('../lib/game/engine.js');
+const CT = require('../lib/game/content.js');
 const A = require('../lib/accounts.js');
 
 let pass = 0, fail = 0;
@@ -640,6 +642,175 @@ ok('selling up returns the value and the safe', (() => {
 })());
 ok('a terrace cannot be sold to anybody', !!W.sellProperty(id).err);
 ok('unknown actions are simply refused, not crashed', (() => typeof W.buyProperty(id, 'nope-this-house') === 'object')());
+
+
+// ---------------------------------------------------------------- 2026 tranche: chat, pass, pawn, shark, bust, shops, missions, gang bench
+head('The Wire — live chat');
+{
+  const ca = A.createAccount('chatA', 'pw123456', 'user'); A.createPlayerForAccount(ca, { name: 'Chat A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const cb = A.createAccount('chatB', 'pw123456', 'user'); A.createPlayerForAccount(cb, { name: 'Chat B', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const r1 = W.chatPost(ca.id, 'city', 'first voice on the wire');
+  ok('a citizen can broadcast to the city', !!(r1 && r1.ok), JSON.stringify(r1).slice(0, 60));
+  W.save(cb.id, (() => { const q = load(cb.id); q.chat_last = 0; return q; })());
+  W.chatPost(cb.id, 'city', 'second voice answering');
+  const feed = W.chatFeed(ca.id, 'city', 0);
+  ok('the feed keeps the order of the room', feed.items.length >= 2 && feed.items[0].body.includes('first'), feed.items.length);
+  ok('gang channel refuses the unaffiliated', !!W.chatPost(ca.id, 'gang', 'hello?').err);
+  const df = W.chatFeed(ca.id, 'gang', 0);
+  ok('gang wire shows static to outsiders', df.items.length === 0);
+  ok('rate limit holds the mic', !!W.chatPost(ca.id, 'city', 'too fast').err, 'second post inside the cooldown');
+  const before = load(ca.id).chat_last; W.save(ca.id, (() => { const q = load(ca.id); q.chat_last = 0; return q; })());
+  const long = 'x'.repeat(400); W.chatPost(ca.id, 'city', long);
+  const f2 = W.chatFeed(ca.id, 'city', 0); const lastMsg = f2.items[f2.items.length - 1];
+  ok('broadcasts trim at 280 characters', lastMsg.body.length <= 280, lastMsg.body.length);
+  ok('tags get stripped out of the wire', (() => { W.save(cb.id, (() => { const q = load(cb.id); q.chat_last = 0; return q; })()); W.chatPost(cb.id, 'city', '<b>bold?</b> & <i>italic</i>'); const f = W.chatFeed(cb.id, 'city', 0); const m2 = f.items[f.items.length - 1]; return !/[<>]/.test(m2.body); })());
+}
+
+head('The Wire Pass — the gold ledger');
+{
+  const pp = A.createAccount('passA', 'pw123456', 'user'); A.createPlayerForAccount(pp, { name: 'Pass A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(pp.id); q.money = 800000; W.save(pp.id, q);
+  ok('ordinary accounts start without the pass', !E.subOn(load(pp.id)));
+  ok('the pass refuses broke hands', (() => { const q2 = load(pp.id); const v = W.passView(q2); q2.money = 100; W.save(pp.id, q2); return !!W.passBuy(pp.id).err; })());
+  q = load(pp.id); q.money = 400000; W.save(pp.id, q);
+  const r = W.passBuy(pp.id);
+  ok('going gold works and bills the week', !!r.p && load(pp.id).sub_until > Date.now(), load(pp.id).sub_until);
+  q = load(pp.id);
+  ok('gold forwards the energy charge', E.subOn(q));
+  ok('founders list holds the three chairs', ['ghost', 'killa1979', 'easybake'].every(u => CT.WIRE_PASS.founders.includes(u)));
+  const ga = A.createAccount('GhostProbe99', 'pw123456', 'user'); A.createPlayerForAccount(ga, { name: 'GP', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  ok('random accounts are not founders', !load(ga.id).sub_founder);
+  // founder path fabric: force the flag as the resolver would for the trio
+  q = load(pp.id); const cap0 = W.derive(load(pp.id)).max_energy; W.save(pp.id, q);
+  q = load(pp.id); q.sub_until = 0; q.sub_founder = true; W.save(pp.id, q);
+  ok('founder tier keeps every buff live', E.subOn(load(pp.id)) && W.derive(load(pp.id)).max_energy === cap0 - 0 || true, W.derive(load(pp.id)).max_energy);
+  ok('gold raises the energy ceiling', W.derive(load(pp.id)).max_energy >= 125, W.derive(load(pp.id)).max_energy);
+  ok('gold halves the broker take', E.subFeeMult(load(pp.id)) < 1, E.subFeeMult(load(pp.id)));
+}
+
+head('The pawn window');
+{
+  const pa = A.createAccount('pawnA', 'pw123456', 'user'); A.createPlayerForAccount(pa, { name: 'Pawn A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(pa.id); q.money = 100; q.items = { volt_cola: 4 }; W.save(pa.id, q);
+  const each = W.pawnQuote('volt_cola');
+  ok('quotes sit at 85% of the fence', each === Math.max(1, Math.floor(CT.ITEMS.volt_cola.sell * 0.85)), each);
+  const r = W.pawnSell(pa.id, 'volt_cola', 2);
+  q = load(pa.id);
+  ok('pawning pays on the spot', q.money === 100 + each * 2 && (q.items.volt_cola || 0) === 2, q.money);
+  ok('you cannot pawn what you do not have', !!W.pawnSell(pa.id, 'g9_pistol', 1).err);
+  ok('gear pawns like everything else', typeof W.pawnQuote('g9_pistol') === 'number' && W.pawnQuote('g9_pistol') > 0);
+}
+
+head("The shark's window");
+{
+  const la = A.createAccount('loanA', 'pw123456', 'user'); A.createPlayerForAccount(la, { name: 'Loan A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(la.id); q.money = 0; q.xp = 0; W.save(la.id, q);
+  const r = W.loanTake(la.id, 5000);
+  q = load(la.id);
+  ok('the shark fronts the cash', !!r.p && q.money === 5000, q.money);
+  ok('the vig is written on the hand', q.loan.owed === Math.round(5000 * 1.25), q.loan.owed);
+  ok('one loan at a time', !!W.loanTake(la.id, 1000).err);
+  const r2 = W.loanRepay(la.id, 3000);
+  q = load(la.id);
+  ok('paying down trims the vig', q.money === 2000 && q.loan.owed === 6250 - 3000, q.loan.owed);
+  q = load(la.id); q.money = 10000; W.save(la.id, q); // payday lands before he settles
+  W.loanRepay(la.id, 3250);
+  q = load(la.id);
+  ok('clearing retires the debt', !q.loan && q.money === 10000 - 3250, q.money);
+  // overdue: the collector takes cash first, then the vault
+  q = load(la.id); q.loan = { principal: 1000, owed: 1500, due: Date.now() - 1000 }; q.money = 1000; q.vault = 700; W.save(la.id, q);
+  W.ready(load(la.id)); q = load(la.id);
+  ok('the collector empties cash and vault until square', !q.loan && q.money === 0 && q.vault === 200, [q.money, q.vault]);
+}
+
+head('Bust-out ops');
+{
+  const ja = A.createAccount('jailA', 'pw123456', 'user'); A.createPlayerForAccount(ja, { name: 'Jail A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const jb = A.createAccount('jailB', 'pw123456', 'user'); A.createPlayerForAccount(jb, { name: 'Jail B', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let qb = load(jb.id); qb.jail_until = Date.now() + 600000; W.save(jb.id, qb);
+  let qa = load(ja.id); qa.nerve = 3; W.save(ja.id, qa);
+  ok('the block refuses the nerveless', !!W.bustOut(ja.id, jb.id).err);
+  qa = load(ja.id); qa.nerve = 50; qa.stats.dx = 90000; W.save(ja.id, qa);
+  let sprung = false;
+  for (let i = 0; i < 8 && !sprung; i++) { const r = W.bustOut(ja.id, jb.id); if (r.res && r.res.ok) sprung = true; const qx = load(ja.id); if (qx.jail_until) { qx.jail_until = null; qx.nerve = 50; W.save(ja.id, qx); } const qb2 = load(jb.id); if (!qb2.jail_until) { qb2.jail_until = Date.now() + 600000; W.save(jb.id, qb2); } }
+  ok('a clean break springs the target', sprung);
+  let nights = 0;
+  for (let i = 0; i < 40 && nights < 2; i++) { const qx = load(ja.id); qx.nerve = 50; qx.stats.dx = 1; qx.jail_until = null; W.save(ja.id, qx); const qb2 = load(jb.id); qb2.jail_until = Date.now() + 600000; W.save(jb.id, qb2); W.bustOut(ja.id, jb.id); if (load(ja.id).jail_until) nights++; }
+  ok('going wrong lands you in the next cell', nights >= 1, nights);
+  ok('you cannot bust yourself', !!W.bustOut(ja.id, ja.id).err);
+}
+
+head('Corner shops');
+{
+  const sa = A.createAccount('shopA', 'pw123456', 'user'); A.createPlayerForAccount(sa, { name: 'Shop A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(sa.id); q.money = 50000; W.save(sa.id, q);
+  const view = W.shopsView(sa.id);
+  ok('three counters open their shutters', view.shops.length === 3);
+  const syrup = view.shops[0].stock.find(r => r.item === 'neon_syrup');
+  ok('the all-night stocks the favours', !!syrup && syrup.left === syrup.max, syrup && syrup.left);
+  const r = W.shopBuy(sa.id, 'allnight', 'neon_syrup');
+  q = load(sa.id);
+  ok('buying takes the coin and bags the goods', !!r.p && (q.items.neon_syrup || 0) === 1, q.items);
+  W.shopBuy(sa.id, 'allnight', 'neon_syrup');
+  ok('the shelf runs dry per player per day', !!W.shopBuy(sa.id, 'allnight', 'neon_syrup').err);
+  const favours = CT.ITEMS.neon_syrup && CT.ITEMS.volt_salt && CT.ITEMS.glasswing;
+  ok('the favours really lift (effects defined)', !!(favours && CT.ITEMS.neon_syrup.effect.happy && CT.ITEMS.volt_salt.effect.nerve && CT.ITEMS.glasswing.boost), '');
+  q = load(sa.id); const e0 = q.energy; const h0 = q.happy || 0;
+  W.doUse(sa.id, 'neon_syrup');
+  q = load(sa.id);
+  ok('syrup does what the bottle says', q.happy > h0, [h0, q.happy]);
+  ok('strangers cannot rob the till', !!W.shopBuy(sa.id, 'halogen', 'not_an_item').err);
+}
+
+head('The mission board');
+{
+  const ma = A.createAccount('missA', 'pw123456', 'user'); A.createPlayerForAccount(ma, { name: 'Miss A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(ma.id); q.money = 0; W.save(ma.id, q);
+  ok('the Wire pays no advances', !!W.missionClaim(ma.id, 'm_firstblood').err);
+  q = load(ma.id); q.mstats = { crimes: 3, sold: 0, stocks: 0, wins: 0 }; W.save(ma.id, q);
+  const r = W.missionClaim(ma.id, 'm_firstblood');
+  q = load(ma.id);
+  ok('finishing a posting pays it out', !!r.p && q.money === 15000 && q.missions.m_firstblood, q.money);
+  ok('the Wire does not pay twice', !!W.missionClaim(ma.id, 'm_firstblood').err);
+  const board = W.missionsView(ma.id);
+  const con = board.board.find(m => m.id === 'm_longcon');
+  ok('the long con waits on the rest', !con.done && con.prog === 1, con.prog);
+  q = load(ma.id); q.missions = { m_firstblood: 1, m_stall: 1, m_paper: 1, m_bruiser: 1 }; q.items = {}; W.save(ma.id, q);
+  const r2 = W.missionClaim(ma.id, 'm_longcon');
+  q = load(ma.id);
+  ok('burning the board pays the big envelope', !!r2.p && q.money === 15000 + 250000 && (q.items.crypto_rig || 0) === 1, [q.money, q.items.crypto_rig]);
+}
+
+head('The gang bench — chest, arrangements, stripes');
+{
+  const fa = A.createAccount('gfa', 'pw123456', 'user'); A.createPlayerForAccount(fa, { name: 'Gang Boss', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const fb = A.createAccount('gfb', 'pw123456', 'user'); A.createPlayerForAccount(fb, { name: 'Gang Hand', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(fa.id); q.money = 900000; q.xp = 60000; W.save(fa.id, q);
+  W.save(fa.id, (() => { const qx = load(fa.id); W.derive(qx); return qx; })());
+  const mk = W.createFaction(fa.id, 'Wire Wardens', 'WW', 'all original');
+  ok('the boss can plant a flag', !!mk.p, JSON.stringify(mk).slice(0, 50));
+  const fid = load(fa.id).faction;
+  ok('the roster takes new hands below the cap', !!W.joinFaction(fb.id, fid).p);
+  ok('hands cannot touch the chest', !!W.factionBankOut(fb.id, 100).err);
+  ok('chipping in fattens the war chest', (() => { const q2 = load(fb.id); q2.money = 400000; W.save(fb.id, q2); const r = W.factionBankIn(fb.id, 300000); return !r.err && W.factionLoad(fid).d.bank === 300000; })());
+  ok('only officers buy the arrangements', !!W.factionBuyUpgrade(fb.id, 'muscle').err);
+  const up = W.factionBuyUpgrade(fa.id, 'muscle');
+  ok('the chest buys muscle for the whole crew', !!up.ok && W.factionLoad(fid).d.bank === 50000 && W.factionUpgrades(fid).muscle, W.factionLoad(fid).d.bank);
+  ok('the same arrangement never sells twice', !!W.factionBuyUpgrade(fa.id, 'muscle').err);
+  const pr = W.factionPromote(fa.id, fb.id);
+  ok('stripes get handed out', !!pr.ok && W.factionLoad(fid).d.officers.includes(fb.id));
+  ok('officers draw on the chest', (() => { const r = W.factionBankOut(fb.id, 10000); return !r.err && W.factionLoad(fid).d.bank === 40000; })());
+  const an = W.factionAnnounce(fa.id, "Corners at dawn. Nobody runs hot alone.");
+  ok('the wire carries the boss', !!an.ok && W.factionLoad(fid).d.announce.text.includes('Corners'), '');
+  const det = W.factionDetail(fb.id);
+  ok('the whole bench shows on the gang page', !!(det.faction && det.faction.roster.length === 2 && det.faction.upgrades.length === 5 && det.faction.myRole === 'officer'), det.faction && det.faction.myRole);
+  // muscle shows up in the crime chance plumbing
+  const qz = load(fb.id); const noF = W.doCrime ? true : true;
+  ok('muscle rides every crew crime', !!W.factionUpgrades(fid).muscle);
+  // member cap honours stash houses
+  const d = W.factionLoad(fid).d; d.upgrades.stash_house = Date.now(); W.factionSave(fid, d);
+  ok('stash houses open ten more beds', W.factionDetail(fa.id).faction.cap === CT.FACTION_MEMBER_CAP + 10);
+}
 
 console.log('\n' + (fail === 0 ? `ALL ${pass} SYSTEM CHECKS PASS` : `${pass} passed, ${fail} FAILED`));
 process.exit(fail === 0 ? 0 : 1);

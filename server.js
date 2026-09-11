@@ -246,6 +246,19 @@ const routes = async (req, res, urlPath, q) => {
       course_quit: () => W.abortCourse(id),
       merit_buy: () => W.buyMerit(id, body.perkId),
       bounty_place: () => W.placeBounty(id, body.targetId, body.amount, body.anon),
+      chat_msg: () => W.chatPost(id, body.chan, body.body),
+      pawn_sell: () => W.pawnSell(id, body.itemId, body.qty),
+      loan_take: () => W.loanTake(id, body.amount),
+      loan_repay: () => W.loanRepay(id, body.amount),
+      bust_out: () => W.bustOut(id, body.targetId),
+      shop_buy: () => W.shopBuy(id, body.shopId, body.itemId),
+      mission_claim: () => W.missionClaim(id, body.mid),
+      pass_buy: () => W.passBuy(id),
+      fbank_in: () => W.factionBankIn(id, body.amount),
+      fbank_out: () => W.factionBankOut(id, body.amount),
+      fupgrade: () => W.factionBuyUpgrade(id, body.upId),
+      fannounce: () => W.factionAnnounce(id, body.text),
+      fpromote: () => W.factionPromote(id, body.targetId),
     };
     const fn = handlers[name];
     if (!fn) return send(res, 404, { err: 'Unknown action.' });
@@ -257,6 +270,29 @@ const routes = async (req, res, urlPath, q) => {
       if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
+  }
+
+  // -- chat / shops / missions
+  if (urlPath === '/api/chat') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, W.chatFeed(id, q.chan, q.since));
+  }
+  if (urlPath === '/api/shops') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, W.shopsView(id));
+  }
+  if (urlPath === '/api/missions') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, W.missionsView(id));
+  }
+  if (urlPath === '/api/faction/detail') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, W.factionDetail(id));
+  }
+  if (urlPath === '/api/finance/desk') {
+    const id = guard(req, res); if (!id) return;
+    const p = W.ready(W.load(id));
+    return send(res, 200, { loan: W.loanView(p), pass: W.passView(p) });
   }
 
   // -- world reads

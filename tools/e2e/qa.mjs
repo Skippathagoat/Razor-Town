@@ -271,6 +271,114 @@ if (!LIVE) {
     await ctx.close();
   }
 
+  head('The Wire: live chat + energy clocks');
+  {
+    const { ctx, pg, errs } = await openPage(ckA, false);
+    await pg.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(800);
+    ok('the energy clock counts under the HUD', await pg.evaluate(() => { const b = document.querySelector('#tick-energy b'); return !!b && (/\d{2}:\d{2}|FULL/.test(b.textContent)); }), await pg.evaluate(() => (document.querySelector('#tick-energy b') || {}).textContent));
+    ok('the nerve clock runs beside it', await pg.evaluate(() => { const b = document.querySelector('#tick-nerve b'); return !!b && (/\d{2}:\d{2}|FULL/.test(b.textContent)); }));
+    await click(pg, '[data-act="chat_toggle"]');
+    await pg.waitForSelector('#chatdock:not(.closed)', { timeout: 5000 });
+    await pg.type('#cd-text', 'the wire carries everything tonight');
+    await pg.evaluate(() => document.querySelector('[data-act="chat_send"]').click());
+    await sleep(900);
+    ok('a broadcast from the dock lands', await pg.evaluate(() => /the wire carries everything/.test((document.querySelector('#cd-feed') || {}).textContent || '')));
+    const feedB = await api('/api/chat?chan=city', 'GET', null, ckB).then(r => r.json());
+    ok('another citizen hears it on the wire', feedB.items.some(m => /wire carries/.test(m.body)), feedB.items.length);
+    ok('console clean through the wire run', errs.length === 0, errs.slice(0, 2));
+    await ctx.close();
+  }
+
+  head('The Wire Pass, the pawn window, the shark, the shops, the board');
+  {
+    fundLocal(600000, 40000);
+    const { ctx, pg, errs } = await openPage(ckA, false);
+    await pg.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(500);
+    // pass: modal from the HUD chip, buy, badge flips gold
+    await click(pg, '[data-act="pass_modal"]');
+    await pg.waitForSelector('#modal-root [data-act="pass_buy"]', { timeout: 5000 });
+    await pg.evaluate(() => document.querySelector('#modal-root [data-act="pass_buy"]').click());
+    await sleep(1400);
+    let me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
+    ok('going gold sticks', !!(me1.sub && me1.sub.active && me1.sub.until > Date.now()), me1.sub);
+    ok('gold lifts the energy ceiling now', me1.max_energy >= 125, me1.max_energy);
+    await pg.keyboard.press('Escape'); await sleep(300);
+    // pawn: fence two colas, then pawn them instantly at the broker's window
+    await api('/api/action', 'POST', { name: 'buy', itemId: 'volt_cola', qty: 2 }, ckA);
+    me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me; const before = me1.money;
+    await navTo(pg, 'market', false);
+    await click(pg, '[data-fil="market"][data-v="pawn"]');
+    await pg.waitForSelector('[data-act="pawn_sell"]', { timeout: 5000 });
+    await pg.evaluate(() => document.querySelector('[data-act="pawn_sell"]').click());
+    await sleep(1300);
+    me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
+    ok('the broker pays on the spot', me1.money > before && !(me1.items.volt_cola), { before, after: me1.money });
+    // shark: take and settle a small note through the branch
+    await navTo(pg, 'bank', false);
+    await pg.waitForSelector('[data-act="loan_take"]', { timeout: 5000 });
+    await pg.evaluate(() => { const i = document.querySelector('#loan-amt'); i.value = '2000'; document.querySelector('[data-act="loan_take"]').click(); });
+    await sleep(1300);
+    me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
+    ok('the shark fronts the money with the vig attached', !!(me1.loan && me1.loan.owed === 2500), me1.loan);
+    ok('the loan chip ticks in the HUD', await pg.evaluate(() => !!document.querySelector('#tick-loan')));
+    await pg.evaluate(() => { const i = document.querySelector('#loan-amt'); i.value = '2500'; document.querySelector('[data-act="loan_repay"]').click(); });
+    await sleep(1300);
+    me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
+    ok('settling retires the note', !me1.loan, me1.loan);
+    // shops
+    await navTo(pg, 'city', false);
+    await click(pg, '[data-fil="city"][data-v="shops"]');
+    await pg.waitForSelector('[data-act="shop_buy"]', { timeout: 6000 });
+    await pg.evaluate(() => document.querySelector('[data-act="shop_buy"]').click());
+    await sleep(1300);
+    me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
+    ok('the corner counter bags the goods', Object.keys(me1.items).length > 0 && me1.money < 600000, me1.items);
+    // board
+    await click(pg, '[data-fil="city"][data-v="board"]');
+    await pg.waitForSelector('.mission', { timeout: 6000 });
+    ok('the board carries five postings', (await pg.evaluate(() => document.querySelectorAll('.mission').length)) === 5);
+    ok('console clean through the desk run', errs.length === 0, errs.slice(0, 2));
+    await ctx.close();
+  }
+
+  head('The gang bench: chest, muscle, crew wire');
+  {
+    fundLocal(900000, 40000);
+    const mk = await api('/api/action', 'POST', { name: 'faction_create', factionName: 'Tipstaff Wire', tag: 'TPW' }, ckA).then(r => r.json());
+    ok('a crew plants its flag', !!(mk && (mk.ok || mk.p)), mk.err);
+    const det0 = await api('/api/faction/detail', 'GET', null, ckA).then(r => r.json());
+    const fid = det0.faction ? det0.faction.id : null;
+    ok('the detail wire answers', !!fid, det0.faction && det0.faction.name);
+    const j = await api('/api/action', 'POST', { name: 'faction_join', fid }, ckB).then(r => r.json());
+    ok('a second hand joins below the cap', !!(j && (j.ok || j.p)), j.err);
+    await api('/api/action', 'POST', { name: 'fbank_in', amount: 300000 }, ckB).then(r => r.json());
+    const { ctx, pg, errs } = await openPage(ckA, false);
+    await pg.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(500);
+    await navTo(pg, 'faction', false);
+    await pg.waitForSelector('[data-act="fupgrade"]', { timeout: 6000 });
+    ok('the bench shows the war chest and the roster', await pg.evaluate(() => /War Chest/i.test((document.querySelector('#view') || {}).textContent || '')), '');
+    await pg.evaluate(() => { const btns = [...document.querySelectorAll('[data-act="fupgrade"]')]; const b = btns.find(x => x.dataset.up === 'muscle') || btns[0]; b.click(); });
+    await sleep(1400);
+    const det1 = await api('/api/faction/detail', 'GET', null, ckA).then(r => r.json());
+    const muscle = det1.faction.upgrades.find(u => u.id === 'muscle');
+    ok('the arrangement locks in from the chest', !!muscle.owned && det1.faction.bank === 50000, det1.faction.bank);
+    // crew wire channel: only the affiliated hear it
+    await api('/api/action', 'POST', { name: 'chat_msg', chan: 'gang', body: 'corners at dawn, nobody runs hot alone' }, ckA);
+    await sleep(200);
+    const gfeed = await api('/api/chat?chan=gang', 'GET', null, ckB).then(r => r.json());
+    ok('the crew wire hums for members', gfeed.items.some(m => /corners at dawn/.test(m.body)));
+    // announce through the UI as the boss
+    await pg.evaluate(() => { const i = document.querySelector('#fannounce'); if (i) i.value = 'stay off the east cameras tonight'; });
+    if (await pg.evaluate(() => !!document.querySelector('[data-act="fannounce"]'))) {
+      await pg.evaluate(() => document.querySelector('[data-act="fannounce"]').click());
+      await sleep(1200);
+      const det2 = await api('/api/faction/detail', 'GET', null, ckB).then(r => r.json());
+      ok('the boss pins the word for the whole roster', !!(det2.faction.announce && /east cameras/.test(det2.faction.announce.text)), det2.faction.announce);
+    }
+    ok('console clean through the bench run', errs.length === 0, errs.slice(0, 2));
+    await ctx.close();
+  }
+
   head('Wardrobe');
   {
     const { ctx, pg } = await openPage(ckA, false);

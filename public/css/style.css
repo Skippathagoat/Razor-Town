@@ -709,3 +709,92 @@ input:focus,select:focus{outline:none;border-color:var(--cyn);box-shadow:0 0 0 3
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px}
 ::selection{background:rgba(76,194,255,.3)}
+
+/* ============ WIRE-GRID UI (v3) — denser ops-console layer ============ */
+:root { --grid: rgba(88,214,255,.045); }
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 78%);
+}
+#app { position: relative; z-index: 1; }
+.card { position: relative; }
+.card::after {
+  content: ""; position: absolute; top: 0; right: 0; width: 14px; height: 14px;
+  border-top: 1.5px solid var(--cyn, #58d6ff); border-right: 1.5px solid var(--cyn, #58d6ff);
+  opacity: .28; border-top-right-radius: 6px; pointer-events: none;
+}
+.card.panel-gold::after { border-color: var(--gold); opacity: .4; }
+
+/* regen countdown strip under the HUD bars */
+#tickline { display: flex; gap: 6px; padding: 3px 2px 0; flex-wrap: wrap; }
+.tchip { font-size: 10px; letter-spacing: .06em; color: var(--dim); background: rgba(255,255,255,.04);
+  border: 1px solid var(--line, #26304a); border-radius: 99px; padding: 2px 8px; display: inline-flex; gap: 5px; align-items: center; }
+.tchip b { color: var(--cyn, #58d6ff); font-variant-numeric: tabular-nums; font-weight: 700; }
+.tchip.loan { border-color: rgba(229,72,94,.35); }
+.tchip.loan b { color: var(--warn, #ffb454); }
+.tchip.loan.hot { animation: pulse 1.2s infinite; border-color: var(--bad); }
+.tchip.loan.hot b { color: var(--bad); }
+@keyframes pulse { 50% { box-shadow: 0 0 10px rgba(229,72,94,.5); } }
+
+/* wire pass chip in the HUD */
+.passchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(229,185,94,.55);
+  background: linear-gradient(135deg, rgba(229,185,94,.16), rgba(229,185,94,.04)); color: var(--gold);
+  font-size: 9px; letter-spacing: .14em; padding: 4px 9px; border-radius: 99px; cursor: pointer; font-weight: 700; }
+.passchip b { font-size: 10px; letter-spacing: 0; }
+.passchip.dim { filter: grayscale(.5) brightness(.75); border-color: var(--line, #26304a); color: var(--dim); }
+.passchip:hover { filter: brightness(1.2); }
+.passbuffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.passbuffs .pb { border: 1px solid rgba(229,185,94,.3); border-radius: 10px; padding: 8px 6px; text-align: center; background: rgba(229,185,94,.05); }
+.passbuffs .pb b { display: block; color: var(--gold); font-size: 15px; }
+.passbuffs .pb span { font-size: 10px; color: var(--mut); }
+
+/* chat dock */
+#chatdock { position: fixed; right: 14px; bottom: 14px; width: 340px; max-width: calc(100vw - 20px); height: 430px;
+  display: flex; flex-direction: column; background: rgba(13,17,28,.96); border: 1px solid var(--line2, #2c3a5c);
+  border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,.65), 0 0 0 1px rgba(88,214,255,.06) inset; z-index: 900;
+  backdrop-filter: blur(10px); transition: transform .22s ease, opacity .22s ease; }
+#chatdock.closed { transform: translateY(115%); opacity: 0; pointer-events: none; }
+.cd-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line, #26304a); }
+.cd-title { font-size: 10.5px; letter-spacing: .18em; color: var(--cyn, #58d6ff); margin-right: 6px; font-weight: 700; }
+.cd-tab { font-size: 9.5px; letter-spacing: .1em; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line, #26304a);
+  background: none; color: var(--dim); cursor: pointer; }
+.cd-tab.on { color: var(--ink, #e8ecf5); border-color: var(--cyn, #58d6ff); background: rgba(88,214,255,.1); }
+.cd-grow { flex: 1; }
+.cd-x { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 2px 8px; }
+.cd-feed { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
+.cd-msg { line-height: 1.45; color: var(--mut); word-break: break-word; }
+.cd-msg b { color: var(--cyn, #58d6ff); margin-right: 4px; }
+.cd-msg.mine b { color: var(--gold); }
+.cd-msg .cd-t { color: var(--dim); font-size: 10px; margin-right: 4px; font-variant-numeric: tabular-nums; }
+.cd-sys { color: var(--dim); font-size: 11px; font-style: italic; text-align: center; margin-top: 14px; }
+.cd-input { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--line, #26304a); }
+.cd-input input { flex: 1; background: rgba(255,255,255,.05); border: 1px solid var(--line, #26304a); border-radius: 9px;
+  padding: 7px 10px; color: var(--ink, #e8ecf5); font-size: 12.5px; outline: none; }
+.cd-input input:focus { border-color: var(--cyn, #58d6ff); }
+.iconbtn.lit { border-color: var(--cyn, #58d6ff); box-shadow: 0 0 10px rgba(88,214,255,.35); }
+
+/* gang cockpit */
+.upgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.upcard { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line, #26304a); border-radius: 12px; padding: 10px; background: rgba(255,255,255,.02); }
+.upcard .upic { font-size: 22px; }
+.upcard .upnm { flex: 1; }
+.upcard .upnm small { display: block; color: var(--dim); font-size: 10.5px; line-height: 1.5; }
+.upcard.owned { border-color: rgba(60,220,140,.35); background: rgba(60,220,140,.05); }
+.gangwire p { border-left: 2px solid var(--gold); padding-left: 10px; }
+
+/* mission board */
+.mission .prog { position: relative; height: 13px; background: rgba(255,255,255,.06); border-radius: 99px; margin-top: 6px; overflow: hidden; min-width: 160px; }
+.mission .progfill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--cyn, #58d6ff), var(--gold)); border-radius: 99px; opacity: .8; }
+.mission .progtext { position: relative; z-index: 1; font-size: 9.5px; letter-spacing: .04em; padding: 1px 8px; color: var(--ink, #e8ecf5); display: block; }
+.mission.claimed { opacity: .55; }
+.shopcard { border-top: 2px solid rgba(88,214,255,.35); }
+
+@media (max-width: 760px) {
+  #chatdock { right: 6px; bottom: 6px; height: 62vh; }
+  #tickline { display: none; }     /* phones keep the HUD lean; timers live on the bars */
+  .passbuffs { grid-template-columns: repeat(2, 1fr); }
+}
