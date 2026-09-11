@@ -345,6 +345,37 @@ const routes = async (req, res, urlPath, q) => {
       try { A.setPassword(target, body.password); return send(res, 200, { ok: true }); }
       catch (e) { return send(res, 400, { err: e.message }); }
     }
+    if (op === 'delete_account') {
+      if (untouchable) return send(res, 400, { err: 'Founders are eternal.' });
+      const grow = db.prepare('SELECT name FROM players WHERE acc_id=?').get(target);
+      const pname = grow ? grow.name : targetUname;
+      // factions: leave/fix ownership, drop the gang if they were the last one in
+      for (const f of db.prepare('SELECT id, json FROM factions').all()) {
+        let d; try { d = JSON.parse(f.json || '{}'); } catch (e) { continue; }
+        if (!(d.memberIds || []).includes(target)) continue;
+        if (d.memberIds.length <= 1) { db.prepare('DELETE FROM factions WHERE id=?').run(f.id); continue; }
+        d.memberIds = d.memberIds.filter(i => i !== target);
+        d.officers = (d.officers || []).filter(i => i !== target);
+        if (d.ownerAcc === target) {
+          d.ownerAcc = d.memberIds[0];
+          const nx = db.prepare('SELECT name FROM players WHERE acc_id=?').get(d.ownerAcc);
+          d.ownerName = nx ? nx.name : 'The yard';
+        }
+        db.prepare('UPDATE factions SET json=? WHERE id=?').run(JSON.stringify(d), f.id);
+      }
+      db.prepare('DELETE FROM listings WHERE seller_acc=?').run(target);
+      db.prepare('DELETE FROM auctions WHERE seller_acc=?').run(target);
+      db.prepare("UPDATE auctions SET cur_bid=0, bidder_acc=NULL WHERE bidder_acc=?").run(target);
+      db.prepare('DELETE FROM bounties WHERE from_acc=? OR target_acc=?').run(target, target);
+      db.prepare('DELETE FROM messages WHERE from_acc=? OR to_acc=?').run(target, target);
+      db.prepare('DELETE FROM chat WHERE acc=?').run(target);
+      db.prepare('DELETE FROM news WHERE message LIKE ?').run('%' + String(pname).replace(/[%_]/g, '') + '%');
+      db.prepare('DELETE FROM pay_claims WHERE acc_id=? OR decided_by=?').run(target, target);
+      db.prepare('DELETE FROM players WHERE acc_id=?').run(target);
+      db.prepare('DELETE FROM accounts WHERE id=?').run(target);
+      W.logNews('gone', '\uD83D\uDD73\uFE0F', pname + ' was struck off the ledger.');
+      return send(res, 200, { ok: true, gone: pname });
+    }
     const tp = W.load(target);
     switch (op) {
       case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
@@ -392,6 +423,7 @@ const routes = async (req, res, urlPath, q) => {
     const name = body.name;
     const handlers = {
       crime: () => W.doCrime(id, body.crimeId),
+      prison: () => W.prisonDo(id, body),
       train: () => W.doTrain(id, body.stat, body.gymId),
       work: () => W.doWork(id),
       attack: () => W.doAttack(id, body.targetId),

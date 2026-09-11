@@ -543,7 +543,7 @@
     const carried = Object.values(me.items || {}).reduce((a, b) => a + b, 0);
     const itemBtn = (tid) => {
       const tb = tabOf(tid); if (!tb) return '';
-      const disable = lock && ['crime', 'gym', 'job', 'attack', 'casino'].includes(tid);
+      const disable = lock && ['gym', 'job', 'attack', 'casino'].includes(tid);
       const badge = tid === 'items' && carried ? `<span class="rail-count neutral">${carried}</span>` : (tid === 'msg' && me.unread ? `<span class="rail-count">${me.unread}</span>` : '');
       return `<button class="rail-item ${G.view === tid ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${tid}" ${disable ? 'disabled' : ''}><span class="ico">${tb.ico}</span><span class="rl">${tb.label}</span>${badge}<span class="kbd">${tb.key}</span></button>`;
     };
@@ -1058,6 +1058,7 @@
               ${tp.banned ? `<button class="btn sm ok" data-act="dev_world" data-op="unban" data-tid="${tp.acc_id}">Unban</button>`
                           : (tp.dev ? '' : `<button class="btn sm bad" data-act="dev_world" data-op="ban" data-tid="${tp.acc_id}">Ban</button>`)}
               ${tp.dev ? '' : `<button class="btn sm" data-act="dev_world" data-op="set_password" data-tid="${tp.acc_id}">Set password</button>`}
+              ${tp.dev ? '' : `<button class="btn sm bad" data-act="dev_world" data-op="delete_account" data-tid="${tp.acc_id}" data-uname="${esc(tp.username)}">Delete</button>`}
             </div></div>
           <div class="card" id="${uuid}" style="display:none;margin:0 0 6px;background:var(--bg1)">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;font-size:12px">
@@ -1082,6 +1083,61 @@
             <button class="btn sm bad" data-act="dev_pay" data-claim="${c.id}" data-approve="0">Decline</button>
           </div></div>`).join('') : `<p style="color:var(--dim);font-size:12px;margin:4px 0 0">No claims waiting.</p>`}
       </div>`;
+  }
+
+  // ================================================================ THE YARD — the prison you live through
+  function renderPrison() {
+    clearTimeout(G.prisonTick);
+    const me = G.me, v = $('#view');
+    const left = Math.max(0, me.jail_until - Date.now());
+    const minsL = Math.max(1, Math.ceil(left / 60000));
+    const bailCost = Math.round((400 + minsL * 22) * (1 + Math.min(2, (me.level || 1) / 40)));
+    const pr = me.prison || { cigs: 0, shift_in: 0, gym_in: 0, gamble_in: 0, bust_in: 0, shifts: 0, busts: 0 };
+    const cd = (ms) => ms > 0 ? ' · ' + Math.ceil(ms / 60000) + ' min cooldown' : '';
+    const canAffordBail = (me.money + me.bank) >= bailCost;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">⛓ <span class="head">THE YARD</span></div>
+      <div class="vdesc">Banged up with ${fmtDur(left)} left on the clock — but the sentence is only dead time if you let it be. Work, lift, play the man, buy the door, or go through the wall.</div></div>
+      <div class="pill"><span style="color:var(--bad)">⛓ ${fmtDur(left)} left</span> <b style="color:var(--gold)">🚬 ${pr.cigs} cigarettes</b></div></div>
+
+      <div class="card"><div class="subhead">🧺 Ways to make the time pay</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+          <div class="itemrow"><span class="ic">🧺</span><div class="nm"><b>Laundry shift</b><small>15 min blocks · +2–3 cigarettes · +4 XP (done ${pr.shifts || 0} shifts)</small></div>
+            <div class="acts"><button class="btn sm ok" data-act="prison" data-op="work" ${pr.shift_in > 0 ? 'disabled' : ''}>Work${cd(pr.shift_in) || ''}</button></div></div>
+          <div class="itemrow"><span class="ic">🏋️</span><div class="nm"><b>Yard weights</b><small>20 min cooldown · +1 strength/defence/speed · +3 XP</small></div>
+            <div class="acts"><button class="btn sm" data-act="prison" data-op="gym" ${pr.gym_in > 0 ? 'disabled' : ''}>Lift${cd(pr.gym_in) || ''}</button></div></div>
+          <div class="itemrow"><span class="ic">🎲</span><div class="nm"><b>Corner game</b><small>Stake 1–10 cigarettes · even dice, house keeps nothing</small></div>
+            <div class="acts" style="display:flex;gap:6px;align-items:center"><input class="in" id="prison-stake" style="width:64px" type="number" min="1" max="10" value="2">
+            <button class="btn sm gold" data-act="prison" data-op="gamble" ${pr.gamble_in > 0 ? 'disabled' : ''}>Roll${cd(pr.gamble_in) || ''}</button></div></div>
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--gold)">🚪 The two doors out</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+          <div class="itemrow"><span class="ic">🎫</span><div class="nm"><b>Post bail</b><small>$${bailCost.toLocaleString()} — scales with what's left and your name. Cash first, then bank.</small></div>
+            <div class="acts"><button class="btn sm cyan" data-act="prison" data-op="bail" ${canAffordBail ? '' : 'disabled'}>Buy the door</button></div></div>
+          <div class="itemrow"><span class="ic">🔧</span><div class="nm"><b>Go through the wall</b><small>${Math.min(45, 10 + Math.round((me.nerve || 0) * 0.5))}% by your nerve · fail = +14 min and a shakedown</small></div>
+            <div class="acts"><button class="btn sm bad" data-act="prison" data-op="bust" ${pr.bust_in > 0 ? 'disabled' : ''}>Bust out${cd(pr.bust_in) || ''}</button></div></div>
+        </div>
+        ${left <= 0 ? '' : `<p style="color:var(--dim);font-size:11.5px;margin:10px 0 0">Your network keeps working: messages, bounties and the wire all still reach you.</p>`}
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--dim)">🗞 How the block works</div>
+        <p style="color:var(--mut);font-size:12.5px;line-height:1.55">Cigarettes are the only money that moves in here — earn them in the laundry, grow them on the dice, smuggle them back out when the door opens. Jail refreshes your energy when the sentence ends on its own; bailing buys that clock back out of your own pocket. Escapes log on the town wire, win or lose.</p>
+      </div>`;
+    G.prisonTick = setTimeout(() => { if (G.view === 'crime' && G.me && G.me.jail_until && G.me.jail_until > Date.now()) renderPrison(); }, 30000);
+  }
+  async function prisonGo(btn) {
+    const op = btn.dataset.op;
+    const payload = { name: 'prison', op };
+    if (op === 'gamble') payload.stake = parseInt(($('#prison-stake') || { value: '1' }).value, 10) || 1;
+    try {
+      const r = await Net.post('/api/action', payload);
+      if (r.p) applyMe(r.p, r.res);
+      if (r.res && r.res.text) U.toast(esc(r.res.text), r.res.busted ? 'bad' : 'good');
+      renderHUD(); renderRail();
+      if (G.view === 'crime') renderCrime();
+    } catch (e) { U.toast('⚠️ ' + esc(e.message), 'bad'); }
   }
 
   function renderCity() {
@@ -1166,6 +1222,7 @@
     const v = $('#view');
     const jail = me.jail_until && me.jail_until > Date.now();
     const hosp = me.hosp_until && me.hosp_until > Date.now();
+    if (jail) { renderPrison(); return; }
     const list = m.crimes.filter(c => cat === 'all' || c.cat === cat);
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🧢 <span class="head">Crime Ring</span></div>
@@ -2131,18 +2188,19 @@
 
   // ================================================================ GLOBAL HANDLERS
   function onModalRoot(e) {
-    const act = (e.target.closest('[data-act]') || {}).dataset && e.target.closest('[data-act]').dataset.act;
-    if (act === 'close-scene') { SND.slice(); closeScene(); }
-    if (act === 'skip-scene') { closeScene(); }
-    if (act === 'again-crime') {
+    // NOTE: don't call this `act` — it shadows the global act() dispatcher (the 'Do it again' button once died to that).
+    const a = (e.target.closest('[data-act]') || {}).dataset && e.target.closest('[data-act]').dataset.act;
+    if (a === 'close-scene') { SND.slice(); closeScene(); }
+    if (a === 'skip-scene') { closeScene(); }
+    if (a === 'again-crime') {
       const cid = e.target.closest('[data-crime]').dataset.crime;
       closeScene(); act('crime', { crimeId: cid }, 'crime');
     }
-    if (act === 'close-modal') { if (G.needsEmail) { renderEmailGate(); return; } $('#modal-root').innerHTML = ''; }
-    if (act === 'gate_email') { gateEmail(); return; }
-    if (act === 'save-look') { saveLook(); }
-    if (act === 'sound') { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; openMenu(); }
-    if (act === 'logout') { doLogout(); }
+    if (a === 'close-modal') { if (G.needsEmail) { renderEmailGate(); return; } $('#modal-root').innerHTML = ''; }
+    if (a === 'gate_email') { gateEmail(); return; }
+    if (a === 'save-look') { saveLook(); }
+    if (a === 'sound') { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; openMenu(); }
+    if (a === 'logout') { doLogout(); }
   }
   async function saveLook() {
     const me = G.me;
@@ -2336,6 +2394,11 @@
         payload.password = pw;
         if (!confirm('Replace their password now? They will use the one you just typed.')) return;
       }
+      if (op === 'delete_account') {
+        const sure = prompt('Deleting strands them fully — account, character, gang seat, listings, bounties, mail. Type the handle (@' + (btn.dataset.uname || '') + ') to confirm:') || '';
+        if (sure.trim().toLowerCase() !== String(btn.dataset.uname || '').toLowerCase()) { U.toast('Handle mismatch — cancelled.', 'bad'); return; }
+        if (!confirm('Final word: delete this account from Razor Town forever?')) return;
+      }
     }
     try {
       await Net.post('/api/dev/world', payload);
@@ -2399,6 +2462,7 @@
       case 'pay_claim': claimPay(); break;
       case 'dev_self': devSelf(btn); break;
       case 'dev_world': devWorld(btn); break;
+      case 'prison': prisonGo(btn); break;
       case 'dev_info': { const x = btn.dataset.x && document.getElementById(btn.dataset.x); if (x) x.style.display = x.style.display === 'none' ? '' : 'none'; break; }
       case 'dev_pay': devPayDecide(btn); break;
       case 'pass_buy': act('pass_buy', {}); break;
