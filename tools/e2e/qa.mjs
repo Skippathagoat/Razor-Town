@@ -29,7 +29,7 @@ let pass = 0, fail = 0;
 const ok = (n, c, d) => { if (c) { pass++; console.log('  ✓ ' + n); } else { fail++; console.log('  ✗ ' + n + (d !== undefined ? '   → ' + JSON.stringify(d) : '')); } };
 const head = (t) => console.log('\n' + t);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const TABS = ['city', 'crime', 'attack', 'gym', 'job', 'market', 'items', 'finance', 'property', 'college', 'merits', 'bounty', 'casino', 'faction', 'ach', 'leaders', 'msg', 'profile', 'help'];
+const TABS = ['city', 'crime', 'attack', 'gym', 'job', 'market', 'items', 'bank', 'property', 'college', 'merits', 'bounty', 'casino', 'faction', 'ach', 'leaders', 'msg', 'profile', 'help'];
 
 let srv = null, srvLog = '';
 if (!LIVE) {
@@ -235,7 +235,7 @@ if (!LIVE) {
   {
     const { ctx, pg, errs } = await openPage(ckA, false);
     await pg.goto(BASE, { waitUntil: 'domcontentloaded' }); await pg.waitForSelector('#rail', { timeout: 15000 }); await sleep(500);
-    await navTo(pg, 'finance', false);
+    await navTo(pg, 'bank', false);
     const v0 = await pg.evaluate(() => (document.querySelector('#view') || {}).textContent || '');
     ok('finance tab lands on the branch', /wire exchange bank/i.test(v0));
     await click(pg, '[data-fil="finance"][data-v="stocks"]');
@@ -246,15 +246,18 @@ if (!LIVE) {
     ok('bought shares through the exchange', me1.stocks && Object.values(me1.stocks).reduce((a, b) => a + b, 0) === 5, me1.stocks);
     await click(pg, '[data-fil="finance"][data-v="crypto"]');
     await pg.waitForSelector('[data-act="crypto_buy"]', { timeout: 6000 });
-    await pg.evaluate(() => { const i = document.querySelector('[data-amt]'); if (i) i.value = '0.5'; document.querySelector('[data-act="crypto_buy"]').click(); });
+    await pg.evaluate(() => { const i = document.querySelector('[data-amt]'); if (i) i.value = '40'; document.querySelector('[data-act="crypto_buy"]').click(); });
     await sleep(1300);
     me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;
     ok('crypto settles in the wallet', me1.crypto && Object.values(me1.crypto).reduce((a, b) => a + b, 0) > 0, me1.crypto);
     ok('the mining callout knows the rig count', await pg.evaluate(() => /mining rig/i.test((document.querySelector('#view') || {}).textContent || '')));
     // iron & plate: buy a gun, equip it from the bag
-    await api('/api/action', 'POST', { name: 'buy', itemId: 'g9_pistol', qty: 1 }, ckA).then(r => r.json());
+    fundLocal(50000, 40000); // the big board can rail a price mid-run; top up so the iron money is always there
+    const gunBuy = await api('/api/action', 'POST', { name: 'buy', itemId: 'g9_pistol', qty: 1 }, ckA).then(r => r.json());
+    ok('the fence hands over the GT-9', !!(gunBuy && (gunBuy.ok || gunBuy.p)), gunBuy.err);
     await navTo(pg, 'items', false);
-    await pg.waitForSelector('[data-act="equip"]', { timeout: 6000 });
+    // the shelf repaints on the next 6s me-poll once the bag changes off-window
+    await pg.waitForSelector('[data-act="equip"]', { timeout: 12000 });
     await pg.evaluate(() => document.querySelector('[data-act="equip"]').click());
     await sleep(1100);
     me1 = (await api('/api/me', 'GET', null, ckA).then(r => r.json())).me;

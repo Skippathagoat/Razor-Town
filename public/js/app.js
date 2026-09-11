@@ -1792,6 +1792,7 @@
     if (btn.dataset.fil) {
       G.filters[btn.dataset.fil] = btn.dataset.v;
       if (btn.dataset.fil === 'leader') { G.filters.leader = btn.dataset.v; renderLeaders(); }
+      else if (btn.dataset.fil === 'finance') { FIN.sub = btn.dataset.v; reRenderCurrent(); }
       else reRenderCurrent();
       return;
     }
@@ -1838,15 +1839,15 @@
       case 'unequip': act('unequip', { slot: btn.dataset.slot }); break;
       case 'stock_buy': case 'stock_sell': {
         const qty = parseInt((document.querySelector(`[data-qty=\"${btn.dataset.sym}\"]`) || {}).value, 10) || 0;
-        act(name, { sym: btn.dataset.sym, qty }); break;
+        act(actN, { sym: btn.dataset.sym, qty }); break;
       }
       case 'crypto_buy': {
         const amount = parseFloat((document.querySelector(`[data-amt=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
-        act(name, { sym: btn.dataset.sym, amount }); break;
+        act(actN, { sym: btn.dataset.sym, amount }); break;
       }
       case 'crypto_sell': {
         const qty = parseFloat((document.querySelector(`[data-sqty=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
-        act(name, { sym: btn.dataset.sym, qty }); break;
+        act(actN, { sym: btn.dataset.sym, qty }); break;
       }
       case 'use': act('use', { itemId: btn.dataset.item }); break;
       case 'deposit': case 'withdraw': {
@@ -1951,10 +1952,14 @@
       const isJ = r.me.jail_until && r.me.jail_until > Date.now();
       const now = { money: r.me.money };
       // lightweight: only update numbers/bars, no content churn every 5s
+      const bagBefore = JSON.stringify((G.me && G.me.items) || {});
       G.me = Object.assign({}, G.me, r.me);
       renderHUD();
       if (wasJ && !isJ) { unlockUI(); }
       if ($('#lock-cover')) U.updateTimers($('#lock-cover'));
+      // the bag can change without this window lifting a finger (sales through the stall,
+      // wires from the rooms, a buy on another device) — repaint the shelf when it does
+      if (G.view === 'items' && JSON.stringify(G.me.items || {}) !== bagBefore) renderItems();
     }).catch(() => {});
   }, 6000);
 
