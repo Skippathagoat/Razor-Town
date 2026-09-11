@@ -33,7 +33,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ## 🎩 What you can do
 | Area | What's in it |
 |---|---|
-| **Character creator** | Pick skin, face, headwear (flat caps, bowlers, head scarves…), jacket and trinket, plus an origin story that grants bonus stats & starter loot. |
+| **Character creator** | Semi-realistic paper-doll built from original vector art — 9 skins, 12 faces (beard, handlebar, mutton chops, war-worn…), 19 hair & hats (flat cap to straw boater), 16 coats with real patterns (pinstripe, gun-club check, evening tails…), 13 trinkets (watch chain, monocle, unlit cigar…), plus an origin story that grants bonus stats & starter loot. Re-style any time from your profile. |
 | **Crimes** | 23 original jobs across 6 categories (Theft & Dip, Fraud & Forge, Black Market, Sharp Practice, Strong-Arm Work, Big Jobs). Each costs nerve + energy, has skill requirements, odds, loot drops and bust risk. Chain successes for a **🔥 Spree** cash bonus. |
 | **Busted** | Screw up badly and you're **NICKED!** — the gaol keeps you below stairs (or the infirmary takes you in). Timers run live; energy refills while you wait. |
 | **Profile** | Your paper-doll in full, every stat and slot, what you're wearing, and your career record. |
@@ -45,7 +45,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **College** | Digbeth Technical College — 14 evening courses from Pitman Shorthand to Industrial Chemistry and Law of Property. One at a time, fees up front, and the grant is permanent: stat blocks, +% crime success, +% training gains, shorter sentences, cheaper property. Some courses are gated behind a level or an earlier course. |
 | **Merits** | One merit point per level, spent permanently on 8 perk lines (extra energy, nerve, life, happiness, training, crime success, heavier muggings, shorter stretches). |
 | **Bounties** | The Bounty Board — post money on any citizen's name ($500 minimum, anonymously if you like) and it pools. Beat that man into hospital and you collect the pot less a 5% fee; the target gets a letter telling them. |
-| **Betting shop** | The Corner Betting Shop — the Greyhound Dash. Back the dog, ride the multiplier, cash out before the crash. |
+| **Betting shop** | Six real tables in The Corner Betting Shop: **Pontoon** (blackjack — hit/stand/double, naturals 3:2, five-card trick 2:1), **The Wheel** (single-zero roulette: colours, odds, dozens, columns, 35:1 numbers), **The Bandit** (three weighted reels, up to 60×), **Crown & Anchor** (service-dice classic), **High-Low**, and the **Greyhound Dash** crash multiplier. Stakes $10–$1,000,000, all settled server-side. |
 | **Gangs** | Found your own crew for $200k (level 5+) and invite whoever turns up — every gang in the city is player-run. |
 | **Feats** | 20 achievements that fire juicy popups + town-wide news. |
 | **The Gallery** | The city's live high-score table: reputation, level, crimes, fights, wealth. |
@@ -58,7 +58,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
 is a fault worth reporting).
 
-**Verify the systems yourself:** `node tools/check-systems.js` runs 48 rule-level assertions (property, upkeep, education, merits, bounties, payout) against a throwaway world in `/tmp` — it never touches the live ledger.
+**Verify the systems yourself:** `node tools/check-systems.js` runs 82 rule-level assertions (property, upkeep, education, merits, bounties, and every casino table — dealt naturals, busts, doubles, five-card tricks, wheel pockets, bands of three) against a throwaway world in `/tmp` — it never touches the live ledger. `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) and proves the same process keeps serving.
 
 **Controls:** full keyboard shortcuts (see Help in-game, e.g. `c` crimes, `a` attack, `Esc` menu) *and* a thumb-friendly bottom nav on mobile. Menu/button based throughout — no movement controls.
 

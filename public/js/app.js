@@ -259,8 +259,8 @@
           </div>
           <div class="creator-panel"><h3>🎨 Look</h3>
             ${swatches('skin', 'Skin', AV.SKINS, 'skin')}
-            ${chips('face', 'Face / style', ['Round','Sharpe','Rugged','Hooded','Sleepy','Scar'], 'face')}
-            ${chips('hair', 'Hair / headwear', ['Flat cap', 'Bowler', 'Slicked', 'Bobbed', 'Bowl crop', 'Cropped', 'Rough crop', 'Head scarf', 'Trimmed', 'Auburn'], 'hair')}
+            ${chips('face', 'Face / style', AV.FACE_FEAT.map(x => x.n), 'face')}
+            ${chips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), 'hair')}
             ${swatches('shirt', 'Jacket', AV.SHIRTS, 'shirt')}
             ${swatches('accent', 'Trinket', AV.ACCENTS, 'accent')}
           </div>
@@ -827,7 +827,17 @@
       <div class="scene-actions"><button class="btn primary" data-act="close-scene">Walk away</button></div></div></div>`;
   }
   function resolveCasinoScene(r) {
-    const res = r.res;
+    const res = r.res || {};
+    if (res.game && res.game !== 'greyhound') {
+      // card-and-dice games resolve right on the table, not in a modal
+      CAS.res = res;
+      if (res.win) { SND.win(); } else SND.lose();
+      if (res.stage === 'settled' && res.win && res.pay >= res.bet * 4) FX.confetti();
+      renderCasino();
+      const st = $('#cas-stage');
+      if (st) st.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
     const root = sceneEl();
     if (res.win) { SND.win(); FX.confetti(); }
     else { SND.lose(); }
@@ -1141,22 +1151,137 @@
   }
 
   // ---- CASINO
+  // ================================================================ CASINO
+  const CAS = { game: 'pontoon', spot: 'red', pick: 'crown', guess: 'higher', res: null };
+  const CAS_GAMES = [
+    { id: 'pontoon', ico: '♠️', n: 'Pontoon', blurb: 'Beat the dealer to 21. Naturals pay 3:2 — five cards under 21 pays 2:1.' },
+    { id: 'greyhound', ico: '🐕', n: 'The Dog', blurb: 'The Greyhound Dash. Your multiplier climbs... until the dog falls over.' },
+    { id: 'wheel', ico: '🎡', n: 'The Wheel', blurb: 'Single zero on the drum. Colours and odds pay 1:1, dozens and columns 2:1, a number 35:1.' },
+    { id: 'bandit', ico: '🎰', n: 'The Bandit', blurb: 'Three reels. A pair returns your stake — three sevens pay 60 to 1.' },
+    { id: 'crown', ico: '⚓', n: 'Crown & Anchor', blurb: 'Back one of the six signs. Every die that lands on it pays your stake again.' },
+    { id: 'hilow', ico: '🎴', n: 'High-Low', blurb: 'One card shows. Call the next higher or lower and double your money. Ties go to the house.' }
+  ];
+  function pcard(c, back) {
+    if (back) return `<div class="pcard back"><span>✦</span></div>`;
+    const red = c.s === '♥' || c.s === '♦';
+    return `<div class="pcard ${red ? 'red' : ''}"><b>${c.r}</b><span>${c.s}</span></div>`;
+  }
+  function casOptions() {
+    const g = CAS.game;
+    const chip = (k, v, label, on) => `<button class="chip sm ${CAS[k] === v ? 'on' : ''}" data-act="casino-opt" data-k="${k}" data-v="${v}">${label}</button>`;
+    if (g === 'wheel') {
+      const nums = [['0', 'green0']];
+      for (let i = 1; i <= 36; i++) nums.push([String(i), [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(i) ? 'rn' : 'bn']);
+      return `<div class="chiprow" style="margin-bottom:8px">
+          ${chip('spot', 'red', '🔴 Red')}${chip('spot', 'black', '⚫ Black')}${chip('spot', 'odd', 'Odd')}${chip('spot', 'even', 'Even')}${chip('spot', 'low', '1–18')}${chip('spot', 'high', '19–36')}
+          ${chip('spot', 'dozen1', '1st 12')}${chip('spot', 'dozen2', '2nd 12')}${chip('spot', 'dozen3', '3rd 12')}${chip('spot', 'col1', 'Col Ⅰ')}${chip('spot', 'col2', 'Col Ⅱ')}${chip('spot', 'col3', 'Col Ⅲ')}
+        </div>
+        <div class="numgrid">${nums.map(([n, cls]) => `<button class="numchip ${cls} ${CAS.spot === 'n:' + n ? 'on' : ''}" data-act="casino-opt" data-k="spot" data-v="${'n:' + n}">${n}</button>`).join('')}</div>`;
+    }
+    if (g === 'crown') {
+      const sigs = [['crown', '👑'], ['anchor', '⚓'], ['heart', '♥️'], ['diamond', '♦️'], ['club', '♣️'], ['spade', '♠️']];
+      return `<div class="chiprow">${sigs.map(([id, gy]) => chip('pick', id, `${gy} ${id[0].toUpperCase() + id.slice(1)}`)).join('')}</div>`;
+    }
+    if (g === 'hilow') return `<div class="chiprow">${chip('guess', 'higher', '⬆ Higher')}${chip('guess', 'lower', '⬇ Lower')}</div>`;
+    return '';
+  }
+  function pontoonHandHtml(h, settledRes) {
+    if (settledRes) {
+      const lab = { 'pontoon': '♠️ PONTOON! Naturals pay 3:2', 'five-card-trick': '✋ FIVE-CARD TRICK! Pays 2:1', 'dealer-bust': 'The dealer went bust', win: 'You beat the house', push: 'Push — stake returned', bust: 'BUST — over the 21', lose: 'The house takes it', 'house-pontoon': 'The dealer had a pontoon' }[settledRes.outcome] || settledRes.outcome;
+      return `<div style="text-align:center">
+        <div class="scene-sub" style="margin-bottom:6px">The house shows <b class="mono">${settledRes.dv}</b></div>
+        <div class="pcard-row">${settledRes.dealer.map(c => pcard(c)).join('')}</div>
+        <div class="pcard-row" style="margin-top:10px">${settledRes.player.map(c => pcard(c)).join('')}</div>
+        <div class="scene-sub" style="margin-top:6px">You hold <b class="mono">${settledRes.pv}</b>${settledRes.doubled ? ' · doubled to $' + settledRes.bet.toLocaleString() : ''}</div>
+        <div style="font-size:19px;font-weight:800;margin:10px 0 2px;color:${settledRes.win ? 'var(--gold)' : settledRes.push ? 'var(--mut)' : 'var(--bad)'}">${lab}</div>
+        ${settledRes.win ? `<div class="scene-cash" style="font-size:30px">${money(settledRes.pay)}</div>` : settledRes.push ? `<div style="color:var(--mut);font-weight:700">$${settledRes.bet.toLocaleString()} back in your pocket</div>` : `<div style="color:var(--bad)">−$${settledRes.bet.toLocaleString()}</div>`}
+      </div>`;
+    }
+    const canDouble = h.player.length === 2 && !h.doubled && G.me.money >= h.bet;
+    return `<div style="text-align:center">
+      <div class="scene-sub" style="margin-bottom:6px">The house shows <b class="mono">${h.dv}</b></div>
+      <div class="pcard-row">${h.dealer.map(c => pcard(c)).join('')}${pcard(null, true)}</div>
+      <div class="pcard-row" style="margin-top:10px">${h.player.map(c => pcard(c)).join('')}</div>
+      <div class="scene-sub" style="margin-top:6px">You hold <b class="mono">${h.pv}</b> · stake <b class="mono">$${h.bet.toLocaleString()}</b></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+        <button class="btn cyan sm" data-act="casino-move" data-move="hit">Hit</button>
+        <button class="btn ghost sm" data-act="casino-move" data-move="stand">Stand</button>
+        ${canDouble ? `<button class="btn gold sm" data-act="casino-move" data-move="double">Double</button>` : ''}
+      </div>
+    </div>`;
+  }
+  function casStageHtml(me) {
+    const res = CAS.res && CAS.res.game === CAS.game ? CAS.res : null;
+    if (CAS.game === 'pontoon') {
+      if (res) return res.stage === 'settled' ? pontoonHandHtml(null, res) : pontoonHandHtml(res);
+      if (me.pontoon) return pontoonHandHtml({ player: me.pontoon.player, dealer: me.pontoon.dealer, pv: me.pontoon.pv, dv: '…', bet: me.pontoon.bet, doubled: me.pontoon.doubled });
+      return `<div class="scene-sub" style="text-align:center;color:var(--dim)">Lay a bet and the cards are yours.</div>`;
+    }
+    if (!res) return `<div class="scene-sub" style="text-align:center;color:var(--dim)">The table is quiet. Your move.</div>`;
+    if (res.game === 'wheel') {
+      const bg = res.color === 'red' ? '#8f2f28' : res.color === 'black' ? '#262429' : '#2e5126';
+      return `<div style="text-align:center">
+        <div style="width:74px;height:74px;border-radius:50%;background:${bg};border:3px solid var(--line2);margin:8px auto;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.5)">${res.n}</div>
+        <div class="scene-sub">${res.n} ${res.color} · you backed <b style="color:var(--cyn)">${spotName(res.spot)}</b></div>
+        ${casResultLine(res)}
+      </div>`;
+    }
+    if (res.game === 'bandit') {
+      return `<div style="text-align:center">
+        <div class="pcard-row" style="gap:14px">${res.glyphs.map(g => `<div class="reelt">${g}</div>`).join('')}</div>
+        <div class="scene-sub" style="margin-top:6px">${res.mult > 1 ? res.mult + '× on three of a kind' : res.mult === 1 ? 'A pair — your stake comes back' : 'Dead reels'}</div>
+        ${casResultLine(res)}
+      </div>`;
+    }
+    if (res.game === 'crown') {
+      return `<div style="text-align:center">
+        <div class="pcard-row" style="gap:14px">${res.glyphs.map(g => `<div class="reelt">${g}</div>`).join('')}</div>
+        <div class="scene-sub" style="margin-top:6px">You backed the ${res.pick} · ${res.matches} landed</div>
+        ${casResultLine(res)}
+      </div>`;
+    }
+    if (res.game === 'hilow') {
+      return `<div style="text-align:center">
+        <div class="pcard-row">${pcard(res.first)}<div style="align-self:center;font-size:22px;color:var(--mut)">${res.guess === 'higher' ? '→⬆' : '→⬇'}</div>${pcard(res.second)}</div>
+        <div class="scene-sub" style="margin-top:6px">${res.first.r} then ${res.second.r} — you called ${res.guess}</div>
+        ${casResultLine(res)}
+      </div>`;
+    }
+    return '';
+  }
+  function casResultLine(res) {
+    if (res.win) return `<div style="font-size:20px;font-weight:800;color:var(--gold);margin-top:8px">+${money(res.pay)}</div>`;
+    return `<div style="font-weight:700;color:var(--bad);margin-top:8px">−${money(res.bet)}</div>`;
+  }
+  function spotName(spot) {
+    if (/^n:/.test(spot)) return 'number ' + spot.slice(2);
+    return { red: 'red', black: 'black', odd: 'odd', even: 'even', low: '1–18', high: '19–36', dozen1: '1st twelve', dozen2: '2nd twelve', dozen3: '3rd twelve', col1: 'column Ⅰ', col2: 'column Ⅱ', col3: 'column Ⅲ' }[spot] || spot;
+  }
   function renderCasino() {
     const me = G.me;
     const v = $('#view');
+    const gm = CAS_GAMES.find(x => x.id === CAS.game);
+    const handOpen = CAS.game === 'pontoon' && ((CAS.res && CAS.res.game === 'pontoon' && CAS.res.stage === 'hand') || (!CAS.res && me.pontoon));
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🎰 <span class="head">The Corner Betting Shop</span></div>
-      <div class="vdesc">The Greyhound Dash — the city's favorite fast money. Bet, and your multiplier climbs. The house usually wins. You're not usually.</div></div>
+      <div class="vdesc">Six tables, one rule: the house always has an edge. The trick is knowing when to walk out the door.</div></div>
       <div class="pill"><span>Cash</span> <b class="mono" style="color:var(--gold)">${money(me.money)}</b></div></div>
-      <div class="card" style="text-align:center">
-        <div style="font-size:13px;color:var(--mut);letter-spacing:2px" class="subhead">CRASH DASH</div>
-        <div style="font-size:64px;margin:14px 0" id="cd-mult"><span class="mono" style="color:var(--cyn);text-shadow:0 0 30px rgba(199,162,82,.55)">1.00×</span></div>
-        <div class="scene-sub" id="cd-status" style="min-height:20px">Place a bet, ride the climb, cash out before the crash.</div>
-        <div class="kv" style="max-width:300px;margin:0 auto"><span class="k">Bet</span><span class="v"><input id="cas-bet" type="number" min="10" value="1000" step="100" style="width:130px;text-align:right"></span></div>
-        <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button class="btn gold big" id="cas-go" data-act="casino">🎲 Back the dog</button>
-        </div>
-        <p style="color:var(--dim);font-size:11px;margin-top:12px">Wins add reputation. Loses add character.</p>
+      <div class="chiprow" style="margin-bottom:12px" id="cas-tabs">
+        ${CAS_GAMES.map(x => `<button class="chip ${CAS.game === x.id ? 'on' : ''}" data-act="casino-game" data-game="${x.id}">${x.ico} ${x.n}</button>`).join('')}
+      </div>
+      <div class="card">
+        <div class="subhead" style="color:var(--gold)">${gm.ico} ${gm.n}</div>
+        <p style="color:var(--mut);font-size:12.5px;margin:4px 0 12px">${gm.blurb}</p>
+        ${casOptions()}
+        ${handOpen ? '' : `<div class="kv" style="max-width:330px;margin:10px auto 0"><span class="k">Bet</span><span class="v" style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap">
+          <input id="cas-bet" type="number" min="10" value="1000" step="100" style="width:110px;text-align:right">
+          ${[100, 1000, 10000].map(a => `<button class="chip sm qb" data-act="casino-bet" data-v="${a}">${a >= 1000 ? (a / 1000) + 'k' : a}</button>`).join('')}
+        </span></div>
+        <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button class="btn gold big" id="cas-go" data-act="casino">${CAS.game === 'pontoon' ? '♠️ Deal the cards' : CAS.game === 'greyhound' ? '🎲 Back the dog' : CAS.game === 'wheel' ? '🎡 Spin the wheel' : CAS.game === 'bandit' ? '🎰 Pull the lever' : CAS.game === 'crown' ? '⚓ Roll the dice' : '🎴 Call the card'}</button>
+        </div>`}
+        <div id="cas-stage" style="margin-top:16px;min-height:110px;display:flex;align-items:center;justify-content:center;border-top:1px dashed var(--line);padding-top:14px">${casStageHtml(me)}</div>
+        <p style="color:var(--dim);font-size:11px;margin-top:10px;text-align:center">Bets from $10 to $1,000,000. Wins put money on your name — the street keeps score.</p>
       </div>`;
   }
 
@@ -1385,8 +1510,8 @@
         <div style="width:120px;flex-shrink:0;text-align:center" id="el-prev">${AV.doll(me.avatar, 120)}</div>
         <div style="flex:1">${editChips('skin', 'Skin', AV.SKINS.map((_, i) => i + ''), parts.skin, true)}</div>
       </div>
-      ${editChips('face', 'Face', ['Round', 'Sharpe', 'Rugged', 'Hooded', 'Sleepy', 'Scar'], parts.face)}
-      ${editChips('hair', 'Hair / headwear', ['Flat cap', 'Bowler', 'Slicked', 'Bobbed', 'Bowl crop', 'Cropped', 'Rough crop', 'Head scarf', 'Trimmed', 'Auburn'], parts.hair)}
+      ${editChips('face', 'Face', AV.FACE_FEAT.map(x => x.n), parts.face)}
+      ${editChips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), parts.hair)}
       ${editChips('shirt', 'Jacket', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
       ${editChips('accent', 'Trinket', AV.ACCENTS.map((_, i) => i + ''), parts.accent, true)}
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
@@ -1494,10 +1619,25 @@
         const amt = parseInt($('#bank-amt').value, 10) || 1000;
         act(actN, { amount: amt }); break;
       }
+      case 'casino-game': CAS.game = btn.dataset.game; CAS.res = null; renderCasino(); break;
+      case 'casino-opt': {
+        CAS[btn.dataset.k] = btn.dataset.v;
+        const row = btn.parentElement;
+        Array.from(row.querySelectorAll(`[data-k="${btn.dataset.k}"]`)).forEach(x => x.classList.toggle('on', x === btn));
+        break;
+      }
+      case 'casino-bet': { const bi = $('#cas-bet'); if (bi) { bi.value = btn.dataset.v; bi.focus(); } break; }
+      case 'casino-move': act('casino', { game: 'pontoon', move: btn.dataset.move }, 'casino'); break;
       case 'casino': {
-        const bet = parseInt($('#cas-bet').value, 10) || 100;
+        const bet = parseInt(($('#cas-bet') || {}).value, 10) || 100;
         const go = $('#cas-go'); if (go) go.disabled = true;
-        casinoDrama(bet).then(() => act('casino', { game: 'crash', bet }, 'casino'));
+        const g = CAS.game;
+        const payload = { game: g, bet };
+        if (g === 'wheel') payload.spot = CAS.spot;
+        if (g === 'crown') payload.pick = CAS.pick;
+        if (g === 'hilow') payload.guess = CAS.guess;
+        if (g === 'greyhound') casinoDrama(bet).then(() => act('casino', payload, 'casino'));
+        else act('casino', payload, 'casino');
         break;
       }
       case 'faction_create': {

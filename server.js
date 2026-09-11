@@ -217,7 +217,7 @@ const routes = async (req, res, urlPath, q) => {
       use: () => W.doUse(id, body.itemId),
       deposit: () => W.doDeposit(id, body.amount),
       withdraw: () => W.doWithdraw(id, body.amount),
-      casino: () => W.doCasino(id, body.game, body.bet),
+      casino: () => W.doCasino(id, body),
       faction_create: () => W.createFaction(id, body.factionName || body.name, body.tag, body.desc),
       faction_join: () => W.joinFaction(id, body.fid),
       faction_leave: () => W.leaveFaction(id),

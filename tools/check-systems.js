@@ -146,6 +146,165 @@ ok('the pot is paid minus the 5% fee', (() => {
 ok('the board is cleared once paid', W.bountyList(load(id)).list.length === 0);
 ok('it cannot be paid out twice', W.claimBounty(load(id), W.loadSafe(id2), 'again') === null);
 
+
+// ---------------------------------------------------------------- casino
+head('Casino — pontoon (blackjack)');
+const C = (r, v) => ({ r, v, s: '♣' });
+const rndHigh = () => 0.99999999;                       // identity shuffle: deck stays 2♠…A♣, pop draws from A♣ down
+{ // a natural on the deal pays 3:2 and clears the table
+  const MR = Math.random; Math.random = rndHigh;
+  fund(id, 100000);
+  const r1 = W.doCasino(id, { game: 'pontoon', bet: 1000 });
+  Math.random = MR;
+  ok('a dealt natural is a pontoon', r1.res && r1.res.outcome === 'pontoon', r1.res);
+  ok('it pays 3:2 (2.5x back)', load(id).money === 100000 + 1500, load(id).money);
+  ok('the table clears after a settlement', !W.load(id).casino);
+}
+// drive full hands by injecting an open table, then dealing from a scripted deck.
+// deck.pop() takes the TAIL, so the last element of deckTail is the next card out.
+function injectHand(cards, dealer, deckTail, bet) {
+  const p = load(id);
+  p.casino = { game: 'pontoon', bet: bet || 100, player: cards, dealer, deck: deckTail, opened: Date.now() };
+  W.save(id, p);
+}
+{ // stand: 20 vs 17 → the dealer stands on 17 and loses
+  injectHand([C('10', 10), C('K', 13)], [C('9', 9), C('8', 8)], [C('2', 2)], 100);
+  const before = load(id).money;
+  const r = W.doCasino(id, { game: 'pontoon', move: 'stand' });
+  ok('standing on 20 against 17 wins', r.res && r.res.outcome === 'win' && r.res.dv === 17, r.res);
+  ok('a win doubles the stake', load(id).money === before + 200, { before, after: load(id).money });
+}
+{ // bust: 16 takes a king
+  injectHand([C('10', 10), C('6', 6)], [C('10', 10), C('7', 7)], [C('K', 13)], 150);
+  const r = W.doCasino(id, { game: 'pontoon', move: 'hit' });
+  ok('busting pays nothing', r.res && r.res.outcome === 'bust' && r.res.pay === 0, r.res);
+  ok('the hand is gone after a bust', !W.load(id).casino);
+}
+{ // push: 18 vs 18 returns the stake
+  injectHand([C('10', 10), C('8', 8)], [C('10', 10), C('8', 8)], [C('2', 2)], 200);
+  const before = load(id).money;
+  const r = W.doCasino(id, { game: 'pontoon', move: 'stand' });
+  ok('a tie pushes the stake back', r.res && r.res.outcome === 'push' && load(id).money === before + 200, { res: r.res && r.res.outcome, after: load(id).money, before });
+}
+{ // double: first move only, one card, then the dealer plays
+  injectHand([C('5', 5), C('6', 6)], [C('10', 10), C('7', 7)], [C('Q', 12)], 100);
+  const before = load(id).money; // double takes another 100 and one card (a queen) makes 21 vs 17
+  const r = W.doCasino(id, { game: 'pontoon', move: 'double' });
+  ok('doubling draws exactly one card and settles', r.res && r.res.doubled && r.res.player.length === 3, r.res && r.res.player);
+  ok('the doubled stake pays 2x on 21', load(id).money === before - 100 + 400, { before, after: load(id).money });
+  injectHand([C('5', 5), C('6', 6)], [C('10', 10), C('7', 7)], [C('2', 2)], 50);
+  W.doCasino(id, { game: 'pontoon', move: 'hit' });
+  const rd2 = W.doCasino(id, { game: 'pontoon', move: 'double' });
+  ok('double is refused after a hit', !!rd2.err, rd2);
+  W.doCasino(id, { game: 'pontoon', move: 'stand' }); // clean up the open hand
+}
+{ // five-card trick beats the dealer's 20
+  injectHand([C('2', 2), C('2', 2), C('2', 2), C('2', 2)], [C('10', 10), C('K', 13)], [C('A', 14)], 100);
+  const before = load(id).money;
+  const r = W.doCasino(id, { game: 'pontoon', move: 'hit' });
+  ok('five cards without busting is a 2:1 trick', r.res && r.res.outcome === 'five-card-trick' && load(id).money === before + 300, { res: r.res && r.res.outcome, after: load(id).money, before });
+}
+{ // table etiquette
+  ok('moves with no hand are refused', !!W.doCasino(id, { game: 'pontoon', move: 'hit' }).err);
+  injectHand([C('10', 10), C('6', 6)], [C('10', 10), C('7', 7)], [C('2', 2)], 100);
+  ok('a new bet is refused mid-hand', !!W.doCasino(id, { game: 'pontoon', bet: 500 }).err);
+  const pv = W.publicView(load(id));
+  ok('an open hand surfaces in the public view, hole card hidden', pv.pontoon && pv.pontoon.player.length === 2 && pv.pontoon.dealer.length === 1 && pv.pontoon.hidden === true, pv.pontoon);
+  W.doCasino(id, { game: 'pontoon', move: 'stand' });
+}
+{ // stakes and clamps
+  fund(id, 0);
+  ok('no money, no cards', !!W.doCasino(id, { game: 'pontoon', bet: 100 }).err);
+  ok('below the house minimum, no cards', !!W.doCasino(id, { game: 'pontoon', bet: 5 }).err);
+  fund(id, 100000);
+}
+
+head('Casino — the wheel');
+{
+  const MR = Math.random;
+  Math.random = () => 0.5; // 18 red
+  fund(id, 10000);
+  const r = W.doCasino(id, { game: 'wheel', bet: 100, spot: 'red' });
+  Math.random = MR;
+  ok('red hits and pays 1:1', r.res && r.res.win && r.res.n === 18 && r.res.color === 'red' && load(id).money === 10000 + 100, { n: r.res && r.res.n, money: load(id).money });
+  Math.random = () => 0.5;
+  fund(id, 10000);
+  const r2 = W.doCasino(id, { game: 'wheel', bet: 100, spot: 'n:18' });
+  Math.random = MR;
+  ok('a straight number pays 35:1', r2.res && r2.res.pay === 3600, r2.res);
+  Math.random = () => 0; // 0 green
+  fund(id, 10000);
+  const r3 = W.doCasino(id, { game: 'wheel', bet: 100, spot: 'black' });
+  Math.random = MR;
+  ok('zero is the house', r3.res && r3.res.n === 0 && !r3.res.win && load(id).money === 9900);
+  fund(id, 10000);
+  const r4 = W.doCasino(id, { game: 'wheel', bet: 100, spot: 'rubbish' });
+  ok('backing nothing is refused and refunded', !!r4.err && load(id).money === 10000, r4);
+  const r5 = W.doCasino(id, { game: 'wheel', bet: 100, spot: 'n:40' });
+  ok('numbers past 36 are refused and refunded', !!r5.err && load(id).money === 10000, r5);
+}
+
+head('Casino — bandit, crown & anchor, hi-lo, the dog');
+{
+  const MR = Math.random;
+  Math.random = () => 0; // cherry on every reel
+  fund(id, 10000);
+  const r = W.doCasino(id, { game: 'bandit', bet: 100 });
+  Math.random = MR;
+  ok('three cherries pay 4x', r.res && r.res.reels.join() === 'cherry,cherry,cherry' && r.res.pay === 400, r.res);
+  Math.random = () => 0.975; // three sevens
+  fund(id, 10000);
+  const r2 = W.doCasino(id, { game: 'bandit', bet: 100 });
+  Math.random = MR;
+  ok('three sevens pay 60x', r2.res && r2.res.pay === 6000, r2.res);
+  let seq = [0, 0, 0.5];
+  Math.random = () => seq.length ? seq.shift() : 0; // cherry cherry lemon
+  fund(id, 10000);
+  const r3 = W.doCasino(id, { game: 'bandit', bet: 100 });
+  Math.random = MR;
+  ok('a pair returns the stake', r3.res && r3.res.mult === 1 && r3.res.pay === 100 && load(id).money === 10000, { res: r3.res, money: load(id).money });
+
+  Math.random = () => 0; // crowns on every die
+  fund(id, 10000);
+  const r4 = W.doCasino(id, { game: 'crown', bet: 100, pick: 'crown' });
+  Math.random = MR;
+  ok('three signs pay stake plus 3x', r4.res && r4.res.matches === 3 && r4.res.pay === 400, r4.res);
+  Math.random = () => 0;
+  fund(id, 10000);
+  const r5 = W.doCasino(id, { game: 'crown', bet: 100, pick: 'anchor' });
+  Math.random = MR;
+  ok('no sign means no return', r5.res && !r5.res.win && load(id).money === 9900);
+  const r6 = W.doCasino(id, { game: 'crown', bet: 100, pick: 'horseshoe' });
+  ok('a sign not on the baize is refused and refunded', !!r6.err && load(id).money === 9900, r6);
+
+  Math.random = rndHigh; // identity deck: A♣ out first, then K♣
+  fund(id, 10000);
+  const r7 = W.doCasino(id, { game: 'hilow', bet: 100, guess: 'lower' });
+  Math.random = MR;
+  ok('ace into king — "lower" wins 1:1', r7.res && r7.res.win && load(id).money === 10000 + 100, { res: r7.res, money: load(id).money });
+  Math.random = rndHigh;
+  fund(id, 10000);
+  const r8 = W.doCasino(id, { game: 'hilow', bet: 100, guess: 'higher' });
+  Math.random = MR;
+  ok('ace into king — "higher" loses', r8.res && !r8.res.win && load(id).money === 9900);
+  const r9 = W.doCasino(id, { game: 'hilow', bet: 100, guess: 'sideways' });
+  ok('a call that is not higher or lower is refused', !!r9.err && load(id).money === 9900, r9);
+
+  Math.random = () => 0.1; // the dog comes in
+  fund(id, 10000);
+  const r10 = W.doCasino(id, { game: 'greyhound', bet: 1000 });
+  Math.random = MR;
+  ok('the greyhound still runs and pays a multiplier', r10.res && r10.res.win && r10.res.pay > 1000, r10.res);
+  Math.random = () => 0.9; // the dog falls over
+  fund(id, 10000);
+  const r11 = W.doCasino(id, { game: 'greyhound', bet: 1000 });
+  Math.random = MR;
+  ok('and still loses when it crashes', r11.res && !r11.res.win && load(id).money === 9000);
+
+  const r12 = W.doCasino(id, { game: 'chemin-de-fer', bet: 100 });
+  ok('games the house does not run are refused and refunded', !!r12.err && load(id).money === 9000, r12);
+}
+
 // ---------------------------------------------------------------- cleanup
 head('Hygiene');
 ok('selling up returns the value and the safe', (() => {

@@ -628,3 +628,29 @@ body{background:
   .row .btn.sm { min-width: 76px; }
   #view .kv, #view .pill { padding-top: 5px; padding-bottom: 5px; }
 }
+
+/* ===== casino tables ===== */
+.pcard-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.pcard{width:40px;height:56px;border-radius:6px;background:linear-gradient(165deg,#f4efdf,#e3dcc4);color:#1c1a16;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  border:1px solid #b7ad8f;box-shadow:0 3px 10px rgba(0,0,0,.45);font-family:var(--font-body)}
+.pcard b{font-size:17px;font-weight:800;line-height:1}
+.pcard span{font-size:15px;line-height:1}
+.pcard.red{color:#8f2f28}
+.pcard.back{background:linear-gradient(165deg,#3a2f1e,#2a2114);border:1px solid var(--line2);color:var(--dim);font-size:20px}
+.reelt{width:56px;height:64px;border-radius:8px;background:linear-gradient(180deg,#221c12,#171208);
+  border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:30px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.6),0 3px 10px rgba(0,0,0,.4)}
+.numgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(34px,1fr));gap:4px;max-width:420px;margin:0 auto}
+.numchip{min-height:30px;border-radius:6px;border:1px solid var(--line2);font-weight:800;cursor:pointer;
+  background:#262429;color:#e9e0c9;font-family:var(--font-body);font-size:13px;padding:0}
+.numchip.rn{background:#8f2f28}
+.numchip.green0{background:#2e5126}
+.numchip:hover{filter:brightness(1.2)}
+.numchip.on{outline:2px solid var(--gold);box-shadow:0 0 10px rgba(229,185,94,.5)}
+.chip.sm{font-size:12px;padding:5px 10px;min-height:30px}
+.chip.qb{min-width:40px}
+@media (pointer:coarse){
+  .numchip{min-height:38px}
+  .pcard{width:44px;height:62px}
+}
