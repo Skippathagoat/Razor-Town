@@ -418,6 +418,7 @@
         <span class="cash mono" id="cash-val">${money(me.money)}</span>
         <span class="banked mono" id="bank-val">🏦 ${money(me.bank)}</span>
       </div>
+      <button class="iconbtn" data-act="transfer" title="Money transfer — wire cash to a citizen, or move money in and out of the branch">💸</button>
       <div class="hud-meta">
         <span class="hstat" title="Level"><span class="hl">LV</span><span class="hv">${me.level}</span></span>
         <span class="hstat" title="Battle rating"><span class="hl">RAT</span><span class="hv">${Math.floor(me.total)}</span></span>
@@ -2566,6 +2567,7 @@
       case 'faction_join': act('faction_join', { fid: +btn.dataset.fid }); break;
       case 'faction_leave': act('faction_leave', {}); break;
       case 'side_toggle': document.body.classList.toggle('side-open'); break;
+      case 'transfer': FIN.sub = 'bank'; nav('bank'); break;
       case 'chat_toggle': chatToggle(); break;
       case 'chat_send': {
         const inp = $('#cd-text');
