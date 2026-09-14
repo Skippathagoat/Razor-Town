@@ -64,3 +64,38 @@ one: crimes, day jobs, gym, market, bank, betting shop, feats and the wire.
 Fighting only exists between real accounts — which is what was asked for —
 so the Hunt list fills up as people sign up, and the wire reports what they
 actually did.
+
+## 5. Follow-up bug hunt (this pass)
+
+A full pass over `lib/world.js`, `lib/game/*.js`, `lib/accounts.js`,
+`lib/bootstrap.js`, `lib/seed.js`, `lib/db.js`, `server.js` and the whole
+client (`public/js/*.js`, `public/index.html`), plus a new end-to-end API
+drive of every gameplay system.
+
+| # | What was wrong | Cause | Fix |
+|---|---|---|---|
+| 1 | A stale pontoon (blackjack) hand that refunded its stake did so only in memory — the refund was never written, so the money silently vanished | `doCasino` returned the "hand went cold / table boss" error without calling `save()`, even though it had already added the stake back to `p.money` | Persist the player before returning the error in `lib/world.js` |
+| 2 | `tools/check-http.js` was failing its "a citizen can register" probe | Registration gained a required `email` field; the test's request body had gone stale | Added `email: 'keeper@http.test'` to the test's registration body |
+
+Also noted (not changed): `doTrain` does not validate the `stat` key against
+`st/de/sp/dx`, so a hand-crafted API call could add a junk `p.stats.<key>`
+entry. Harmless — `calcTotal`/`derive` only read the four real stats and the
+client only sends valid keys — but a one-line allowlist would close it.
+
+### New: `tools/check-api.js`
+
+An 87-assertion integration suite that boots a throwaway world and plays the
+whole game through the real HTTP API: register/login (incl. email login),
+crimes + heist gating, gym, jobs, market, bank, property + vault, college +
+merits, all six casino tables (including a full pontoon deal), bazaar, auction
+house (bid + buyout), factions (found/join/leave/dissolve), messages/chat/wire,
+daily strike, big wheel, circuit betting, corner shops, shark loans, pawn shop,
+gear equipping, stocks, crypto, PvP fight with record updates, bounties, and the
+jail → prison → bail loop.
+
+| Suite | Result |
+|---|---|
+| `node tools/check-systems.js` | **219/219 pass** |
+| `node tools/check-http.js` | **8/8 pass** |
+| `node tools/check-api.js` | **87/87 pass** |
+| `node --check` over `server.js`, `lib/**/*.js`, `tools/*.js`, `public/js/*.js` | clean |
