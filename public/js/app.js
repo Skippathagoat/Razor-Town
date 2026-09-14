@@ -25,6 +25,10 @@
     { id: 'merits', label: 'Merits', ico: '⭐', key: 'k' },
     { id: 'bounty', label: 'Bounties', ico: '🎯', key: 'w' },
     { id: 'casino', label: 'Betting', ico: '🎰', key: 'g' },
+    { id: 'arcade', label: 'Arcade', ico: '🎮', key: '7' },
+    { id: 'hustle', label: 'Side Hustles', ico: '📦', key: '8' },
+    { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
+    { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
@@ -230,14 +234,14 @@
   }
 
   // ------- character creator
-  const CREATOR = { skin: 1, face: 0, hair: 2, shirt: 0, accent: 0, origin: 'street', name: '' };
+  const CREATOR = { skin: 1, face: 0, hair: 2, shirt: 0, accent: 0, body: 0, origin: 'street', name: '' };
   function openCreator(creds) {
     CREATOR.name = creds.username;
     G.creds = creds;
     screen('creator');
     renderCreator();
   }
-  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent].join('|'); }
+  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body].join('|'); }
   function wearList(str) {
     return `<div class="weargrid" style="margin-top:10px;text-align:left">${AV.wear(str).map(w =>
       `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}</div>`;
@@ -263,10 +267,13 @@
             <div class="err" id="cname-err"></div>
           </div>
           <div class="creator-panel"><h3>🎨 Look</h3>
+            <h3 style="margin-top:14px">Body</h3><div class="chiprow" style="margin-top:8px">
+              ${(AV.BODIES || []).map((b, i) => `<button type="button" class="chip ${CREATOR.body === i ? 'on' : ''}" data-opt="body" data-v="${i}">${typeof b === 'string' ? b : b.n}</button>`).join('')}
+            </div>
             ${swatches('skin', 'Skin', AV.SKINS, 'skin')}
             ${chips('face', 'Face / style', AV.FACE_FEAT.map(x => x.n), 'face')}
             ${chips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), 'hair')}
-            ${swatches('shirt', 'Jacket', AV.SHIRTS, 'shirt')}
+            ${swatches('shirt', 'Top', AV.SHIRTS, 'shirt')}
             ${swatches('accent', 'Trinket', AV.ACCENTS, 'accent')}
           </div>
           <div class="creator-panel"><h3>🌱 Origin story</h3><div class="chiprow" id="originrow">
@@ -410,7 +417,7 @@
         ${point('life', '❤', 'Life', me.life, me.max_life)}
         ${point('energy', '⚡', 'Energy', me.energy, me.max_energy, ' — refills every 30 minutes')}
         ${point('nerve', '🧠', 'Nerve', me.nerve, me.max_nerve, ' — refills every 30 minutes')}
-        ${point('happy', '🙂', 'Happy', me.happy, 100)}
+        ${point('happy', '🙂', 'Happy', me.happy, me.max_happy || 100)}
         ${point('xp', '⭐', 'XP', me.xpInto, me.xpNeed)}
       </div>` : `<div class="hud-lockchip">${hosp ? '🏥 In the hospital' : '⛓ In jail'} — the clock is your only friend here.</div>`}
       <div class="hud-spacer"></div>
@@ -531,6 +538,7 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'garage', 'turf'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -591,7 +599,8 @@
     const hosp = G.me.hosp_until && G.me.hosp_until > Date.now();
     // cover lifecycle: the custody cover must never sit on the yard or the cells — and drops on release
     if (!jail || view === 'crime' || view === 'jail') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
-    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev };
+    const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -645,6 +654,13 @@
       if (e.code === 401) { showAuth('Your session expired. Log in again.'); return; }
       closeScene();
     } finally { G.busy.delete(name); }
+  }
+  // fire-and-forget action with result — used by the 2026 systems (arcade, hustles…)
+  async function actCatch(name, payload) {
+    const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name })).catch(err => { U.toast(esc(err && err.message || 'The city shrugged.'), 'bad'); return null; });
+    if (r && (r.ok || r.p)) { if (r.p) applyMe(r.p, r.res); return r; }
+    if (r && r.err) { U.toast(esc(r.err), 'bad'); return null; }
+    return r;
   }
 
   function applyMe(meNew, res) {
@@ -866,7 +882,8 @@
   }
 
   function reRenderCurrent(res) {
-    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev };
+    const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev,
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -1227,6 +1244,7 @@
       ? `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px"><span style="font-size:18px">✨</span><div style="flex:1;font-size:12.5px;color:var(--dim)"><b style="color:var(--ok)">Daily Strike collected.</b> Streak ${dly.streak} day${dly.streak === 1 ? '' : 's'} — tomorrow pays $${dly.next.toLocaleString()}.</div></div>`
       : `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px;border-color:rgba(226,183,20,.5)"><span style="font-size:18px">⚡</span><div style="flex:1;font-size:12.5px"><b>Daily Strike</b> <span style="color:var(--dim)">— streak ${dly.streak} day${dly.streak === 1 ? '' : 's'}${dly.streak ? ' — claim to keep it alive' : ''}</span></div><button class="btn sm gold" data-act="daily_claim">Collect $${dly.next.toLocaleString()}</button></div>`;
     v.innerHTML = dailyCard + `
+      <div id="city-sys"></div>
       <div class="vhead"><div><div class="vtitle">🏙️ <span class="head">RAZOR TOWN</span></div>
       <div class="vdesc">${inJail ? 'You are behind bars — your time will pass.' : inHosp ? 'You are recovering in the hospital.' : 'The night is young and the yards are full of opportunity.'}</div></div>
       <div class="pill online"><span class="dot"></span><span class="oltext">The yard, live</span></div>
@@ -1277,6 +1295,7 @@
       else el.textContent = 'unranked';
     }).catch(() => {});
     renderCityFeed();
+    renderCitySys();
     U.bindTimers(v);
   }
   function statLine(k, val) {
@@ -1573,6 +1592,7 @@
       <div class="vdesc">Loot, consumables and boosters. Unused gear can be fenced for cash.</div></div>
       <div class="pill"><span>Total resale</span> <b class="mono" style="color:var(--gold)">${money(worth)}</b></div></div>
       ${renderGearPanel(me)}
+      <div class="grid2" id="items-sys"></div>
       ${owned.length === 0 ? `<div class="card"><p style="color:var(--dim);text-align:center">You're carrying nothing. Head down the market.</p></div>` : ''}
       <div class="card" style="background:none;border:none;padding:0">
       ${grouped.map(([id, q]) => {
@@ -1588,6 +1608,31 @@
         ${typeof it.sell === 'number' ? `<button class="btn sm ghost" data-act="sell" data-item="${id}">Sell</button>` : ''}
         </div></div>`;
       }).join('')}</div>`;
+    renderItemsSys();
+  }
+  // ---- ITEMS EXTRAS: craft bench + trading card set
+  async function renderItemsSys() {
+    const wrap = $('#items-sys'); if (!wrap) return;
+    const sp = await sysPanel();
+    if (!sp) return;
+    const me = G.me;
+    const have = (id) => (me.items && me.items[id]) || 0;
+    wrap.innerHTML = `
+      <div class="card"><div class="subhead">🛠️ The bench — craft (${sp.craft.count} made)</div>
+        ${(sp.craft.recipes || []).map(r => {
+          const can = Object.entries(r.need).every(([id, n]) => have(id) >= n);
+          const needs = Object.entries(r.need).map(([id, n]) => `${n}× ${(G.meta.items[id]||{}).name || id}`).join(' + ');
+          return `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${(G.meta.items[r.out]||{}).icon||''} <b>${(G.meta.items[r.out]||{}).name||r.out}</b> ×${r.qty||1}<br><span style="color:${can?'var(--dim)':'var(--bad)'};font-size:11px">${needs}</span></span>
+            <span class="v"><button class="btn cyan xs" data-act="craft" data-recipe="${r.id}" ${can?'':'disabled'}>Craft</button></span></div>`;
+        }).join('')}</div>
+      <div class="card"><div class="subhead">🎴 Wire cards — ${sp.cards.owned.length}/${sp.cards.total} ${sp.cards.done ? '· <span style="color:var(--gold)">SET COMPLETE</span>' : ''}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin:6px 0"><span class="qtychip">packs ×${have('trading_pack')}</span>
+          <button class="btn gold sm" data-act="card_open" ${have('trading_pack') ? '' : 'disabled'}>Crack a pack (5 cards)</button></div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${sp.cards.pool.map(c => {
+          const n = sp.cards.owned[c] || 0;
+          return `<span class="pill" style="${n ? 'color:var(--gold)' : 'color:var(--dim);opacity:.55'}" title="owned ×${n}">${n ? '★' : '☆'} ${c}${n > 1 ? ' ×' + n : ''}</span>`;
+        }).join('')}</div>
+        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Complete the full set for a $50,000 payout from the collectors' circle. Packs drop from crimes and the market.</p></div>`;
   }
 
   function renderGearPanel(me) {
@@ -1659,7 +1704,10 @@
                <button class="btn gold" data-act="pass_buy" ${me.money < 150000 ? 'disabled' : ''}>Go gold · $150,000</button>`}
         </div>
       </div>
+      <div class="subhead" style="margin:14px 0 8px">🧊 The 2026 desk — staking, terms & cover</div>
+      <div class="grid2" id="bank-sys"></div>
       <div class="card"><div class="subhead">Security tip</div><p style="color:var(--mut);font-size:12.5px">Attackers can only take a cut of the cash you're carrying. The branch is armour — interest is the reward for using it.</p></div>`;
+    renderBankSys();
   }
   function cityTabsHTML(tab) {
     return `<div class="filterrow">
@@ -2253,9 +2301,12 @@
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🧑‍🎤 <span class="head">Your File</span></div>
       <div class="vdesc">Every citizen in this town is a real player. This is the file the rest of them see.</div></div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span class="qtychip">${me.wins}W · ${me.losses}L</span>
+        <span class="qtychip" style="color:var(--gold)">🏷️ ${titleFor(me.reputation || 0)}</span>
+        <span class="qtychip" style="color:var(--cyn)">📸 ${(me.followers || 0).toLocaleString()} followers</span>
         ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">✏️ Change your look</button>` : ''}
+        ${me.respecOpen ? `<button class="btn gold sm" data-act="respec_open">📝 Identity rewrite ready</button>` : ''}
       </div></div>
       <div class="grid2 profile-grid">
         <div class="dollframe">
@@ -2279,7 +2330,7 @@
             <div class="kv"><span class="k">Health</span><span class="v">${Math.floor(me.life)} / ${me.max_life}</span></div>
             <div class="kv"><span class="k">Energy</span><span class="v">${Math.round(me.energy)} / ${me.max_energy}</span></div>
             <div class="kv"><span class="k">Nerve</span><span class="v">${Math.round(me.nerve)} / ${me.max_nerve}</span></div>
-            <div class="kv"><span class="k">Happiness</span><span class="v">${me.happy} / 100</span></div>
+            <div class="kv"><span class="k">Happiness</span><span class="v">${me.happy} / ${me.max_happy || 100}</span></div>
             <div class="kv"><span class="k">Reputation</span><span class="v">🔥 ${me.reputation.toLocaleString()}</span></div>
             <div class="kv"><span class="k">Experience</span><span class="v">${Math.round(me.xpInto)} / ${Math.round(me.xpNeed)}</span></div>
           </div>
@@ -2297,8 +2348,11 @@
           <div class="kv"><span class="k">Feats earned</span><span class="v">${Object.keys(me.achievements).length} / ${Object.keys(m.achievements).length}</span></div>
           <div class="kv"><span class="k">Market spend</span><span class="v">${money(me.total_market_spend)}</span></div>
           <div class="kv"><span class="k">Bank deposits</span><span class="v">${money(me.total_deposits)}</span></div>
+          ${me.insuredUntil && me.insuredUntil > Date.now() ? `<div class="kv"><span class="k">Protection</span><span class="v" style="color:var(--ok)">active · ${fmtDur(me.insuredUntil - Date.now())}</span></div>` : ''}
           <div style="margin-top:12px"><button class="btn ghost sm" data-act="logout">Log out of the city</button></div></div>
-      </div>`;
+      </div>
+      <div class="grid2" id="profile-sys" style="margin-top:8px"></div>`;
+    renderProfileSys();
   }
 
   // ---- HELP
@@ -2349,20 +2403,40 @@
         <div style="width:120px;flex-shrink:0;text-align:center" id="el-prev">${AV.doll(me.avatar, 120)}</div>
         <div style="flex:1">${editChips('skin', 'Skin', AV.SKINS.map((_, i) => i + ''), parts.skin, true)}</div>
       </div>
+      ${editChips('body', 'Build', (AV.BODIES || []).map(b => typeof b === 'string' ? b : b.n), parts.body || 0)}
       ${editChips('face', 'Face', AV.FACE_FEAT.map(x => x.n), parts.face)}
       ${editChips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), parts.hair)}
-      ${editChips('shirt', 'Jacket', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
+      ${editChips('shirt', 'Top', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
       ${editChips('accent', 'Trinket', AV.ACCENTS.map((_, i) => i + ''), parts.accent, true)}
+      <div class="subhead" style="margin-top:14px">🧥 Wardrobe presets</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px" id="el-ward">
+        ${[0,1,2].map(i => `<button class="btn ghost sm" data-ward-slot="${i}" data-act="wardrobe_slot">Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">—</span></button>`).join('')}
+      </div>
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" data-act="close-modal">Cancel</button>
         <button class="btn cyan" data-act="save-look">Save look</button></div></div></div>`;
-    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent };
-    const cur = { ...parts };
+    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0 };
+    const cur = { ...els };
+    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body].join('|');
+    // hydrate wardrobe slots from the panel cache if present
+    const fillWard = (slots) => {
+      $$('#el-ward [data-ward-slot]').forEach(b => {
+        const i = +b.dataset.wardSlot, av = slots && slots[i];
+        b.innerHTML = av ? `Slot ${i+1}<br><span style="font-size:10px">worn — click to load</span>` : `Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">empty — click to save</span>`;
+        b.dataset.empty = av ? '' : '1';
+      });
+    };
+    if (G.sysPanel) fillWard(G.sysPanel.wardrobe);
+    else Net.get('/api/sys/panel').then(d => { G.sysPanel = d; fillWard(d.wardrobe); }).catch(() => {});
+    $$('#el-ward [data-ward-slot]').forEach(b => b.addEventListener('click', async () => {
+      const i = +b.dataset.wardSlot;
+      if (b.dataset.empty) { await act('wardrobe_save', { slot: i }); G.sysPanel = null; Net.get('/api/sys/panel').then(d => { G.sysPanel = d; fillWard(d.wardrobe); }).catch(() => {}); U.toast('Look saved to slot ' + (i+1)); }
+      else { await act('wardrobe_load', { slot: i }); U.toast('Wardrobe loaded'); setTimeout(() => { document.dispatchEvent(new CustomEvent('rt-refresh-me')); }, 300); }
+    }));
     $$('[data-el-opt]', root).forEach(b => b.addEventListener('click', () => {
       const f = b.dataset.elOpt, val = +b.dataset.v;
       cur[f] = val;
-      const str = [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent].join('|');
-      $('#el-prev').innerHTML = AV.doll(str, 120);
+      $('#el-prev').innerHTML = AV.doll(strOf(), 120);
       $$(`[data-el-opt="${f}"]`, root).forEach(x => x.classList.toggle('on', +x.dataset.v === val));
     }));
   }
@@ -2371,6 +2445,363 @@
       ? `<button class="chip swatch ${active === i ? 'on' : ''}" data-el-opt="${field}" data-v="${i}" style="background:${field === 'skin' ? AV.SKINS[i] : field === 'shirt' ? AV.SHIRTS[i] : field === 'accent' ? AV.ACCENTS[i] : '#333'}"></button>`
       : `<button class="chip ${active === i ? 'on' : ''}" data-el-opt="${field}" data-v="${i}">${v}</button>`).join('');
     return `<div style="margin-top:10px"><div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px">${label}</div><div class="chiprow">${items}</div></div>`;
+  }
+
+  // ================================================================ 2026 SYSTEMS
+  // Arcade · Side Hustles · Garage · Turf · Finance extras · Social · Challenges
+  async function sysPanel(force) {
+    if (!force && G.sysPanel && Date.now() - (G.sysPanelAt || 0) < 6000) return G.sysPanel;
+    try { G.sysPanel = await Net.get('/api/sys/panel'); G.sysPanelAt = Date.now(); return G.sysPanel; }
+    catch (e) { return G.sysPanel || null; }
+  }
+  function titleFor(rep) {
+    const ts = (G.meta && G.meta.titles) || [];
+    let t = ts.length ? ts[0].name : '';
+    for (const x of ts) if (rep >= x.rep) t = x.name;
+    return t;
+  }
+  function cdLeft(ts, ms) {
+    if (!ts) return null;
+    const left = ts + ms - Date.now();
+    return left > 0 ? fmtDur(left) : null;
+  }
+
+  // ---------------- ARCADE ----------------
+  const AR = { buzzStart: 0, memCards: [], memFlips: 0, memOpen: [], memDone: 0, safeSeq: [], safeLen: 0 };
+  async function renderArcade() {
+    const v = $('#view'); const me = G.me;
+    const sp = await sysPanel(true);
+    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The arcade doors are stuck. Try again.</p></div>'; return; }
+    const betRow = (id, dflt) => `<div class="field" style="display:flex;gap:6px;align-items:center;margin:8px 0"><input class="in mono" id="${id}" value="${dflt}" style="width:110px"><button class="btn ghost xs" data-qfill="${id}" data-v="1000">1k</button><button class="btn ghost xs" data-qfill="${id}" data-v="10000">10k</button><button class="btn ghost xs" data-qfill="${id}" data-v="100000">100k</button></div>`;
+    const mineState = sp.arcade && sp.arcade.mines;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🎮 <span class="head">THE UNDERPASS ARCADE</span></div>
+      <div class="vdesc">Ten machines, one purse. Wins: <b style="color:var(--ok)">${sp.arcade.wins}</b>${sp.event && sp.event.perk === 'crime2x' ? '' : ''}</div></div></div>
+      <div class="grid2">
+        <div class="card"><div class="subhead">💣 Mines — twelve tiles, three bites</div>
+          ${mineState && mineState.live ? `
+            <div class="mine-grid">${Array.from({length:12}, (_, i) => `<button class="mine-tile ${mineState.picked.includes(i) ? 'safe' : ''}" data-act="mine_tile" data-tile="${i}">${mineState.picked.includes(i) ? '💎' : ''}</button>`).join('')}</div>
+            <div class="kv"><span class="k">Stake</span><span class="v mono">${money(mineState.bet)}</span></div>
+            <button class="btn gold" data-act="mines_cashout">💰 Cash out</button>
+            <button class="btn ghost sm" data-act="mines_abandon">Walk away (lose stake)</button>`
+          : `${betRow('mines-bet', 2000)}<button class="btn cyan" data-act="mines_deal">Set the board</button>
+             <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Every safe tile grows the multiplier. Cash out before a bite — full clear pays the max.</p>`}
+        </div>
+        <div class="card"><div class="subhead">🔴 Plinko — let gravity bet for you</div>
+          ${betRow('plinko-bet', 1500)}
+          <div class="plinko-row">${[0.2,0.6,1.1,1.8,3.2,10,3.2,1.8,1.1,0.6,0.2].map((m,i) => `<span class="plinko-slot ${m>=3?'hot':''}" data-plinko-slot="${i}">×${m}</span>`).join('')}</div>
+          <button class="btn cyan" data-act="plinko_drop">Drop the puck</button>
+        </div>
+        <div class="card"><div class="subhead">🎲 Street dice</div>
+          ${betRow('dice-bet', 1000)}
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn ghost" data-act="dice_call" data-call="low">Low (2–6) ×1.95</button>
+            <button class="btn ghost" data-act="dice_call" data-call="seven">Seven ×4.5</button>
+            <button class="btn ghost" data-act="dice_call" data-call="high">High (8–12) ×1.95</button>
+          </div></div>
+        <div class="card"><div class="subhead">🪙 The coin stand</div>
+          ${betRow('coin-bet', 1000)}
+          <div style="display:flex;gap:6px"><button class="btn ghost" data-act="coin_call" data-call="heads">Heads ×1.95</button><button class="btn ghost" data-act="coin_call" data-call="tails">Tails ×1.95</button></div></div>
+        <div class="card"><div class="subhead">🏀 Hoops — $200 a shot</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(z => `<button class="btn ghost sm" data-act="hoops_zone" data-zone="${z}">Zone ${z} · ×${[1.5,2.1,3,4.5,7][z-1]}</button>`).join('')}</div>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Farther out pays better and misses harder.</p></div>
+        <div class="card"><div class="subhead">⚡ Buzz wire — $300 a run</div>
+          <p style="color:var(--mut);font-size:12px">Steady the ring down the wire. Faster = richer. Best: ${sp.arcade.buzzBest ? (sp.arcade.buzzBest/1000).toFixed(1)+'s' : '—'}</p>
+          <button class="btn cyan" data-act="buzz_start" id="buzz-btn">Start run</button></div>
+        <div class="card"><div class="subhead">🧠 Memory pairs — $400 a sit</div>
+          <div class="mem-grid" id="mem-grid"></div>
+          <button class="btn cyan" data-act="mem_deal" id="mem-deal">Deal the table</button>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Match all 8 pairs. Fewer flips, bigger payout.</p></div>
+        <div class="card"><div class="subhead">🔐 Safe cracker — Simon says</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${[3,4,5,6,7,8].map(l => `<button class="btn ghost sm" data-act="safe_deal" data-len="${l}">Len ${l} · $${l*200}</button>`).join('')}</div>
+          <div class="safe-pad" id="safe-pad" style="margin-top:10px">${'<button class="safe-btn" data-sb="0" style="--sc:#e2b714"></button>'.repeat(0)}<span style="color:var(--dim);font-size:11.5px">Deal a safe: it flashes a dial sequence, you echo it back.</span></div></div>
+        <div class="card"><div class="subhead">🎫 Scratch cards</div>
+          <div class="kv"><span class="k">Cards in bag</span><span class="v">${me.items && me.items.scratch_card || 0}</span></div>
+          <button class="btn cyan" data-act="scratch_go" data-qty="1">Scratch 1</button>
+          <button class="btn ghost sm" data-act="scratch_go" data-qty="5">Scratch 5</button>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Buy more from the Market (Consumables). Three matching symbols wins up to $50k.</p>
+          <div id="scratch-out"></div></div>
+        <div class="card"><div class="subhead">🎟️ City lottery</div>
+          <div class="kv"><span class="k">Tonight's pot</span><span class="v" style="color:var(--gold)">${money(sp.lottery.pool)}</span></div>
+          <div class="kv"><span class="k">Your tickets today</span><span class="v">${sp.lottery.tickets.length}${sp.lottery.tickets.length ? ' — ' + sp.lottery.tickets.slice(-5).join(', ') : ''}</span></div>
+          <div class="kv"><span class="k">Lifetime winnings</span><span class="v">${money(sp.lottery.won)}</span></div>
+          <button class="btn gold" data-act="lottery_go" data-qty="1">Buy 1 — $1,000</button>
+          <button class="btn ghost sm" data-act="lottery_go" data-qty="5">Buy 5</button>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">One number wins the pot; near misses pay $5,000. Draws at midnight UTC.</p></div>
+      </div>`;
+    if (AR.memCards.length) paintMemory();
+    if (AR.safeLen) paintSafe();
+    $$('#view [data-qfill]').forEach(b => b.addEventListener('click', () => { const el = document.getElementById(b.dataset.qfill); if (el) el.value = b.dataset.v; }));
+    U.bindTimers(v);
+  }
+  function paintMemory() {
+    const g = $('#mem-grid'); if (!g) return;
+    g.innerHTML = AR.memCards.map((c, i) => {
+      const open = AR.memOpen.includes(i) || c.done;
+      return `<button class="mem-card ${open ? 'open' : ''}" data-mem="${i}">${open ? c.v : '?'}</button>`;
+    }).join('') + `<div style="grid-column:1/-1;font-size:11.5px;color:var(--dim)">Flips: ${AR.memFlips}</div>`;
+    $$('#mem-grid [data-mem]').forEach(b => b.addEventListener('click', () => memFlip(+b.dataset.mem)));
+  }
+  function memFlip(i) {
+    const c = AR.memCards[i];
+    if (!c || c.done || AR.memOpen.includes(i) || AR.memOpen.length >= 2) return;
+    AR.memFlips++; AR.memOpen.push(i); paintMemory();
+    if (AR.memOpen.length === 2) {
+      const [a, b] = AR.memOpen;
+      setTimeout(() => {
+        if (AR.memCards[a].v === AR.memCards[b].v) { AR.memCards[a].done = AR.memCards[b].done = true; AR.memDone++; }
+        AR.memOpen = [];
+        paintMemory();
+        if (AR.memDone === 8) {
+          actCatch('arcade_memory', { flips: AR.memFlips }).then(r => {
+            if (r && r.res) { AR.memCards = []; AR.memFlips = 0; AR.memDone = 0; sysPanel(true).then(() => renderArcade()); }
+          });
+        }
+      }, AR.memCards[a].v === AR.memCards[b].v ? 220 : 650);
+    }
+  }
+  function paintSafe() {
+    const pad = $('#safe-pad'); if (!pad) return;
+    const cols = ['#e2b714', '#4fc3f7', '#e57373', '#81c784'];
+    pad.innerHTML = cols.map((c, i) => `<button class="safe-btn" data-sb="${i}" style="--sc:${c}"></button>`).join('') +
+      `<div style="grid-column:1/-1;font-size:11.5px;color:var(--dim)" id="safe-hint">Watch the dials…</div>`;
+    $$('#safe-pad [data-sb]').forEach(b => b.disabled = true);
+    let k = 0;
+    const flash = () => {
+      if (k >= AR.safeSeq.length) {
+        const h = $('#safe-hint'); if (h) h.textContent = 'Your turn — echo the sequence.';
+        $$('#safe-pad [data-sb]').forEach(b => b.disabled = false);
+        AR.safeGuess = [];
+        return;
+      }
+      const el = $(`#safe-pad [data-sb="${AR.safeSeq[k]}"]`);
+      if (el) { el.classList.add('lit'); setTimeout(() => el.classList.remove('lit'), 380); }
+      k++; setTimeout(flash, 520);
+    };
+    setTimeout(flash, 400);
+    $$('#safe-pad [data-sb]').forEach(b => b.addEventListener('click', async () => {
+      AR.safeGuess.push(+b.dataset.sb);
+      const n = AR.safeGuess.length;
+      if (AR.safeGuess[n - 1] !== AR.safeSeq[n - 1]) {
+        const r = await actCatch('arcade_safe', { op: 'echo', seq: AR.safeGuess.concat(Array(AR.safeSeq.length - n).fill(0)) });
+        AR.safeLen = 0; sysPanel(true).then(() => renderArcade()); return;
+      }
+      if (n === AR.safeSeq.length) {
+        const r = await actCatch('arcade_safe', { op: 'echo', seq: AR.safeGuess });
+        AR.safeLen = 0; sysPanel(true).then(() => renderArcade());
+      }
+    }));
+  }
+
+  // ---------------- SIDE HUSTLES ----------------
+  async function renderHustle() {
+    const v = $('#view'); const me = G.me;
+    const sp = await sysPanel(true);
+    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The board is down. Try again.</p></div>'; return; }
+    const gig = sp.gigs;
+    const cd = (readyTxt, left) => left ? `<span class="pill" style="color:var(--dim)">⏳ ${left}</span>` : `<span class="pill" style="color:var(--ok)">${readyTxt}</span>`;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">📦 <span class="head">SIDE HUSTLES</span></div>
+      <div class="vdesc">Legal-ish income between crimes. ${sp.event ? `<b style="color:var(--gold)">${sp.event.icon} ${sp.event.name}</b> — ${sp.event.desc} (${fmtDur(sp.event.until - sp.now)} left)` : 'The city is quiet — no event running.'}</div></div></div>
+      ${sp.event ? `<div class="card" style="border-color:rgba(226,183,20,.5);padding:8px 12px;display:flex;gap:10px;align-items:center"><span style="font-size:20px">${sp.event.icon}</span><div style="flex:1"><b>${sp.event.name}</b> <span style="color:var(--dim);font-size:12px">— ${sp.event.desc}</span></div><span class="mono" style="color:var(--gold)">${fmtDur(sp.event.until - sp.now)}</span></div>` : ''}
+      <div class="grid2">
+        <div class="card"><div class="subhead">📋 Gig board — refreshes every 4h</div>
+          ${(gig.ids || []).map(g => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${g.icon} <b>${g.name}</b><br><span style="color:var(--dim);font-size:11px">${g.desc}</span></span>
+            <span class="v" style="text-align:right"><b style="color:var(--gold)">$${g.cash[0].toLocaleString()}–${g.cash[1].toLocaleString()}</b><br>
+            <button class="btn cyan xs" data-act="gig_do" data-gig="${g.id}" ${me.energy < g.energy ? 'disabled' : ''}>Do it (${g.energy}⚡)</button></span></div>`).join('') || '<p style="color:var(--dim)">The board rotates soon.</p>'}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${gig.left}/${(gig.ids || []).length * 3} gigs done this rotation · ${gig.slots} slots</div></div>
+        <div class="card"><div class="subhead">🚚 Courier dispatch</div>
+          ${sp.courier.active ? `<div class="kv"><span class="k">Package for</span><span class="v">${sp.courier.active.dest}</span></div>
+            <div class="kv"><span class="k">Deadline</span><span class="v" style="color:${sp.courier.active.deadline < sp.now + 120000 ? 'var(--bad)' : 'var(--ok)'}">${fmtDur(Math.max(0, sp.courier.active.deadline - sp.now))}</span></div>
+            <div class="kv"><span class="k">Pay + speed bonus</span><span class="v" style="color:var(--gold)">${money(sp.courier.active.pay)}+</span></div>
+            <button class="btn gold" data-act="courier_deliver">Deliver now</button>`
+          : `<p style="color:var(--mut);font-size:12px">Take a package, beat the clock. ${cd('Dispatch ready', cdLeft(sp.courier.at, 5*60000))}</p>
+             <button class="btn cyan" data-act="courier_take">Take a package</button>`}</div>
+        <div class="card"><div class="subhead">🎣 Canal fishing</div>
+          <p style="color:var(--mut);font-size:12px">4⚡ per cast. Cod, pike, boots… and sometimes bling. Catches: ${sp.fish.caught}</p>
+          <button class="btn cyan" data-act="fish_cast" ${me.energy < 4 ? 'disabled' : ''}>Cast the line</button> ${cd('', cdLeft(sp.fish.at, 3*60000)) || ''}</div>
+        <div class="card"><div class="subhead">🗑️ Skip salvage</div>
+          <p style="color:var(--mut);font-size:12px">6⚡ a sweep. Runs: ${sp.salvage.runs}</p>
+          <button class="btn cyan" data-act="salvage_run" ${me.energy < 6 ? 'disabled' : ''}>Dig through the skips</button> ${cd('', cdLeft(sp.salvage.at, 8*60000)) || ''}</div>
+        <div class="card"><div class="subhead">🩸 Plasma donation</div>
+          <p style="color:var(--mut);font-size:12px">10 life for cash. Donations: ${sp.plasma.n}</p>
+          <button class="btn cyan" data-act="plasma_donate" ${me.life <= 30 ? 'disabled' : ''}>Roll up a sleeve</button> ${cd('', sp.plasma.ready ? null : 'soon') || ''}</div>
+        <div class="card"><div class="subhead">🧪 Clinical trials</div>
+          <p style="color:var(--mut);font-size:12px">Volunteer for science. Side effects vary. Trials survived: ${sp.trials.n}</p>
+          <button class="btn cyan" data-act="trial_join" ${sp.trials.ready ? '' : 'disabled'}>${sp.trials.ready ? 'Sign the waiver' : 'Clinic says wait'}</button></div>
+        <div class="card"><div class="subhead">🎷 Busking on the promenade</div>
+          <p style="color:var(--mut);font-size:12px">5⚡, tips scale with your mood. Sets played: ${sp.busk.n}</p>
+          <button class="btn cyan" data-act="busk_play" ${sp.busk.ready && me.energy >= 5 ? '' : 'disabled'}>${sp.busk.ready ? 'Play a set' : 'The pitch is taken'}</button></div>
+        <div class="card"><div class="subhead">📦 Storage auctions — one unit a day</div>
+          ${sp.storage.openedToday ? '<p style="color:var(--dim);font-size:12px">You already cracked a unit today. New shutters at midnight.</p>'
+          : `<p style="color:var(--mut);font-size:12px">Three units go up. Peek at the labels, pay the price, keep whatever is inside.</p>
+             <button class="btn gold" data-act="storage_open">Show me the units</button>`}</div>
+        <div class="card"><div class="subhead">🎁 Mystery boxes</div>
+          <div class="kv"><span class="k">In your bag</span><span class="v">${me.items && me.items.mystery_box || 0}</span></div>
+          <button class="btn cyan" data-act="box_open" ${(me.items && me.items.mystery_box) ? '' : 'disabled'}>Tear the tape</button>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Buy them from the Market. Contents: cash, gear… occasionally a limited drop.</p></div>
+        <div class="card"><div class="subhead">🔥 The Drop — limited streetwear</div>
+          ${(sp.drops.stock || []).map(d => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${d.icon} <b>${d.name}</b><br><span style="color:var(--dim);font-size:11px">${d.left} left this week · you own ${d.owned}</span></span>
+            <span class="v"><b style="color:var(--gold)">${money(d.price)}</b><br><button class="btn gold xs" data-act="drop_buy" data-item="${d.id}" ${d.left > 0 && !d.owned && me.money >= d.price ? '' : 'disabled'}>${d.owned ? 'Owned' : 'Cop'}</button></span></div>`).join('')}
+          <p style="color:var(--dim);font-size:11.5px;margin-top:6px">Rotation changes weekly. Owning all four pieces earns the Hype Beast feat.</p></div>
+        <div class="card"><div class="subhead">📸 Clout — post and get paid</div>
+          <div class="kv"><span class="k">Followers</span><span class="v" style="color:var(--cyn)">${sp.clout.followers.toLocaleString()}</span></div>
+          <div class="kv"><span class="k">Passive income</span><span class="v">≈ ${money(sp.clout.rate)}/hr</span></div>
+          <div class="field" style="margin:8px 0"><input class="in" id="clout-cap" maxlength="80" placeholder="Caption for the post…"></div>
+          <button class="btn cyan" data-act="clout_post" ${sp.clout.ready ? '' : 'disabled'}>${sp.clout.ready ? 'Post it' : 'Algorithm is cooling down'}</button></div>
+        <div class="card"><div class="subhead">🎨 Street art — tag the districts</div>
+          <div class="kv"><span class="k">Cans in bag</span><span class="v">${me.items && me.items.spray_can || 0}</span></div>
+          <div class="kv"><span class="k">Walls tagged</span><span class="v">${sp.tags.n}</span></div>
+          <div class="field" style="margin:8px 0"><select class="in" id="tag-district">${(G.meta.districts || []).map(d => `<option value="${d.id}">${d.icon} ${d.name}</option>`).join('')}</select></div>
+          <button class="btn cyan" data-act="tag_wall" ${(me.items && me.items.spray_can) ? '' : 'disabled'}>Paint a piece</button>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:8px">+6 rep, +2 turf influence. 12% chance a patrol rolls up.</p></div>
+      </div>`;
+    U.bindTimers(v);
+  }
+
+  // ---------------- GARAGE ----------------
+  async function renderGarage() {
+    const v = $('#view'); const me = G.me;
+    const sp = await sysPanel(true);
+    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The garage door is jammed. Try again.</p></div>'; return; }
+    const showroom = G.meta.cars || [];
+    const carCard = (c, owned, i) => `
+      <div class="kv" style="align-items:center;border-bottom:1px solid var(--line);padding:8px 0">
+        <span class="k" style="flex:1;font-size:13px">${c.icon || c.def.icon} <b>${owned ? (c.name || c.def.name) : c.name}</b>
+          <br><span style="color:var(--dim);font-size:11px">${owned ? `rating ${c.rating}` : esc(c.desc)}</span></span>
+        <span class="v" style="text-align:right">
+          ${owned ? `<span class="pill">${c.def ? money(c.def.price) : ''}</span> ` : `<b style="color:var(--gold)">${money(c.price)}</b><br>`}
+          ${owned
+            ? `<button class="btn cyan xs" data-act="race_car" data-idx="${i}">🏁 Race</button> <button class="btn ghost xs" data-act="chop_car" data-idx="${i}">Chop</button> <button class="btn ghost xs" data-act="car_sell" data-idx="${i}">Sell 70%</button> <button class="btn ghost xs" data-act="car_paint" data-idx="${i}">Paint</button>`
+            : `<button class="btn gold xs" data-act="car_buy" data-car="${c.id}" ${me.money >= c.price ? '' : 'disabled'}>Buy</button>`}
+        </span></div>`;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🚗 <span class="head">THE GARAGE</span></div>
+      <div class="vdesc">Buy it, paint it, race it, or feed it to the chop shop. Record: <b style="color:var(--ok)">${sp.races.wins}W</b> / <b style="color:var(--bad)">${sp.races.losses}L</b></div></div></div>
+      <div class="card"><div class="subhead">🔑 Your drive (${sp.cars.length}/6)</div>
+        ${sp.cars.length ? sp.cars.map((c, i) => carCard(c, true, i)).join('') : '<p style="color:var(--dim);font-size:12.5px">Empty bays. The showroom is right there.</p>'}</div>
+      <div class="card"><div class="subhead">🏬 Showroom</div>
+        ${showroom.map(c => carCard(c, false, 0)).join('')}
+        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Race stakes scale with the car. Winning pays 6% of its sticker + $500, plus rep and influence.</p></div>`;
+    U.bindTimers(v);
+  }
+
+  // ---------------- TURF ----------------
+  async function renderTurf() {
+    const v = $('#view'); const me = G.me;
+    const sp = await sysPanel(true);
+    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The map room is locked. Try again.</p></div>'; return; }
+    const t = sp.turf;
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🗺️ <span class="head">TURF</span></div>
+      <div class="vdesc">Claim districts with influence. They pay hourly while you hold them — capped at ${sp.turf.incomeHours}h uncollected.</div></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="pill" style="color:var(--cyn)">◆ ${Math.floor(t.influence)} influence</span>
+        ${t.pending > 0 ? `<button class="btn gold sm" data-act="turf_collect">Collect ${money(t.pending)}</button>` : ''}
+      </div></div>
+      <div class="grid2">
+        ${t.districts.map(d => `
+        <div class="card ${d.mine ? 'gold-border' : ''}">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:26px">${d.icon}</span>
+            <div style="flex:1"><b>${d.name}</b><br><span style="color:var(--dim);font-size:11.5px">$${d.income.toLocaleString()}/hr · needs ${d.minInfluence}◆</span></div>
+            ${d.mine ? '<span class="pill" style="color:var(--gold)">YOURS</span>'
+              : d.holder ? `<span class="pill" style="color:var(--bad)">${esc(d.holderName || 'held')}</span>` : '<span class="pill" style="color:var(--dim)">open</span>'}
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px">
+            ${d.mine ? `<button class="btn ghost sm" data-act="turf_release" data-d="${d.id}">Release</button>`
+              : d.holder ? `<button class="btn danger sm" data-act="turf_claim" data-d="${d.id}" ${t.influence >= 90 ? '' : 'disabled'}>⚔️ Take (90◆)</button>`
+              : `<button class="btn cyan sm" data-act="turf_claim" data-d="${d.id}" ${t.influence >= d.minInfluence ? '' : 'disabled'}>🚩 Claim (${Math.max(40, d.minInfluence)}◆)</button>`}
+          </div>
+        </div>`).join('')}
+      </div>
+      <p style="color:var(--dim);font-size:11.5px;margin-top:10px">Influence grows from crimes (+1), big scores (+4), fight wins (+3), street races (+3) and tagging (+2). Takeovers cost 90◆ and can fail — a faction tag helps.</p>`;
+    U.bindTimers(v);
+  }
+
+  // ---------------- CITY EXTRAS: weather, event, challenges ----------------
+  async function renderCitySys() {
+    const wrap = $('#city-sys'); if (!wrap) return;
+    const sp = await sysPanel();
+    if (!sp) return;
+    wrap.innerHTML = `
+      <div class="card" style="padding:8px 12px;display:flex;gap:12px;align-items:center;margin-bottom:8px">
+        <span style="font-size:22px">${sp.weather.icon}</span>
+        <div style="flex:1;font-size:12.5px"><b>${sp.weather.name}</b> <span style="color:var(--dim)">— ${sp.weather.line}</span>${sp.weather.night ? ' <span class="pill" style="color:var(--cyn)">night</span>' : ''}</div>
+        ${sp.event ? `<span class="pill" style="color:var(--gold)">${sp.event.icon} ${sp.event.name}</span>` : ''}
+      </div>
+      <div class="card" style="margin-bottom:8px"><div class="subhead" style="margin-bottom:6px">🗓️ Today's challenges</div>
+        ${sp.challenges.list.map(c => `
+          <div class="kv" style="align-items:center"><span class="k" style="flex:1">${c.icon} ${c.name} <span style="color:var(--dim)">(${c.prog}/${c.need})</span></span>
+            <span class="v">${c.claimed ? '<span style="color:var(--ok)">✓</span>' : c.done ? `<button class="btn gold xs" data-act="challenge_claim" data-cid="${c.id}">Claim ${money(c.reward)}</button>` : `<span style="color:var(--dim)">${money(c.reward)}</span>`}</span></div>`).join('')}
+      </div>`;
+  }
+
+  // ---------------- FINANCE EXTRAS (bank tab) ----------------
+  async function renderBankSys() {
+    const wrap = $('#bank-sys'); if (!wrap) return;
+    const sp = await sysPanel(true);
+    if (!sp) return;
+    const ngt = (G.me.crypto && G.me.crypto.NGT) || 0;
+    wrap.innerHTML = `
+      <div class="card"><div class="subhead">🧊 NGT staking — ${(sp.stake.pct*100).toFixed(2)}%/day</div>
+        <div class="kv"><span class="k">Locked</span><span class="v mono">${sp.stake.amt} NGT</span></div>
+        <div class="kv"><span class="k">Accrued</span><span class="v mono" style="color:var(--ok)">+${sp.stake.gained} NGT</span></div>
+        <div class="kv"><span class="k">Wallet</span><span class="v mono">${ngt} NGT</span></div>
+        <div class="field" style="display:flex;gap:6px;margin-top:8px"><input class="in mono" id="stake-amt" placeholder="amount" style="width:120px">
+          <button class="btn cyan xs" data-act="stake_ngt">Lock</button>
+          <button class="btn ghost xs" data-act="unstake_ngt">Unlock</button></div></div>
+      <div class="card"><div class="subhead">🔒 Term deposits</div>
+        ${sp.term ? `<div class="kv"><span class="k">Locked</span><span class="v mono">${money(sp.term.amt)}</span></div>
+          <div class="kv"><span class="k">Matures</span><span class="v">${fmtDur(Math.max(0, sp.term.until - sp.now))} → pays ${money(Math.round(sp.term.amt * (1 + sp.term.rate)))}</span></div>
+          <button class="btn gold sm" data-act="term_collect">${sp.term.until <= sp.now ? 'Collect' : 'Break early (−2%)'}</button>`
+        : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input class="in mono" id="term-amt" placeholder="$ amount" style="width:120px">
+          <button class="btn ghost xs" data-act="term_deposit" data-hours="6">6h · 0.8%</button>
+          <button class="btn ghost xs" data-act="term_deposit" data-hours="12">12h · 1.8%</button>
+          <button class="btn ghost xs" data-act="term_deposit" data-hours="24">24h · 4%</button></div>`}</div>
+      <div class="card"><div class="subhead">💹 Dividends</div>
+        <div class="kv"><span class="k">Paid out so far</span><span class="v mono" style="color:var(--ok)">${money(sp.dividends.total)}</span></div>
+        <p style="color:var(--dim);font-size:11.5px;margin-top:6px">Held shares drip small payouts every 6 hours — settles automatically as you play.</p></div>
+      <div class="card"><div class="subhead">🛡️ Protection policy</div>
+        ${sp.insurance.active ? `<p style="color:var(--ok);font-size:12.5px">Covered for ${fmtDur(sp.insurance.until - sp.now)} — muggings capped at 2% of cash.</p>`
+        : `<p style="color:var(--dim);font-size:12.5px">None active. Buy the Protection Policy from the Market and use it.</p>`}</div>`;
+  }
+
+  // ---------------- SOCIAL / PROFILE EXTRAS ----------------
+  async function renderProfileSys() {
+    const wrap = $('#profile-sys'); if (!wrap) return;
+    const sp = await sysPanel();
+    if (!sp) return;
+    const s = sp.social;
+    wrap.innerHTML = `
+      <div class="card"><div class="subhead">🤝 Your circle</div>
+        ${s.friends.length ? s.friends.map(f => `<div class="kv" style="align-items:center"><span class="k">${esc(f.name)}</span><span class="v"><button class="btn ghost xs" data-act="friend_remove" data-target="${esc(f.name)}">Remove</button> <button class="btn cyan xs" data-nav="profile" data-pid="${f.id}">View</button></span></div>`).join('') : '<p style="color:var(--dim);font-size:12px">No friends yet. Add them by name.</p>'}
+        <div class="field" style="display:flex;gap:6px;margin-top:8px"><input class="in" id="friend-name" placeholder="citizen name"><button class="btn cyan sm" data-act="friend_add">Add friend</button></div></div>
+      <div class="card"><div class="subhead">🚫 Block list</div>
+        ${s.blocked.length ? s.blocked.map(f => `<div class="kv" style="align-items:center"><span class="k">${esc(f.name)}</span><span class="v"><button class="btn ghost xs" data-act="block_remove" data-target="${esc(f.name)}">Unblock</button></span></div>`).join('') : '<p style="color:var(--dim);font-size:12px">Nobody. Yet.</p>'}
+        <div class="field" style="display:flex;gap:6px;margin-top:8px"><input class="in" id="block-name" placeholder="citizen name"><button class="btn danger sm" data-act="block_add">Block</button></div></div>
+      <div class="card"><div class="subhead">🎁 Send a gift</div>
+        <div class="field" style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="in" id="gift-to" placeholder="to (name)" style="width:140px">
+          <select class="in" id="gift-item" style="max-width:220px">${Object.entries(G.me.items || {}).filter(([,q]) => q > 0).map(([id, q]) => `<option value="${id}">${(G.meta.items[id]||{}).icon||''} ${esc((G.meta.items[id]||{}).name||id)} ×${q}</option>`).join('') || '<option value="">— bag empty —</option>'}</select>
+          <button class="btn gold sm" data-act="gift_send">Send</button></div></div>`;
+  }
+  function openRespecModal() {
+    const me = G.me;
+    const cur = { st: Math.floor(me.stats.st), de: Math.floor(me.stats.de), sp: Math.floor(me.stats.sp), dx: Math.floor(me.stats.dx) };
+    const total = cur.st + cur.de + cur.sp + cur.dx;
+    const root = $('#modal-root');
+    const row = (k) => `<div class="kv" style="align-items:center"><span class="k">${FINGER[k]}</span><span class="v"><input class="in mono" id="rs-${k}" value="${cur[k]}" style="width:90px"></span></div>`;
+    root.innerHTML = `<div class="modal"><div class="modal-card" style="max-width:420px">
+      <div class="modal-title">📝 <span class="head">Identity rewrite</span></div>
+      <p style="color:var(--mut);font-size:12.5px">Redistribute all <b class="mono">${total}</b> points. Every stat stays at least 5.</p>
+      ${row('st')}${row('de')}${row('sp')}${row('dx')}
+      <div class="kv"><span class="k">Placed</span><span class="v mono" id="rs-total">${total}</span></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn ghost" data-act="close-modal">Cancel</button>
+        <button class="btn cyan" data-act="respec_go">Rewrite it</button></div></div></div>`;
+    const upd = () => { const t = ['st','de','sp','dx'].reduce((a,k) => a + (parseInt(($('#rs-'+k)||{}).value,10)||0), 0); const el = $('#rs-total'); if (el) { el.textContent = t + ' / ' + total; el.style.color = t === total ? 'var(--ok)' : 'var(--bad)'; } };
+    ['st','de','sp','dx'].forEach(k => { const el = $('#rs-'+k); if (el) el.addEventListener('input', upd); });
   }
 
   // ================================================================ MENU MODAL
@@ -2463,7 +2894,7 @@
     const root = $('#modal-root');
     const cur = {};
     $$('[data-el-opt]', root).forEach(b => { if (b.classList.contains('on')) cur[b.dataset.elOpt] = +b.dataset.v; });
-    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent].join('|');
+    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0].join('|');
     try {
       const r = await Net.post('/api/updateprofile', { avatar: str });
       G.me = r.p; root.innerHTML = ''; renderHUD(); reRenderCurrent();
@@ -2542,12 +2973,6 @@
         const qty = parseFloat((document.querySelector(`[data-sqty=\"${btn.dataset.sym}\"]`) || {}).value) || 0;
         act(actN, { sym: btn.dataset.sym, qty }); break;
       }
-  async function actCatch(name, payload) {
-    const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name })).catch(err => { U.toast(esc(err && err.message || 'The city shrugged.'), 'bad'); return null; });
-    if (r && (r.ok || r.p)) { if (r.p) applyMe(r.p, r.res); return r; }
-    if (r && r.err) { U.toast(esc(r.err), 'bad'); return null; }
-    return r;
-  }
   function openPassModal() {
     const me = G.me; if (!me) return;
     const on = me.sub && me.sub.active;
@@ -2797,7 +3222,117 @@
       case 'sound': { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; break; }
       case 'logout': doLogout(); break;
       case 'editlook': openEditLook(); break;
+      // ---------------- 2026 systems ----------------
+      case 'mines_deal': { const bet = parseInt(($('#mines-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_mines', { op: 'start', bet }); if (r) { sysPanel(true).then(renderArcade); } break; }
+      case 'mine_tile': { const r = await actCatch('arcade_mines', { op: 'pick', tile: +btn.dataset.tile }); if (r) { sysPanel(true).then(renderArcade); } break; }
+      case 'mines_cashout': { const r = await actCatch('arcade_mines', { op: 'cashout' }); if (r) { SND.win(); sysPanel(true).then(renderArcade); } break; }
+      case 'mines_abandon': { await actCatch('arcade_mines', { op: 'abandon' }); sysPanel(true).then(renderArcade); break; }
+      case 'plinko_drop': { const bet = parseInt(($('#plinko-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_plinko', { bet }); if (r && r.res) { const el = $(`[data-plinko-slot="${r.res.slot}"]`); if (el) el.classList.add('hit'); if (r.res.win) SND.win(); U.toast(esc(r.res.text), r.res.win ? 'good' : 'bad'); setTimeout(() => { sysPanel(true).then(renderArcade); }, 900); } break; }
+      case 'dice_call': { const bet = parseInt(($('#dice-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_dice', { bet, call: btn.dataset.call }); if (r && r.res) { U.toast(esc(r.res.text), r.res.hit ? 'good' : 'bad'); sysPanel(true).then(renderArcade); } break; }
+      case 'coin_call': { const bet = parseInt(($('#coin-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_coin', { bet, call: btn.dataset.call }); if (r && r.res) { U.toast(esc(r.res.text), r.res.win ? 'good' : 'bad'); sysPanel(true).then(renderArcade); } break; }
+      case 'hoops_zone': { const r = await actCatch('arcade_hoops', { zone: +btn.dataset.zone }); if (r && r.res) { U.toast(esc(r.res.text), r.res.win ? 'good' : 'bad'); sysPanel(true).then(renderArcade); } break; }
+      case 'buzz_start': {
+        if (AR.buzzStart) { const ms = Date.now() - AR.buzzStart; AR.buzzStart = 0; const r = await actCatch('arcade_buzz', { ms }); if (r && r.res) { U.toast(esc(r.res.text), r.res.win ? 'good' : 'bad'); sysPanel(true).then(renderArcade); } }
+        else { AR.buzzStart = Date.now(); btn.textContent = 'STOP!'; btn.classList.remove('cyan'); btn.classList.add('danger'); }
+        break;
+      }
+      case 'mem_deal': {
+        if (AR.memCards.length) break;
+        const syms = ['🍒','🍋','💎','🔔','🍀','🎲','🚗','🎧'];
+        AR.memCards = [...syms, ...syms].map(v => ({ v, done: false })).sort(() => Math.random() - 0.5);
+        AR.memFlips = 0; AR.memOpen = []; AR.memDone = 0;
+        btn.style.display = 'none'; paintMemory();
+        break;
+      }
+      case 'safe_deal': {
+        const r = await actCatch('arcade_safe', { op: 'deal', len: +btn.dataset.len });
+        if (r && r.res && r.res.seq) { AR.safeSeq = r.res.seq; AR.safeLen = r.res.len; paintSafe(); }
+        break;
+      }
+      case 'scratch_go': {
+        const r = await actCatch('scratch', { qty: +btn.dataset.qty });
+        if (r && r.res) {
+          const out = $('#scratch-out');
+          if (out) out.innerHTML = r.res.results.map(x => `<div class="card" style="padding:8px;margin-top:8px;display:inline-grid;grid-template-columns:repeat(3,34px);gap:4px;margin-right:10px">${x.grid.map(s => `<span style="text-align:center;font-size:18px">${s}</span>`).join('')}</div>`).join('') + `<p style="color:${r.res.total ? 'var(--gold)' : 'var(--dim)'};font-size:12.5px;margin-top:8px">${esc(r.res.text)}</p>`;
+          sysPanel(true);
+        }
+        break;
+      }
+      case 'lottery_go': { const r = await actCatch('lottery_buy', { qty: +btn.dataset.qty }); if (r) sysPanel(true).then(renderArcade); break; }
+      case 'gig_do': { const r = await actCatch('gig_do', { gigId: btn.dataset.gig }); if (r) { U.toast(esc(r.res.text || 'Gig done.'), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'courier_take': { const r = await actCatch('courier_take'); if (r) sysPanel(true).then(renderHustle); break; }
+      case 'courier_deliver': { const r = await actCatch('courier_deliver'); if (r) { U.toast(esc(r.res.text), r.res.late ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'fish_cast': { const r = await actCatch('fish_cast'); if (r) { U.toast(`${r.res.icon || '🎣'} ${esc(r.res.text)}`, 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'salvage_run': { const r = await actCatch('salvage_run'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'plasma_donate': { const r = await actCatch('plasma_donate'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'trial_join': { const r = await actCatch('trial_join'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'busk_play': { const r = await actCatch('busk_play'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'storage_open': openStorageModal(); break;
+      case 'box_open': { const r = await actCatch('box_open'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); renderItemsSys(); } break; }
+      case 'drop_buy': { const r = await actCatch('drop_buy', { itemId: btn.dataset.item }); if (r) { SND.big(); sysPanel(true).then(renderHustle); } break; }
+      case 'clout_post': { const caption = ($('#clout-cap') || {}).value || ''; const r = await actCatch('clout_post', { caption }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'tag_wall': { const districtId = ($('#tag-district') || {}).value; const r = await actCatch('tag_wall', { districtId }); if (r) { U.toast(esc(r.res.text), r.res.busted ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'car_buy': { const r = await actCatch('car_buy', { carId: btn.dataset.car }); if (r) { SND.win(); sysPanel(true).then(renderGarage); } break; }
+      case 'car_sell': { const r = await actCatch('car_sell', { idx: +btn.dataset.idx }); if (r) sysPanel(true).then(renderGarage); break; }
+      case 'chop_car': { if (!confirm('Feed this car to the chop shop? It comes back as parts and cash.')) break; const r = await actCatch('chop_car', { idx: +btn.dataset.idx }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderGarage); renderItemsSys(); } break; }
+      case 'car_paint': openPaintModal(+btn.dataset.idx); break;
+      case 'race_car': { const r = await actCatch('street_race', { idx: +btn.dataset.idx }); if (r && r.res) { U.toast(esc(r.res.text), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderGarage); } break; }
+      case 'turf_claim': { const r = await actCatch('turf_claim', { districtId: btn.dataset.d }); if (r) { U.toast(esc(r.res.text), r.res.took === false ? 'bad' : 'good'); sysPanel(true).then(renderTurf); } break; }
+      case 'turf_release': { const r = await actCatch('turf_release', { districtId: btn.dataset.d }); if (r) sysPanel(true).then(renderTurf); break; }
+      case 'turf_collect': { const r = await actCatch('turf_collect'); if (r) { SND.cash(); sysPanel(true).then(renderTurf); } break; }
+      case 'stake_ngt': { const amount = parseFloat(($('#stake-amt') || {}).value) || 0; const r = await actCatch('stake_ngt', { amount }); if (r) sysPanel(true).then(renderBankSys); break; }
+      case 'unstake_ngt': { const amount = parseFloat(($('#stake-amt') || {}).value) || 0; const r = await actCatch('unstake_ngt', { amount }); if (r) sysPanel(true).then(renderBankSys); break; }
+      case 'term_deposit': { const amount = parseInt(($('#term-amt') || {}).value, 10) || 0; const r = await actCatch('term_deposit', { amount, hours: +btn.dataset.hours }); if (r) sysPanel(true).then(renderBankSys); break; }
+      case 'term_collect': { const r = await actCatch('term_collect'); if (r) sysPanel(true).then(renderBankSys); break; }
+      case 'craft': { const r = await actCatch('craft', { recipeId: btn.dataset.recipe }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderItemsSys); } break; }
+      case 'card_open': { const r = await actCatch('card_open'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderItemsSys); } break; }
+      case 'challenge_claim': { const r = await actCatch('challenge_claim', { cid: btn.dataset.cid }); if (r) { SND.cash(); sysPanel(true).then(renderCitySys); } break; }
+      case 'friend_add': { const target = ($('#friend-name') || {}).value; const r = await actCatch('friend_add', { target }); if (r) sysPanel(true).then(renderProfileSys); break; }
+      case 'friend_remove': { const r = await actCatch('friend_remove', { target: btn.dataset.target }); if (r) sysPanel(true).then(renderProfileSys); break; }
+      case 'block_add': { const target = ($('#block-name') || {}).value; const r = await actCatch('block_add', { target }); if (r) sysPanel(true).then(renderProfileSys); break; }
+      case 'block_remove': { const r = await actCatch('block_remove', { target: btn.dataset.target }); if (r) sysPanel(true).then(renderProfileSys); break; }
+      case 'gift_send': { const to = ($('#gift-to') || {}).value; const itemId = ($('#gift-item') || {}).value; const r = await actCatch('gift_send', { to, itemId, qty: 1 }); if (r) { U.toast(esc(r.res.text), 'good'); } break; }
+      case 'respec_open': openRespecModal(); break;
+      case 'respec_go': {
+        const stats = {};
+        for (const k of ['st','de','sp','dx']) stats[k] = parseInt(($('#rs-' + k) || {}).value, 10) || 0;
+        const r = await actCatch('respec_apply', { stats });
+        if (r) { $('#modal-root').innerHTML = ''; U.toast('Identity rewritten.', 'good'); }
+        break;
+      }
     }
+  }
+  // ---- storage unit modal
+  async function openStorageModal() {
+    const root = $('#modal-root');
+    root.innerHTML = `<div class="modal"><div class="modal-card"><div class="modal-title">📦 <span class="head">The storage yard</span></div><p style="color:var(--dim);font-size:12.5px">${U.spinner ? 'Rolling the shutters…' : ''}</p></div></div>`;
+    let r = null;
+    try { r = await Net.post('/api/action', { name: 'storage_open' }); } catch (e) { root.innerHTML = ''; U.toast(esc(e.message), 'bad'); return; }
+    if (!r || !r.res || !r.res.browse) { root.innerHTML = ''; U.toast(esc((r && r.err) || 'No units today.'), 'bad'); return; }
+    root.innerHTML = `<div class="modal"><div class="modal-card">
+      <div class="modal-title">📦 <span class="head">Pick a unit — one a day</span></div>
+      ${r.res.units.map((u, i) => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">Unit ${i+1} — <span style="color:var(--dim)">${esc(u.hint)}</span></span>
+        <span class="v"><b class="mono" style="color:var(--gold)">${money(u.price)}</b> <button class="btn gold xs" data-sunit="${i}" ${G.me.money >= u.price ? '' : 'disabled'}>Open</button></span></div>`).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn ghost" data-act="close-modal">Walk away</button></div></div></div>`;
+    $$('[data-sunit]', root).forEach(b => b.addEventListener('click', async () => {
+      const rr = await actCatch('storage_open', { unitIdx: +b.dataset.sunit });
+      root.innerHTML = '';
+      if (rr && rr.res) { U.toast(esc(rr.res.text), rr.res.profit > 0 ? 'good' : 'bad'); if (rr.res.profit > 0) SND.win(); sysPanel(true).then(renderHustle); }
+    }));
+  }
+  // ---- paint modal
+  function openPaintModal(idx) {
+    const root = $('#modal-root');
+    const colors = ['#16161a', '#e8e2d4', '#8f2f28', '#28395c', '#1f4d3a', '#d9c36a', '#4fc3f7', '#e2b714', '#9c4dc4', '#ff7043'];
+    root.innerHTML = `<div class="modal"><div class="modal-card" style="max-width:380px">
+      <div class="modal-title">🎨 <span class="head">Respray bay ${idx + 1}</span></div>
+      <div class="chiprow" style="margin:10px 0">${colors.map(c => `<button class="chip swatch" data-pcolor="${c}" style="background:${c}"><span style="opacity:0">x</span></button>`).join('')}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-act="close-modal">Cancel</button></div></div></div>`;
+    $$('[data-pcolor]', root).forEach(b => b.addEventListener('click', async () => {
+      const r = await actCatch('car_paint', { idx, color: b.dataset.pcolor });
+      root.innerHTML = '';
+      if (r) sysPanel(true).then(renderGarage);
+    }));
   }
 
   // casino dramatic multi animation before showing result

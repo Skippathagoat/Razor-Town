@@ -1085,3 +1085,31 @@ body { color: var(--ink); }
   .shop-blurb { min-height:0; }
   .shop-buy { min-width:80px; }
 }
+
+/* ================= 2026 SYSTEMS ================= */
+.btn.xs { padding:4px 8px; font-size:10.5px; min-height:24px; }
+.gold-border { border-color:rgba(226,183,20,.55) !important; box-shadow:0 0 18px rgba(226,183,20,.08) inset; }
+
+/* Mines */
+.mine-grid { display:grid; grid-template-columns:repeat(4,44px); gap:6px; margin:10px 0; }
+.mine-tile { width:44px; height:44px; border-radius:8px; border:1px solid var(--line2); background:var(--raise); color:var(--ink); font-size:18px; cursor:pointer; transition:transform .08s ease, background .2s; }
+.mine-tile:hover:not(:disabled) { transform:translateY(-2px); border-color:var(--gold); }
+.mine-tile.safe { background:rgba(95,215,228,.12); border-color:rgba(95,215,228,.5); cursor:default; }
+.mine-tile.boom { background:rgba(229,72,94,.2); border-color:var(--bad); }
+
+/* Plinko */
+.plinko-row { display:flex; gap:3px; margin:10px 0; flex-wrap:wrap; }
+.plinko-slot { flex:1; min-width:26px; text-align:center; font-size:10.5px; font-weight:800; padding:8px 2px; border-radius:6px; border:1px solid var(--line); background:var(--raise); color:var(--mut); }
+.plinko-slot.hot { color:var(--gold); border-color:rgba(226,183,20,.5); }
+.plinko-slot.hit { background:rgba(226,183,20,.25); color:var(--gold); border-color:var(--gold); transform:scale(1.12); transition:all .25s; }
+
+/* Memory */
+.mem-grid { display:grid; grid-template-columns:repeat(4,46px); gap:6px; margin:10px 0; min-height:52px; }
+.mem-card { width:46px; height:46px; border-radius:8px; border:1px solid var(--line2); background:var(--raise); font-size:19px; cursor:pointer; transition:transform .12s; }
+.mem-card.open { background:rgba(95,215,228,.12); border-color:rgba(95,215,228,.55); transform:rotateY(0); }
+
+/* Safe cracker */
+.safe-pad { display:grid; grid-template-columns:repeat(4,52px); gap:8px; }
+.safe-btn { width:52px; height:52px; border-radius:12px; border:1px solid var(--line2); background:var(--raise); cursor:pointer; opacity:.85; transition:all .1s; }
+.safe-btn.lit { background:var(--sc); opacity:1; box-shadow:0 0 18px var(--sc); transform:scale(1.06); }
+.safe-btn:disabled { cursor:default; opacity:.5; }

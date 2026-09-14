@@ -13,10 +13,12 @@ const W = require('./lib/world.js');
 const C = require('./lib/game/content.js');
 const boot = require('./lib/bootstrap.js');
 const E = require('./lib/game/engine.js');
+const S = require('./lib/systems.js');
 
 // First boot anywhere = playable world: seeds NPC citizens + gangs and creates the
 // founder account when the database is empty. Idempotent, so restarts are cheap.
 const world = boot.ensureWorld();   // BOTS env controls NPCs; default 0 = real players only
+S.attach(W);                        // wire the 2026 systems once the DB exists
 console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items');
 console.log('Citizens:', world.citizens, '| gangs:', world.gangs, '| accounts:', world.accounts,
   world.bots ? '| NPC bots: ' + world.bots : '| NPC bots: off (real players only)',
@@ -183,7 +185,10 @@ function withId(id, pj){
 }
 function metaPayload(){
   return { crimes: C.CRIMES, crimeCats: C.CRIME_CATS, items: C.ITEMS, jobs: C.JOBS, gyms: C.GYMS, origins: C.ORIGINS, achievements: C.ACHIEVEMENTS,
-    courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS };
+    courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS,
+    // 2026 expansion content
+    cars: C.CARS, gigs: C.GIGS, recipes: C.RECIPES, districts: C.DISTRICTS, titles: C.TITLES,
+    drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -295,7 +300,15 @@ const routes = async (req, res, urlPath, q) => {
   if (urlPath === '/api/updateprofile' && method === 'POST') {
     const id = guard(req, res); if (!id) return;
     const p = W.load(id);
-    if (typeof body.avatar === 'string') p.avatar = String(body.avatar).slice(0, 40);
+    if (typeof body.avatar === 'string') {
+      // clamp every part against the live catalog, exactly like the creator does
+      const parts = String(body.avatar).split('|').map(x => parseInt(x, 10));
+      const maxes = [A.AVATAR_MAX.skin, A.AVATAR_MAX.face, A.AVATAR_MAX.hair, A.AVATAR_MAX.shirt, A.AVATAR_MAX.accent, A.AVATAR_MAX.body];
+      p.avatar = maxes.map((mx, i) => {
+        const v = parts[i];
+        return Number.isFinite(v) ? Math.max(0, Math.min(mx, v)) : 0;
+      }).join('|');
+    }
     if (typeof body.bio === 'string') p.bio = String(body.bio).replace(/[<>&]/g, '').slice(0, 120);
     W.save(id, p);
     return send(res, 200, { p: withId(id, p) });
@@ -551,14 +564,69 @@ const routes = async (req, res, urlPath, q) => {
       fupgrade: () => W.factionBuyUpgrade(id, body.upId),
       fannounce: () => W.factionAnnounce(id, body.text),
       fpromote: () => W.factionPromote(id, body.targetId),
+      // ---------- 2026 systems ----------
+      // arcade
+      arcade_mines: () => S.arcadeMines(id, body),
+      arcade_plinko: () => S.arcadePlinko(id, body),
+      arcade_dice: () => S.arcadeDice(id, body),
+      arcade_coin: () => S.arcadeCoin(id, body),
+      arcade_hoops: () => S.arcadeHoops(id, body),
+      arcade_buzz: () => S.arcadeBuzz(id, body),
+      arcade_memory: () => S.arcadeMemory(id, body),
+      arcade_safe: () => S.arcadeSafe(id, body),
+      scratch: () => S.scratch(id, body),
+      lottery_buy: () => S.lotteryBuy(id, body),
+      // hustles
+      gig_do: () => S.gigDo(id, body.gigId),
+      courier_take: () => S.courierTake(id),
+      courier_deliver: () => S.courierDeliver(id),
+      fish_cast: () => S.fishCast(id),
+      salvage_run: () => S.salvageRun(id),
+      plasma_donate: () => S.plasmaDonate(id),
+      trial_join: () => S.trialJoin(id),
+      busk_play: () => S.buskPlay(id),
+      storage_open: () => S.storageOpen(id, body.unitIdx),
+      box_open: () => S.boxOpen(id),
+      drop_buy: () => S.dropBuy(id, body.itemId),
+      clout_post: () => S.cloutPost(id, body),
+      tag_wall: () => S.tagWall(id, body.districtId),
+      // social
+      friend_add: () => S.friendAdd(id, body.target),
+      friend_remove: () => S.friendRemove(id, body.target),
+      block_add: () => S.blockAdd(id, body.target),
+      block_remove: () => S.blockRemove(id, body.target),
+      gift_send: () => S.giftSend(id, body),
+      // garage
+      car_buy: () => S.carBuy(id, body.carId),
+      car_sell: () => S.carSell(id, body.idx),
+      car_paint: () => S.carPaint(id, body.idx, body.color),
+      street_race: () => S.streetRace(id, body),
+      chop_car: () => S.chopCar(id, body.idx),
+      // turf
+      turf_claim: () => S.turfClaim(id, body.districtId),
+      turf_release: () => S.turfRelease(id, body.districtId),
+      turf_collect: () => S.turfCollect(id),
+      // finance extras
+      stake_ngt: () => S.stakeNgt(id, body.amount),
+      unstake_ngt: () => S.unstakeNgt(id, body.amount),
+      term_deposit: () => S.termDeposit(id, body.amount, body.hours),
+      term_collect: () => S.termCollect(id),
+      // craft / collect / wardrobe / challenges
+      craft: () => S.craft(id, body.recipeId),
+      card_open: () => S.cardOpen(id),
+      wardrobe_save: () => S.wardrobeSave(id, body.slot),
+      wardrobe_load: () => S.wardrobeLoad(id, body.slot),
+      challenge_claim: () => S.challengeClaim(id, body.cid),
+      respec_apply: () => S.respecApply(id, body),
     };
     const fn = handlers[name];
     if (!fn) return send(res, 404, { err: 'Unknown action.' });
     try {
       const out = fn();
+      try { S.track(id, name, out); } catch (_) {}
       if (out && out.err) return send(res, 400, { err: out.err });
       if (out && out.p) { out.p.id = id; pushAll('p', { id, name: out.p.name, rep: out.p.reputation, level: out.p.level }); }
-      if (/^(crime|attack|casino|bazaar_buy|auction_bid|stock_buy|stock_sell|crypto_buy|crypto_sell)$/.test(name)) pushAll('news', { n: 1 });
+      if (/^(crime|attack|casino|bazaar_buy|auction_bid|stock_buy|stock_sell|crypto_buy|crypto_sell|street_race|turf_claim|drop_buy|storage_open|lottery_buy)$/.test(name)) pushAll('news', { n: 1 });
       if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
@@ -585,6 +653,12 @@ const routes = async (req, res, urlPath, q) => {
     const id = guard(req, res); if (!id) return;
     const p = W.ready(W.load(id));
     return send(res, 200, { loan: W.loanView(p), pass: W.passView(p) });
+  }
+
+  // -- 2026 systems panel (one read for every new tab)
+  if (urlPath === '/api/sys/panel') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, S.panel(id));
   }
 
   // -- world reads
