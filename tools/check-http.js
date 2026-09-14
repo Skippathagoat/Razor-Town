@@ -55,7 +55,7 @@ async function get(p, opts = {}) {
 
   // a real citizen, so we know the happy path works too
   const reg = await get('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'keeper', password: 'keeperpass1', profile: { name: 'Kit Keeper', origin: 'street' } }) });
+    body: JSON.stringify({ username: 'keeper', password: 'keeperpass1', email: 'keeper@http.test', profile: { name: 'Kit Keeper', origin: 'street' } }) });
   let token = '';
   try { token = JSON.parse(reg.text).token || ''; } catch (e) {}
   token ? ok('a citizen can register and receives a session') : bad('registration broke', reg);
