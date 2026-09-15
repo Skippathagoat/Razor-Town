@@ -12,19 +12,20 @@ Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 pla
 2. **Two body builds** — masculine and feminine skeletons with different proportions (shoulders,
    waist, hips, stance), selectable in the creator and switchable any time from the profile.
 3. **9 skin tones**, each with matched gradient shading and shadow tones.
-4. **18 face sculpts** — eye shapes, brows, beards, jawlines, freckles and makeup combinations.
-5. **38 hairstyles** — including a full range of **female styles**: long waves, blunt bob, high
-   ponytail, space buns, box braids, afro, pixie, side shave, curls, and more.
-6. **46 modern streetwear garments** — hoodies, crop hoodies, puffers, bombers, track jackets,
-   varsity jackets, denim trucks, flannels, windbreakers, baby tees, big tees, tanks, jerseys,
-   rugby shirts, dresses and slip dresses.
-7. **The old vintage wardrobe is gone** — no flat caps, tailcoats or waistcoats remain; every
-   garment slot draws modern streetwear.
-8. **Garments dress the whole body** — each outfit style maps to matching bottoms (cargos, joggers,
-   baggy denim, shorts, biker shorts) and sneakers (chunky trainers, runners, canvas, boots,
-   slides, heels) so the model is clothed head to toe.
-9. **29 accent pieces** — snapbacks, beanies, bucket hats, durags, gold chains, shades,
-   headphones, crossbody bags, face tattoos, piercings, watches.
+4. **22 face sculpts** — 17 older, rugged masculine faces (beards, moustaches, mutton chops,
+   grey whiskers, scars, crows' feet, bent noses) plus 5 feminine faces; clean-shaven and
+   youth options stay in the rack.
+5. **25 hairstyles & headwear** — buzzes, comb-overs, salt-and-pepper, grey long locks,
+   horseshoe, flat caps, newsboy caps, bowlers, fedoras, plus a range of women's styles.
+6. **14 weathered coats** — heavy overcoats, greatcoats, canvas dusters, frock coats, duffel
+   & peacoats, and tailored women's coats.
+7. **The old modern-streetwear rack is gone** — hoodies and trainers are out; every garment
+   slot draws an older, weather-beaten wardrobe.
+8. **Garments dress the whole body** — each coat maps to matching trousers (pressed wool,
+   serge, canvas breeks) and boots/shoes (brogues, oxfords, work boots) so the model is
+   clothed head to toe.
+9. **8 accent pieces** — wine silk cravat, gold watch chain, fresh carnation, steel tie pin,
+   ivory cufflinks, unlit cigar, briar pipe, and round wire spectacles.
 10. **Live avatar everywhere** — the same model renders at full length (profile), mugshot size
     (leaderboards, target lists, chat), and in the creator preview, all from one 6-part spec
     string `skin|face|hair|shirt|accent|body`.
