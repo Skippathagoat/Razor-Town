@@ -48,7 +48,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Merits** | One merit point per level, spent permanently on 13 perks (extra energy, nerve, life, happiness, training, crime success, heavier muggings, shorter stretches…). |
 | **Bounties** | The Bounty Board — post money on any citizen's name ($500 minimum, anonymously if you like) and it pools. Beat that man into hospital and you collect the pot less a 5% fee; the target gets a letter telling them. |
 | **Betting shop** | Six real tables in The Corner Betting Shop: **Pontoon** (blackjack — hit/stand/double, naturals 3:2, five-card trick 2:1), **The Wheel** (single-zero roulette: colours, odds, dozens, columns, 35:1 numbers), **The Bandit** (three weighted reels, up to 60×), **Crown & Anchor** (service-dice classic), **High-Low**, and the **Greyhound Dash** crash multiplier. Stakes $10–$1,000,000, all settled server-side. |
-| **Gangs** | Found your own crew for $200k (level 5+) and invite whoever turns up — every gang in the city is player-run. |
+| **Gangs** | Found a player-run crew for $200k (level 5+). Run a transparent war chest, set open/application/closed recruitment, approve applications, promote officers, check in for Crew Roll, and complete four cooldown-based crew operations that reward both the hand and the gang. |
 | **Feats** | 67 achievements that fire juicy popups + town-wide news — covering every new 2026 system. |
 | **The Gallery** | The city's live high-score table: reputation, level, crimes, fights, wealth. |
 | **Messages** | Telegrams — send a note to any citizen by character name. |
@@ -60,6 +60,8 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **💸 Money games** | Stocks & crypto with transparent fees, staking, term deposits, 6-hour dividends, a crafting bench (7 recipes), trading-card packs with a set bonus, weekly limited drops, insurance policies, clout followers that pay out, and gifts between citizens. |
 
 **Juice everywhere:** coin bursts, confetti, floating cash, screen shake on busts, animated XP/money/stat bars, poster-style **MADE!** / **NICKED!** result cards, a synthesized era synth engine, and level-up fanfares.
+
+**Daily Streak:** claim once per UTC calendar day; the reward forecast and reset time are shown in the Home panel. Crew members with the **Roll Call** upgrade receive a 10% Daily Streak cash bonus.
 
 **Is it up?** `curl <url>/api/health` returns `{"ok":true,...}` with an `up` counter — if a monitor
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else

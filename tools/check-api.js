@@ -206,8 +206,20 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
   const facJoin = await call('/api/action', 'POST', { name: 'faction_join', fid }, B);
   (facJoin.status === 200 && facJoin.json.p.faction === fid) ? ok('joining a gang works') : bad('faction join', facJoin);
   const facDetail = await call('/api/faction/detail', 'GET', null, founder);
-  (facDetail.status === 200 && facDetail.json.faction && facDetail.json.faction.roster.length === 2) ? ok('the gang page shows the roster') : bad('faction detail', facDetail);
-  (await call('/api/action', 'POST', { name: 'faction_leave' }, B)).status === 200 ? ok('leaving a gang works') : bad('faction leave');
+  (facDetail.status === 200 && facDetail.json.faction && facDetail.json.faction.roster.length === 2 && facDetail.json.faction.operations.length >= 4)
+    ? ok('the gang page shows the roster and operation board') : bad('faction detail', facDetail);
+  const recruitMode = await call('/api/action', 'POST', { name: 'faction_recruiting', mode: 'apply' }, founder);
+  recruitMode.status === 200 ? ok('a boss can switch recruitment to applications') : bad('recruitment setting', recruitMode);
+  const crewApply = await call('/api/action', 'POST', { name: 'faction_apply', fid }, A);
+  (crewApply.status === 200 && crewApply.json.res && crewApply.json.res.pending) ? ok('a citizen can apply to a controlled roster') : bad('faction application', crewApply);
+  const review = await call('/api/action', 'POST', { name: 'faction_review', targetId: aId, decision: 'accept' }, founder);
+  (review.status === 200 && review.json.res && review.json.res.decision === 'accepted') ? ok('officers can accept an application') : bad('faction review', review);
+  const crewRoll = await call('/api/action', 'POST', { name: 'faction_roll' }, B);
+  (crewRoll.status === 200 && crewRoll.json.res && crewRoll.json.res.chestPay > 0) ? ok('crew roll pays a member and the chest') : bad('crew roll', crewRoll);
+  const crewOp = await call('/api/action', 'POST', { name: 'faction_operation', opId: 'corner_sweep' }, B);
+  (crewOp.status === 200 && crewOp.json.res && typeof crewOp.json.res.success === 'boolean') ? ok('a crew operation resolves server-side') : bad('crew operation', crewOp);
+  (await call('/api/action', 'POST', { name: 'faction_leave' }, B)).status === 200 ? ok('leaving a gang works') : bad('faction leave B');
+  (await call('/api/action', 'POST', { name: 'faction_leave' }, A)).status === 200 ? ok('an accepted member can leave cleanly') : bad('faction leave A');
   const facGone = await call('/api/action', 'POST', { name: 'faction_leave' }, founder);
   (facGone.status === 200 && facGone.json.p.faction === null) ? ok('the last owner leaving dissolves the gang') : bad('faction dissolve', facGone);
 
@@ -225,7 +237,7 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
 
   console.log('\n-- daily / wheel / circuit --');
   const daily = await call('/api/action', 'POST', { name: 'daily' }, founder);
-  (daily.status === 200 && daily.json.res && daily.json.res.pay > 0) ? ok('claiming the daily strike works') : bad('daily', daily);
+  (daily.status === 200 && daily.json.res && daily.json.res.pay > 0) ? ok('claiming the daily streak works') : bad('daily', daily);
   (await call('/api/action', 'POST', { name: 'daily' }, founder)).status === 400 ? ok('the daily cannot be claimed twice') : bad('daily twice refused');
   const spin = await call('/api/action', 'POST', { name: 'spin_wheel' }, founder);
   (spin.status === 200 && spin.json.res && spin.json.res.index >= 0) ? ok('spinning the big wheel works') : bad('spin wheel', spin);

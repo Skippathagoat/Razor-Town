@@ -21,7 +21,7 @@ ours. Do not import art, fiction or data from Torn or any other game.
 | `server.js` | HTTP server, zero framework: static files, REST API, SSE stream. All routes and auth checks live here. |
 | `lib/db.js` | better-sqlite3 connection + schema. |
 | `lib/accounts.js` | Registration, logins, sessions, email gate, bans, founder powers. |
-| `lib/world.js` | The game's spine: state, money flows, jail/bail, daily strike, wires, pay-claim ledger, `publicView`. |
+| `lib/world.js` | The game's spine: state, money flows, jail/bail, Daily Streak, wires, pay-claim ledger, `publicView`. |
 | `lib/game/content.js` | Content tables: crimes, casino flavor, items, achievements. |
 | `lib/game/engine.js` | Rolls/resolution for content tables. |
 | `lib/seed.js`, `lib/bootstrap.js` | First-boot world build (founder + seed news). Runs automatically — **ignore `npm run seed`, it's a stale pointer; booting the server self-seeds**. |

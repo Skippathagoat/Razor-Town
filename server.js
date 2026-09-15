@@ -188,7 +188,7 @@ function metaPayload(){
     courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS,
     // 2026 expansion content
     cars: C.CARS, gigs: C.GIGS, recipes: C.RECIPES, districts: C.DISTRICTS, titles: C.TITLES,
-    drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES };
+    drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES, factionOperations: C.FACTION_OPERATIONS };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -691,6 +691,11 @@ const routes = async (req, res, urlPath, q) => {
       fupgrade: () => W.factionBuyUpgrade(id, body.upId),
       fannounce: () => W.factionAnnounce(id, body.text),
       fpromote: () => W.factionPromote(id, body.targetId),
+      faction_apply: () => W.factionApply(id, body.fid),
+      faction_recruiting: () => W.factionSetRecruiting(id, body.mode),
+      faction_review: () => W.factionReviewApplication(id, body.targetId, body.decision),
+      faction_roll: () => W.factionRoll(id),
+      faction_operation: () => W.factionOperation(id, body.opId),
       // ---------- 2026 systems ----------
       // arcade
       arcade_mines: () => S.arcadeMines(id, body),
