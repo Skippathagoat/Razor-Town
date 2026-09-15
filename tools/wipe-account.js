@@ -7,6 +7,7 @@
 //   node tools/wipe-account.js ghost --keep-pass    # leave a founder Wire Pass on the account
 //   node tools/wipe-account.js ghost --purge-news   # also scrub the town wire of their name
 //   node tools/wipe-account.js ghost --no-bio       # clear the profile bio too
+//   node tools/wipe-account.js ghost --no-news      # say nothing on the town wire about it
 //   node tools/wipe-account.js ghost --unlock       # drop the wipe lock only (no wipe)
 //   node tools/wipe-account.js ghost --lock         # set the wipe lock only (no wipe)
 //
@@ -42,7 +43,7 @@ const row = (label, before, after) => '  ' + label.padEnd(18) + String(before).p
 const dash = (n) => '-'.repeat(n);
 
 if (!refs.length) {
-  console.log('\nUsage: node tools/wipe-account.js <username> [--dry-run] [--like-new] [--keep-pass] [--purge-news] [--no-bio]');
+  console.log('\nUsage: node tools/wipe-account.js <username> [--dry-run] [--like-new] [--keep-pass] [--purge-news] [--no-bio] [--no-news]');
   console.log('       node tools/wipe-account.js --lock|--unlock <username>   (toggle the boot lock only)\n');
   process.exit(2);
 }
@@ -110,12 +111,12 @@ for (const ref of refs) {
     '", the look, ' + (b.bio ? 'the bio' : 'no bio') + ', ' + a.friendOf + ' citizen' + (a.friendOf === 1 ? '' : 's') +
     ' still listing them as a friend, and the billing history in pay_claims.');
   if (opts.likeNew) console.log('  they were handed the standard recruit start: ' + money(a.money) + ' and ' + a.itemUnits + ' starter item(s).');
-  if (!opts.dryRun && a.total !== b.total) console.log('  net worth ' + money(b.netWorth) + ' → ' + money(a.netWorth) + '.');
+  if (!opts.dryRun) console.log('  net worth ' + money(b.netWorth) + ' → ' + money(a.netWorth) + '.');
   console.log('  ' + dash(52));
   console.log('');
   if (!opts.dryRun) {
     console.log('  Log back in with ' + acc.username + ' and it plays like a fresh recruit.' +
-      (opts.dryRun ? '' : ' To undo the lock only: node tools/wipe-account.js --unlock ' + acc.username));
+      ' To undo the lock only: node tools/wipe-account.js --unlock ' + acc.username);
     console.log('');
   }
 }
