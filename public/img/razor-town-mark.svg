@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Razor Town mark</title><desc id="desc">An original RT monogram on an iron grey shield.</desc>
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4c5059"/><stop offset=".48" stop-color="#2b2e35"/><stop offset="1" stop-color="#16181d"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d4d6d8"/><stop offset=".52" stop-color="#7c8088"/><stop offset="1" stop-color="#32353c"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity=".7"/></filter>
+  </defs>
+  <path d="M64 5 112 22v39c0 31-18 51-48 62C34 112 16 92 16 61V22L64 5Z" fill="url(#edge)" filter="url(#shadow)"/>
+  <path d="M64 13 105 28v32c0 26-14 43-41 55C37 103 23 86 23 60V28l41-15Z" fill="url(#steel)" stroke="#101217" stroke-width="3"/>
+  <path d="M31 31h66M31 96h66" stroke="#d4d6d8" stroke-opacity=".22" stroke-width="2"/>
+  <path d="M39 35h23c13 0 21 6 21 18 0 8-4 13-11 16l16 25H72L58 72h-5v22H39V35Zm14 11v16h8c5 0 8-2 8-8s-3-8-8-8h-8Z" fill="#f1f2f3"/>
+  <path d="M85 35v11h-9v48H62V46H53V35h32Z" fill="#b99b54"/>
+  <circle cx="98" cy="31" r="3" fill="#b99b54"/>
+</svg>

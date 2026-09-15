@@ -17,6 +17,8 @@ const W = require('../lib/world.js');
 const E = require('../lib/game/engine.js');
 const CT = require('../lib/game/content.js');
 const A = require('../lib/accounts.js');
+const S = require('../lib/systems.js');
+S.attach(W);
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail) => {
@@ -781,6 +783,36 @@ head('The mission board');
   ok('burning the board pays the big envelope', !!r2.p && q.money === 15000 + 250000 && (q.items.crypto_rig || 0) === 1, [q.money, q.items.crypto_rig]);
 }
 
+
+head('City Contracts — 1,000 lead catalog');
+{
+  ok('the City Contracts catalog contains exactly 1,000 unique stable IDs', CT.CITY_CONTRACTS.length === 1000 && new Set(CT.CITY_CONTRACTS.map(c => c.id)).size === 1000 && new Set(CT.CITY_CONTRACTS.map(c => c.name)).size === 1000);
+  const ca = A.createAccount('contracta', 'pw123456', 'user'); A.createPlayerForAccount(ca, { name: 'Contract Runner', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(ca.id); q.energy = 100; q.nerve = 20; q.life = q.max_life; W.save(ca.id, q);
+  const board = S.cityContractBoard(load(ca.id));
+  ok('a citizen sees three unique valid contracts from the catalog', board.catalogSize === 1000 && board.offers.length === 3 && new Set(board.offers.map(c => c.id)).size === 3 && board.offers.every(c => c.chance >= 20 && c.chance <= 95), board);
+  const first = S.cityContractDo(ca.id, board.offers[0].id);
+  ok('a City Contract resolves and returns a public player view', !!first.ok && first.p && typeof first.res.win === 'boolean', first);
+  ok('the same City Contract cannot be resolved twice in a rotation', !!S.cityContractDo(ca.id, board.offers[0].id).err);
+  ok('forged City Contract IDs are refused', !!S.cityContractDo(ca.id, 'contract_not_on_board').err);
+  const updated = S.cityContractBoard(load(ca.id));
+  ok('a completed City Contract persists on the current board', updated.completed === 1 && updated.offers.some(c => c.id === board.offers[0].id && c.done));
+  const before = (S.sys(load(ca.id)).today.contracts || 0);
+  S.track(ca.id, 'city_contract', first);
+  S.track(ca.id, 'city_contract', { err: 'nope' });
+  ok('only a resolved City Contract advances daily challenge progress', (S.sys(load(ca.id)).today.contracts || 0) === before + 1);
+}
+
+head('Daily Streak');
+{
+  const da = A.createAccount('dailya', 'pw123456', 'user'); A.createPlayerForAccount(da, { name: 'Daily Regular', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const first = W.dailyClaim(da.id);
+  const shown = W.publicView(W.load(da.id)).daily;
+  ok('daily streak pays and returns a public player view', !!first.ok && first.p && first.p.daily && first.p.daily.claimed, first);
+  ok('daily streak cannot be collected twice in one calendar day', !!W.dailyClaim(da.id).err);
+  ok('daily streak preview exposes the midnight reset and tomorrow payout', shown.claimed && shown.resetAt > Date.now() && shown.next > first.res.pay, shown);
+}
+
 head('The gang bench — chest, arrangements, stripes');
 {
   const fa = A.createAccount('gfa', 'pw123456', 'user'); A.createPlayerForAccount(fa, { name: 'Gang Boss', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
@@ -803,13 +835,28 @@ head('The gang bench — chest, arrangements, stripes');
   const an = W.factionAnnounce(fa.id, "Corners at dawn. Nobody runs hot alone.");
   ok('the wire carries the boss', !!an.ok && W.factionLoad(fid).d.announce.text.includes('Corners'), '');
   const det = W.factionDetail(fb.id);
-  ok('the whole bench shows on the gang page', !!(det.faction && det.faction.roster.length === 2 && det.faction.upgrades.length === 5 && det.faction.myRole === 'officer'), det.faction && det.faction.myRole);
+  ok('the whole bench shows on the gang page', !!(det.faction && det.faction.roster.length === 2 && det.faction.upgrades.length === CT.FACTION_UPGRADES.length && det.faction.myRole === 'officer'), det.faction && det.faction.myRole);
   // muscle shows up in the crime chance plumbing
   const qz = load(fb.id); const noF = W.doCrime ? true : true;
   ok('muscle rides every crew crime', !!W.factionUpgrades(fid).muscle);
   // member cap honours stash houses
   const d = W.factionLoad(fid).d; d.upgrades.stash_house = Date.now(); W.factionSave(fid, d);
   ok('stash houses open ten more beds', W.factionDetail(fa.id).faction.cap === CT.FACTION_MEMBER_CAP + 10);
+  // recruitment settings, applications and officer review have one authoritative roster path
+  const fc = A.createAccount('gfc', 'pw123456', 'user'); A.createPlayerForAccount(fc, { name: 'Gang Applicant', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  ok('the boss can switch to applications', !!W.factionSetRecruiting(fa.id, 'apply').ok);
+  ok('a citizen can apply rather than auto-join', !!W.factionApply(fc.id, fid).res.pending && W.factionDetail(fa.id).faction.applications.length === 1);
+  ok('an officer can accept a valid application', !!W.factionReviewApplication(fb.id, fc.id, 'accept').ok && W.load(fc.id).faction === fid);
+  // crew roll is per-person, per-day and pays both accounts without allowing a duplicate payout
+  const beforeRoll = W.factionLoad(fid).d.bank;
+  const roll = W.factionRoll(fb.id);
+  ok('crew roll pays the hand and the chest', !!roll.ok && roll.res.chestPay > 0 && W.factionLoad(fid).d.bank > beforeRoll, roll.res);
+  ok('crew roll refuses a second check-in on the same day', !!W.factionRoll(fb.id).err);
+  // operations spend resources, create a personal cooldown and leave a transparent ledger trail on either outcome
+  const op = W.factionOperation(fb.id, 'corner_sweep');
+  const afterOp = W.factionDetail(fb.id).faction;
+  ok('a crew operation resolves safely and starts its cooldown', !!op.ok && afterOp.operations.find(x => x.id === 'corner_sweep').nextAt > Date.now(), op);
+  ok('operations append to the gang activity ledger', afterOp.ledger.some(e => e.kind === 'operation'), afterOp.ledger);
 }
 
 console.log('\n' + (fail === 0 ? `ALL ${pass} SYSTEM CHECKS PASS` : `${pass} passed, ${fail} FAILED`));

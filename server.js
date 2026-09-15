@@ -19,7 +19,7 @@ const S = require('./lib/systems.js');
 // founder account when the database is empty. Idempotent, so restarts are cheap.
 const world = boot.ensureWorld();   // BOTS env controls NPCs; default 0 = real players only
 S.attach(W);                        // wire the 2026 systems once the DB exists
-console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items');
+console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items |', C.CITY_CONTRACTS.length, 'City Contracts');
 console.log('Citizens:', world.citizens, '| gangs:', world.gangs, '| accounts:', world.accounts,
   world.bots ? '| NPC bots: ' + world.bots : '| NPC bots: off (real players only)',
   world.founder && world.founder.created ? '| founder created: ' + world.founder.username : '');
@@ -188,7 +188,8 @@ function metaPayload(){
     courses: C.COURSES, properties: C.PROPERTIES, meritPerks: C.MERIT_PERKS,
     // 2026 expansion content
     cars: C.CARS, gigs: C.GIGS, recipes: C.RECIPES, districts: C.DISTRICTS, titles: C.TITLES,
-    drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES };
+    drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES, factionOperations: C.FACTION_OPERATIONS,
+    contractCatalog: { count: C.CITY_CONTRACTS.length, rotationHours: 4, offersPerRotation: 3 } };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -266,7 +267,7 @@ const routes = async (req, res, urlPath, q) => {
       citizens: db.prepare('SELECT COUNT(*) c FROM players WHERE acc_id<0').get().c,
       accounts: db.prepare('SELECT COUNT(*) c FROM accounts').get().c,
       factions: db.prepare('SELECT COUNT(*) c FROM factions').get().c,
-      content: { crimes: C.CRIMES.length, jobs: C.JOBS.length, items: Object.keys(C.ITEMS).length },
+      content: { crimes: C.CRIMES.length, jobs: C.JOBS.length, items: Object.keys(C.ITEMS).length, contracts: C.CITY_CONTRACTS.length },
       now: new Date().toISOString()
     });
   }
@@ -691,6 +692,11 @@ const routes = async (req, res, urlPath, q) => {
       fupgrade: () => W.factionBuyUpgrade(id, body.upId),
       fannounce: () => W.factionAnnounce(id, body.text),
       fpromote: () => W.factionPromote(id, body.targetId),
+      faction_apply: () => W.factionApply(id, body.fid),
+      faction_recruiting: () => W.factionSetRecruiting(id, body.mode),
+      faction_review: () => W.factionReviewApplication(id, body.targetId, body.decision),
+      faction_roll: () => W.factionRoll(id),
+      faction_operation: () => W.factionOperation(id, body.opId),
       // ---------- 2026 systems ----------
       // arcade
       arcade_mines: () => S.arcadeMines(id, body),
@@ -705,6 +711,7 @@ const routes = async (req, res, urlPath, q) => {
       lottery_buy: () => S.lotteryBuy(id, body),
       // hustles
       gig_do: () => S.gigDo(id, body.gigId),
+      city_contract: () => S.cityContractDo(id, body.contractId),
       courier_take: () => S.courierTake(id),
       courier_deliver: () => S.courierDeliver(id),
       fish_cast: () => S.fishCast(id),

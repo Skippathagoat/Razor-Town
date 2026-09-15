@@ -638,7 +638,7 @@
       if (wait > 0) await new Promise(res => setTimeout(res, wait));
       // anything the action changed must be dropped BEFORE the re-render that applyMe triggers,
       // or the view paints from the cache and the result looks like it did not happen
-      if (name === 'faction_create' || name === 'faction_join' || name === 'faction_leave') {
+      if (name === 'faction_create' || name === 'faction_join' || name === 'faction_apply' || name === 'faction_leave' || name === 'faction_recruiting' || name === 'faction_review') {
         G.cache.factions = null; G.cache.factionsAt = 0;
       }
       if (name === 'bounty_place' || name === 'attack') { G.cache.bounties = null; G.cache.bountiesAt = 0; }
@@ -1282,10 +1282,12 @@
     const ctab = G.filters.city || 'yard';
     if (ctab === 'shops') { renderShopsInto(v); return; }
     if (ctab === 'board') { renderMissionsInto(v); return; }
-    const dly = me.daily || { streak: 0, claimed: false, next: 400 + (me.level || 1) * 25 };
+    const dly = me.daily || { streak: 0, claimed: false, next: 400 + (me.level || 1) * 25, resetAt: 0, gangBonusPct: 0 };
+    const resetIn = dly.resetAt ? fmtDur(Math.max(0, dly.resetAt - Date.now())) : 'midnight';
+    const boost = dly.gangBonusPct ? ` <span class="daily-boost">+${dly.gangBonusPct}% crew bonus</span>` : '';
     const dailyCard = dly.claimed
-      ? `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px"><span style="font-size:18px">✨</span><div style="flex:1;font-size:12.5px;color:var(--dim)"><b style="color:var(--ok)">Daily Strike collected.</b> Streak ${dly.streak} day${dly.streak === 1 ? '' : 's'} — tomorrow pays $${dly.next.toLocaleString()}.</div></div>`
-      : `<div class="card" style="display:flex;gap:10px;align-items:center;padding:8px 12px;margin-bottom:8px;border-color:rgba(226,183,20,.5)"><span style="font-size:18px">⚡</span><div style="flex:1;font-size:12.5px"><b>Daily Strike</b> <span style="color:var(--dim)">— streak ${dly.streak} day${dly.streak === 1 ? '' : 's'}${dly.streak ? ' — claim to keep it alive' : ''}</span></div><button class="btn sm gold" data-act="daily_claim">Collect $${dly.next.toLocaleString()}</button></div>`;
+      ? `<div class="card daily-streak-card is-collected"><span class="daily-ico">✓</span><div class="daily-copy"><b>Daily Streak secured</b><span>Day ${dly.streak} banked — return after the reset to protect it. Tomorrow's run pays ${money(dly.next)}.${boost}</span></div><span class="daily-reset">↻ ${resetIn}</span></div>`
+      : `<div class="card daily-streak-card"><span class="daily-ico">⚡</span><div class="daily-copy"><b>Daily Streak</b><span>${dly.streak ? 'Day ' + dly.streak + ' is on the line — claim now to keep it alive.' : 'Start your streak. Your return gets better every day.'}${boost}</span></div><div class="daily-action"><span class="daily-reset">↻ ${resetIn}</span><button class="btn sm gold" data-act="daily_claim">Collect ${money(dly.next)}</button></div></div>`;
     v.innerHTML = dailyCard + `
       <div id="city-sys"></div>
       <div class="vhead"><div><div class="vtitle">🏙️ <span class="head">RAZOR TOWN</span></div>
@@ -2171,6 +2173,9 @@
   }
 
   // ---- FACTION
+  // ---- FACTION / GANG DESK
+  function recruitLabel(mode) { return mode === 'apply' ? 'Applications' : mode === 'closed' ? 'Closed' : 'Open'; }
+  function opWait(op, now) { return op.ready ? 'Ready now' : 'Back in ' + fmtDur(Math.max(0, op.nextAt - now)); }
   async function renderFaction() {
     const v = $('#view');
     const me = G.me;
@@ -2184,25 +2189,32 @@
     if (me.faction) { await renderFactionCockpit(v); return; }
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🪓 <span class="head">The Gangs</span></div>
-      <div class="vdesc">Strength in numbers. Found your own crew for \$200,000 at level 5+, or throw in with an existing one.</div></div></div>
-      ${me.faction ? '' : `
-      <div class="card panel-gold"><div class="subhead" style="color:var(--gold)">Found your own</div>
+      <div class="vdesc">Build a crew with real work, a transparent war chest and recruitment controls. Found your own for $200,000 at level 5+.</div></div></div>
+      <div class="card panel-gold gang-intro"><div class="subhead">Found your own</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
           <input placeholder="Gang name" id="fac-name" maxlength="24" style="flex:1;min-width:150px">
           <input placeholder="TAG" id="fac-tag" maxlength="4" style="width:90px;text-transform:uppercase">
           <button class="btn gold" data-act="faction_create">Found it</button></div>
-        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Founding needs level 5${me.level >= 5 ? ' ✓' : ' · <span style=\"color:var(--bad)\">you are level ' + me.level + '</span>'} and a \$200,000 fee${me.money >= 200000 ? ' ✓' : ' · <span style="color:var(--bad)">you are short</span>'}
-        </p></div>`}
-      <div class="grid2">${fs.map(f => `
-        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <b style="font-size:16px">${esc(f.name)}</b><span class="qtychip" style="color:var(--cyn)">[${esc(f.tag)}]</span></div>
-        <div class="kv"><span class="k">Members</span><span class="v">${f.members}</span></div>
-        <div class="kv"><span class="k">Power</span><span class="v">${f.power}</span></div>
-        <div class="kv"><span class="k">Run by</span><span class="v">${esc(f.owner)}</span></div>
-        ${me.faction ? '' : `<button class="btn cyan sm" style="margin-top:10px" data-act="faction_join" data-fid="${f.id}">Join ${esc(f.tag)}</button>`}
-        </div>`).join('') || `<div class="card" style="text-align:center"><div style="font-size:30px">🪓</div>
+        <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Founding needs level 5${me.level >= 5 ? ' ✓' : ' · <span style=\"color:var(--bad)\">you are level ' + me.level + '</span>'} and a $200,000 fee${me.money >= 200000 ? ' ✓' : ' · <span style="color:var(--bad)">you are short</span>'}.</p>
+      </div>
+      <div class="grid2">${fs.map(f => {
+        const full = f.members >= f.capacity;
+        const isOpen = f.recruiting === 'open';
+        const canJoin = !full && f.recruiting !== 'closed';
+        const action = isOpen ? 'faction_join' : 'faction_apply';
+        const cta = full ? 'Roster full' : f.recruiting === 'closed' ? 'Not recruiting' : isOpen ? 'Join ' + esc(f.tag) : 'Apply to ' + esc(f.tag);
+        return `<div class="card gang-list-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:16px">${esc(f.name)}</b><span class="qtychip gang-tag">[${esc(f.tag)}]</span></div>
+          <p class="gang-list-desc">${esc(f.desc || 'No public line. The work speaks for itself.')}</p>
+          <div class="kv"><span class="k">Roster</span><span class="v">${f.members} / ${f.capacity}</span></div>
+          <div class="kv"><span class="k">Crew power</span><span class="v">${f.power.toLocaleString()}</span></div>
+          <div class="kv"><span class="k">Recruiting</span><span class="v gang-status ${f.recruiting}">${recruitLabel(f.recruiting)}</span></div>
+          <div class="kv"><span class="k">Run by</span><span class="v">${esc(f.owner)}</span></div>
+          <button class="btn cyan sm" style="margin-top:10px" data-act="${action}" data-fid="${f.id}" ${canJoin ? '' : 'disabled'}>${cta}</button>
+        </div>`;
+      }).join('') || `<div class="card" style="text-align:center"><div style="font-size:30px">🪓</div>
           <div class="head" style="font-size:15px;margin-top:6px">No gangs yet</div>
-          <p style="color:var(--mut);font-size:13px;margin-top:8px">Nobody has claimed this town yet. Found your own crew — \$200,000 and level 5 is all it takes — and your name goes on it.</p></div>`}</div>`;
+          <p style="color:var(--mut);font-size:13px;margin-top:8px">Nobody has claimed this town yet. Put your own flag up, recruit a roster and work the crew-operation board.</p></div>`}</div>`;
   }
 
   async function renderFactionCockpit(v) {
@@ -2211,43 +2223,70 @@
     if (!d || !d.faction) { nav('city'); return; }
     const f = d.faction;
     const meOfficer = f.myRole === 'leader' || f.myRole === 'officer';
+    const now = f.now || Date.now();
+    const roll = f.roll || { streak: 0, checkedIn: 0, total: f.roster.length, mine: false };
+    const operationCards = (f.operations || []).map(op => `<div class="gang-op ${op.ready ? 'ready' : 'cooling'}">
+      <div class="gang-op-icon">${op.icon}</div><div class="gang-op-copy"><b>${esc(op.name)}</b><span>${esc(op.desc)}</span>
+      <small>⚡ ${op.energy} energy · 🧠 ${op.nerve} nerve · ${op.chance}% base · ${opWait(op, now)}</small></div>
+      <button class="btn sm ${op.ready ? 'gold' : 'ghost'}" data-act="faction_operation" data-op="${op.id}" ${op.ready ? '' : 'disabled'}>${op.ready ? 'Run it' : 'Cooling'}</button>
+    </div>`).join('');
     v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🪓 <span class="head">${esc(f.name)}</span> <span class="qtychip" style="color:var(--cyn)">[${esc(f.tag)}]</span></div>
-      <div class="vdesc">You ride as <b style="text-transform:capitalize">${f.myRole}</b> of this crew. ${rosterCount(f)} of ${f.cap} beds filled.</div></div></div>
-      ${f.announce ? `<div class="card panel-gold gangwire"><div class="subhead" style="color:var(--gold)">📣 The boss's wire <small style="color:var(--dim)">· ${esc(f.announce.by)} · ${new Date(f.announce.at).toLocaleDateString()}</small></div>
+      <div class="vhead"><div><div class="vtitle">🪓 <span class="head">${esc(f.name)}</span> <span class="qtychip gang-tag">[${esc(f.tag)}]</span></div>
+      <div class="vdesc">You ride as <b style="text-transform:capitalize">${f.myRole}</b>. ${f.roster.length} of ${f.cap} beds are filled; every chest movement and operation is logged below.</div></div></div>
+      ${f.announce ? `<div class="card panel-gold gangwire"><div class="subhead">📣 The boss's wire <small style="color:var(--dim)">· ${esc(f.announce.by)} · ${new Date(f.announce.at).toLocaleDateString()}</small></div>
         <p style="margin:8px 0 0;font-size:13.5px">${esc(f.announce.text)}</p></div>` : ''}
+      <div class="gang-metrics">
+        <div class="gang-metric"><span>CREW POWER</span><b>${(f.power || 0).toLocaleString()}</b><small>${(f.reputation || 0).toLocaleString()} reputation</small></div>
+        <div class="gang-metric"><span>OPERATIONS</span><b>${(f.operationCount || 0).toLocaleString()}</b><small>clean crew jobs</small></div>
+        <div class="gang-metric"><span>CREW ROLL</span><b>DAY ${roll.streak || 0}</b><small>${roll.checkedIn || 0}/${roll.total || 0} checked in</small></div>
+        <div class="gang-metric"><span>RECRUITING</span><b>${recruitLabel(f.recruiting)}</b><small>${f.applications && f.applications.length ? f.applications.length + ' applications waiting' : 'roster controlled by the boss'}</small></div>
+      </div>
       <div class="grid2">
-        <div class="card panel-gold"><div class="subhead" style="color:var(--gold)">🏦 The War Chest <b class="mono" style="float:right;color:var(--gold)">${money(f.bank)}</b></div>
-          <p style="color:var(--mut);font-size:12px;margin:8px 0">Everybody chips in; officers spend it on arrangements below. Upgrades bought from the chest run for the whole crew.</p>
+        <div class="card panel-gold"><div class="subhead">🏦 The War Chest <b class="mono" style="float:right;color:var(--gold)">${money(f.bank)}</b></div>
+          <p style="color:var(--mut);font-size:12px;margin:8px 0">Chip in directly, make a Crew Roll, or work operations. Officers can spend the shared cash; the full trail stays on the activity ledger.</p>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <input id="fbank-amt" type="number" min="1" placeholder="amount" style="width:110px">
             <button class="btn sm ok" data-act="fbank_in">Chip in</button>
             ${meOfficer ? '<button class="btn sm ghost" data-act="fbank_out">Draw out</button>' : ''}
           </div></div>
+        <div class="card crew-roll-card"><div class="subhead">📋 Crew Roll <span style="margin-left:auto;color:var(--gold)">Day ${roll.streak || 0}</span></div>
+          <p>One check-in per member per day. You get paid, the chest gets a cut, and consecutive crew days grow the take.</p>
+          <div class="crew-roll-bottom"><span class="qtychip ${roll.mine ? 'roll-done' : ''}">${roll.checkedIn || 0}/${roll.total || 0} checked in</span>
+          <button class="btn sm ${roll.mine ? 'ghost' : 'gold'}" data-act="faction_roll" ${roll.mine ? 'disabled' : ''}>${roll.mine ? 'Checked in' : 'Answer roll'}</button></div>
+        </div>
+      </div>
+      <div class="card"><div class="subhead">🎯 Crew Operations <small style="color:var(--dim)">personal cooldowns · shared rewards · server-resolved</small></div>
+        <p class="gang-section-copy">Run a job for your own envelope and the war chest. More members and a Lookout Grid improve the chance; Runner Network improves both payouts.</p>
+        <div class="gang-op-grid">${operationCards}</div></div>
+      <div class="grid2">
         <div class="card"><div class="subhead">The Roster</div>
-          <div style="max-height:220px;overflow:auto">${f.roster.map(r => `
+          <div style="max-height:280px;overflow:auto">${f.roster.map(r => `
             <div class="itemrow"><span class="ic">${r.role === 'leader' ? '👑' : r.role === 'officer' ? '🎖' : '🕶'}</span>
               <div class="nm"><b>${esc(r.name)}</b><small>${r.role}${r.jailed ? ' · <b style="color:var(--bad)">INSIDE</b>' : ''} · lvl ${r.level}</small></div>
               ${r.jailed && r.id !== G.me.id ? `<button class="btn sm warn" data-act="bust_out" data-tid="${r.id}" title="12 nerve · risky">Bust</button>` : ''}
-              ${f.myRole === 'leader' && r.id !== G.me.id ? `<button class="btn sm ghost" data-act="fpromote" data-tid="${r.id}" title="give / pull the stripe">${r.role === 'officer' ? 'Demote' : 'Promote'}</button>` : ''}
+              ${f.myRole === 'leader' && r.id !== G.me.id ? `<button class="btn sm ghost" data-act="fpromote" data-tid="${r.id}" title="give or pull the stripe">${r.role === 'officer' ? 'Demote' : 'Promote'}</button>` : ''}
             </div>`).join('')}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px">
             <small style="color:var(--dim)">Busting springs a crewmate off the block — costs 12 nerve, jail risk if it goes wrong.</small>
             <button class="btn sm bad" data-act="faction_leave">Walk away</button>
           </div></div>
+        <div class="card"><div class="subhead">🧾 Crew Activity <small style="color:var(--dim)">latest 12 entries</small></div>
+          <div class="gang-ledger">${(f.ledger || []).map(e => `<div class="gang-ledger-row"><span class="gang-ledger-kind">${esc(e.kind)}</span><span class="gang-ledger-text">${esc(e.text)}</span><b class="${e.amount > 0 ? 'plus' : e.amount < 0 ? 'minus' : ''}">${e.amount ? (e.amount > 0 ? '+' : '−') + money(Math.abs(e.amount)) : '—'}</b></div>`).join('') || '<p style="color:var(--dim);font-size:12px">Nothing in the book yet. Start with a Crew Roll.</p>'}</div>
+        </div>
       </div>
+      ${meOfficer && f.applications && f.applications.length ? `<div class="card"><div class="subhead">✉️ Recruitment Desk <small style="color:var(--dim)">${f.applications.length} waiting</small></div>
+        <div class="gang-applications">${f.applications.map(a => `<div class="gang-app"><div><b>${esc(a.name)}</b><small>level ${a.level} · applied ${timeAgo(a.at)}</small></div><span><button class="btn sm ok" data-act="faction_review" data-tid="${a.id}" data-decision="accept">Accept</button><button class="btn sm ghost" data-act="faction_review" data-tid="${a.id}" data-decision="decline">Decline</button></span></div>`).join('')}</div></div>` : ''}
       <div class="card"><div class="subhead">🛠️ Crew Arrangements <small style="color:var(--dim)">paid from the war chest · every member feels them</small></div>
         <div class="upgrid" style="margin-top:10px">${f.upgrades.map(u => `
           <div class="upcard ${u.owned ? 'owned' : ''}">
-            <div class="upic">${u.icon}</div>
-            <div class="upnm"><b>${esc(u.name)}</b><small>${esc(u.desc)}</small></div>
-            ${u.owned ? '<span class="qtychip" style="color:var(--ok)">ACTIVE</span>'
-              : (meOfficer ? `<button class="btn sm gold" data-act="fupgrade" data-up="${u.id}" ${f.bank < u.cost ? 'disabled' : ''}>${money(u.cost)}</button>` : `<span class="qtychip">${money(u.cost)}</span>`)}
+            <div class="upic">${u.icon}</div><div class="upnm"><b>${esc(u.name)}</b><small>${esc(u.desc)}</small></div>
+            ${u.owned ? '<span class="qtychip" style="color:var(--ok)">ACTIVE</span>' : (meOfficer ? `<button class="btn sm gold" data-act="fupgrade" data-up="${u.id}" ${f.bank < u.cost ? 'disabled' : ''}>${money(u.cost)}</button>` : `<span class="qtychip">${money(u.cost)}</span>`)}
           </div>`).join('')}</div></div>
-      ${f.myRole === 'leader' ? `<div class="card"><div class="subhead">📣 Put the word out</div>
-        <div style="display:flex;gap:8px;margin-top:8px"><input id="fannounce" maxlength="200" placeholder="one line, the whole crew sees it" style="flex:1"><button class="btn sm cyan" data-act="fannounce">Pin it</button></div></div>` : ''}`;
+      ${f.myRole === 'leader' ? `<div class="grid2"><div class="card"><div class="subhead">📣 Put the word out</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><input id="fannounce" maxlength="200" placeholder="one line, the whole crew sees it" style="flex:1"><button class="btn sm cyan" data-act="fannounce">Pin it</button></div></div>
+        <div class="card"><div class="subhead">🚪 Recruitment desk</div><p class="gang-section-copy">Open lets anyone join; Applications puts officers in control; Closed hides the door.</p>
+          <div style="display:flex;gap:8px"><select id="frecruiting"><option value="open" ${f.recruiting === 'open' ? 'selected' : ''}>Open roster</option><option value="apply" ${f.recruiting === 'apply' ? 'selected' : ''}>Applications</option><option value="closed" ${f.recruiting === 'closed' ? 'selected' : ''}>Closed</option></select><button class="btn sm cyan" data-act="faction_recruiting">Save</button></div></div></div>` : ''}`;
   }
-  function rosterCount(f) { return (f.roster || []).length; }
 
   // ---- ACHIEVEMENTS
   function renderAch() {
@@ -2642,6 +2681,7 @@
     const sp = await sysPanel(true);
     if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The board is down. Try again.</p></div>'; return; }
     const gig = sp.gigs;
+    const contracts = sp.contracts || { offers: [], catalogSize: 1000, completed: 0, total: 0, wins: 0, until: sp.now };
     const cd = (readyTxt, left) => left ? `<span class="pill" style="color:var(--dim)">⏳ ${left}</span>` : `<span class="pill" style="color:var(--ok)">${readyTxt}</span>`;
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">📦 <span class="head">SIDE HUSTLES</span></div>
@@ -2653,6 +2693,12 @@
             <span class="v" style="text-align:right"><b style="color:var(--gold)">$${g.cash[0].toLocaleString()}–${g.cash[1].toLocaleString()}</b><br>
             <button class="btn cyan xs" data-act="gig_do" data-gig="${g.id}" ${me.energy < g.energy ? 'disabled' : ''}>Do it (${g.energy}⚡)</button></span></div>`).join('') || '<p style="color:var(--dim)">The board rotates soon.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${gig.left}/${(gig.ids || []).length * 3} gigs done this rotation · ${gig.slots} slots</div></div>
+        <div class="card" style="border-color:rgba(91,192,190,.38)"><div class="subhead">📜 City Contracts <span class="pill" style="color:var(--cyn);margin-left:5px">${contracts.catalogSize.toLocaleString()} live leads</span></div>
+          <p style="color:var(--mut);font-size:12px;margin:0 0 7px">Three one-shot jobs, selected for you every four hours. Match the weather for +8% success.</p>
+          ${(contracts.offers || []).map(c => `<div class="kv" style="align-items:center;border-top:1px solid var(--line);padding:8px 0"><span class="k" style="flex:1;min-width:0">${c.icon} <b>#${c.serial} · ${esc(c.name)}</b><br><span style="color:var(--dim);font-size:11px">${esc(c.sector)} · ${esc(c.blurb)}</span><br><span style="font-size:10.5px;color:${c.weatherLive ? 'var(--ok)' : 'var(--dim)'}">${c.weatherLive ? '✦ Weather edge active: +8%' : `Best in ${esc(c.weather)}`}</span></span>
+            <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br><span style="font-size:11px;color:var(--dim)">${c.chance}% · 🧠 ${c.nerve}</span><br>
+            <button class="btn ${c.done ? 'ghost' : 'cyan'} xs" data-act="city_contract" data-contract="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No leads came through this rotation.</p>'}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${contracts.completed}/3 closed this rotation · ${contracts.wins} clean / ${contracts.total} total · resets in ${fmtDur(Math.max(0, contracts.until - sp.now))}</div></div>
         <div class="card"><div class="subhead">🚚 Courier dispatch</div>
           ${sp.courier.active ? `<div class="kv"><span class="k">Package for</span><span class="v">${sp.courier.active.dest}</span></div>
             <div class="kv"><span class="k">Deadline</span><span class="v" style="color:${sp.courier.active.deadline < sp.now + 120000 ? 'var(--bad)' : 'var(--ok)'}">${fmtDur(Math.max(0, sp.courier.active.deadline - sp.now))}</span></div>
@@ -3213,7 +3259,12 @@
         act('faction_create', { factionName, tag, desc: '' }); break;
       }
       case 'faction_join': act('faction_join', { fid: +btn.dataset.fid }); break;
+      case 'faction_apply': act('faction_apply', { fid: +btn.dataset.fid }); break;
       case 'faction_leave': act('faction_leave', {}); break;
+      case 'faction_roll': { const r = await actCatch('faction_roll', {}); if (r) { U.toast(esc(r.res.text), 'good'); renderFaction(); } break; }
+      case 'faction_operation': { const r = await actCatch('faction_operation', { opId: btn.dataset.op }); if (r) { U.toast(esc(r.res.text), r.res.success ? 'good' : 'bad'); renderFaction(); } break; }
+      case 'faction_recruiting': { const mode = ($('#frecruiting') || {}).value; const r = await actCatch('faction_recruiting', { mode }); if (r) renderFaction(); break; }
+      case 'faction_review': { const r = await actCatch('faction_review', { targetId: +btn.dataset.tid, decision: btn.dataset.decision }); if (r) renderFaction(); break; }
       case 'side_toggle': document.body.classList.toggle('side-open'); break;
       case 'transfer': FIN.sub = 'bank'; nav('bank'); break;
       case 'chat_toggle': chatToggle(); break;
@@ -3315,6 +3366,7 @@
       }
       case 'lottery_go': { const r = await actCatch('lottery_buy', { qty: +btn.dataset.qty }); if (r) sysPanel(true).then(renderArcade); break; }
       case 'gig_do': { const r = await actCatch('gig_do', { gigId: btn.dataset.gig }); if (r) { U.toast(esc(r.res.text || 'Gig done.'), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'city_contract': { const r = await actCatch('city_contract', { contractId: btn.dataset.contract }); if (r) { U.toast(esc(r.res.text || 'Contract resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
       case 'courier_take': { const r = await actCatch('courier_take'); if (r) sysPanel(true).then(renderHustle); break; }
       case 'courier_deliver': { const r = await actCatch('courier_deliver'); if (r) { U.toast(esc(r.res.text), r.res.late ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
       case 'fish_cast': { const r = await actCatch('fish_cast'); if (r) { U.toast(`${r.res.icon || '🎣'} ${esc(r.res.text)}`, 'good'); sysPanel(true).then(renderHustle); } break; }
