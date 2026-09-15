@@ -638,7 +638,7 @@
       if (wait > 0) await new Promise(res => setTimeout(res, wait));
       // anything the action changed must be dropped BEFORE the re-render that applyMe triggers,
       // or the view paints from the cache and the result looks like it did not happen
-      if (name === 'faction_create' || name === 'faction_join' || name === 'faction_apply' || name === 'faction_leave' || name === 'faction_recruiting' || name === 'faction_review') {
+      if (name.startsWith('faction') || name.startsWith('farmory') || name === 'fbank_in' || name === 'fbank_out' || name === 'fupgrade' || name === 'fannounce' || name === 'fpromote') {
         G.cache.factions = null; G.cache.factionsAt = 0;
       }
       if (name === 'bounty_place' || name === 'attack') { G.cache.bounties = null; G.cache.bountiesAt = 0; }
@@ -2175,6 +2175,8 @@
   // ---- FACTION
   // ---- FACTION / GANG DESK
   function recruitLabel(mode) { return mode === 'apply' ? 'Applications' : mode === 'closed' ? 'Closed' : 'Open'; }
+  const GANG_TITLES = ['Street Corner', 'The Block', 'Known Faces', 'Heavy Hitters', 'Ward Runners', 'Night Owners', 'City Eaters', 'Wire Legends', 'Untouchables', 'Razor Royalty'];
+  function gangTitle(lvl) { return GANG_TITLES[Math.max(0, Math.min(GANG_TITLES.length - 1, (lvl || 1) - 1))]; }
   function opWait(op, now) { return op.ready ? 'Ready now' : 'Back in ' + fmtDur(Math.max(0, op.nextAt - now)); }
   async function renderFaction() {
     const v = $('#view');
@@ -2186,10 +2188,10 @@
       }
       fs = G.cache.factions;
     } catch (e) { fs = []; }
-    if (me.faction) { await renderFactionCockpit(v); return; }
+    if (me.faction) { await renderFactionCockpit(v, fs); return; }
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🪓 <span class="head">The Gangs</span></div>
-      <div class="vdesc">Build a crew with real work, a transparent war chest and recruitment controls. Found your own for $200,000 at level 5+.</div></div></div>
+      <div class="vdesc">Crews with real work, a transparent war chest, shared armouries and open war between flags. Found your own for $200,000 at level 5+.</div></div></div>
       <div class="card panel-gold gang-intro"><div class="subhead">Found your own</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
           <input placeholder="Gang name" id="fac-name" maxlength="24" style="flex:1;min-width:150px">
@@ -2208,6 +2210,9 @@
           <p class="gang-list-desc">${esc(f.desc || 'No public line. The work speaks for itself.')}</p>
           <div class="kv"><span class="k">Roster</span><span class="v">${f.members} / ${f.capacity}</span></div>
           <div class="kv"><span class="k">Crew power</span><span class="v">${f.power.toLocaleString()}</span></div>
+          <div class="kv"><span class="k">Gang level</span><span class="v" style="color:var(--gold)">LV ${f.level || 1} · ${esc(gangTitle(f.level))}</span></div>
+          <div class="kv"><span class="k">Wars</span><span class="v">${f.wins || 0}W – ${f.losses || 0}L</span></div>
+          <div class="kv"><span class="k">War chest</span><span class="v">${money(f.bank || 0)}</span></div>
           <div class="kv"><span class="k">Recruiting</span><span class="v gang-status ${f.recruiting}">${recruitLabel(f.recruiting)}</span></div>
           <div class="kv"><span class="k">Run by</span><span class="v">${esc(f.owner)}</span></div>
           <button class="btn cyan sm" style="margin-top:10px" data-act="${action}" data-fid="${f.id}" ${canJoin ? '' : 'disabled'}>${cta}</button>
@@ -2217,7 +2222,7 @@
           <p style="color:var(--mut);font-size:13px;margin-top:8px">Nobody has claimed this town yet. Put your own flag up, recruit a roster and work the crew-operation board.</p></div>`}</div>`;
   }
 
-  async function renderFactionCockpit(v) {
+  async function renderFactionCockpit(v, allGangs) {
     let d = null;
     try { d = await Net.get('/api/faction/detail'); } catch (e) {}
     if (!d || !d.faction) { nav('city'); return; }
@@ -2225,11 +2230,28 @@
     const meOfficer = f.myRole === 'leader' || f.myRole === 'officer';
     const now = f.now || Date.now();
     const roll = f.roll || { streak: 0, checkedIn: 0, total: f.roster.length, mine: false };
-    const operationCards = (f.operations || []).map(op => `<div class="gang-op ${op.ready ? 'ready' : 'cooling'}">
-      <div class="gang-op-icon">${op.icon}</div><div class="gang-op-copy"><b>${esc(op.name)}</b><span>${esc(op.desc)}</span>
-      <small>⚡ ${op.energy} energy · 🧠 ${op.nerve} nerve · ${op.chance}% base · ${opWait(op, now)}</small></div>
-      <button class="btn sm ${op.ready ? 'gold' : 'ghost'}" data-act="faction_operation" data-op="${op.id}" ${op.ready ? '' : 'disabled'}>${op.ready ? 'Run it' : 'Cooling'}</button>
-    </div>`).join('');
+    const chain = f.chain || { count: 0, need: 3 };
+    const chainActive = (chain.count || 0) >= (chain.need || 3);
+    const wars = f.wars || { wins: 0, losses: 0, shieldUntil: 0 };
+    const raid = f.raid || { playerReadyAt: 0, gangReadyAt: 0, cost: 2500, energy: 20, nerve: 5 };
+    const operationCards = (f.operations || []).map(op => {
+      const locked = !!op.locked;
+      const lockNote = locked ? `<small style="color:var(--bad)">🔒 ${esc(typeof op.locked === 'string' ? op.locked : 'locked')}</small>` : `<small>⚡ ${op.energy} energy · 🧠 ${op.nerve} nerve · ${op.chance}% base · ${opWait(op, now)}</small>`;
+      return `<div class="gang-op ${locked ? 'locked' : op.ready ? 'ready' : 'cooling'}">
+        <div class="gang-op-icon">${op.icon}</div><div class="gang-op-copy"><b>${esc(op.name)}</b><span>${esc(op.desc)}</span>${lockNote}</div>
+        <button class="btn sm ${!locked && op.ready ? 'gold' : 'ghost'}" data-act="faction_operation" data-op="${op.id}" ${!locked && op.ready ? '' : 'disabled'}>${locked ? 'Locked' : op.ready ? 'Run it' : 'Cooling'}</button>
+      </div>`;
+    }).join('');
+    const armoryRows = Array.isArray(f.armory) ? f.armory : [];
+    const myBag = Object.entries(G.me.items || {}).filter(([, q]) => q > 0);
+    const contribLine = (c) => {
+      c = c || { deposited: 0, ops: 0, rolls: 0, raids: 0 };
+      return `${money(c.deposited || 0)} chipped · ⚙${c.ops || 0} · 📋${c.rolls || 0} · ⚔${c.raids || 0}`;
+    };
+    const raidTargets = (allGangs || []).filter(g => g.id !== f.id);
+    const playerCd = raid.playerReadyAt > now ? fmtDur(raid.playerReadyAt - now) : null;
+    const gangCd = raid.gangReadyAt > now ? fmtDur(raid.gangReadyAt - now) : null;
+    const shielded = wars.shieldUntil > now ? fmtDur(wars.shieldUntil - now) : null;
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🪓 <span class="head">${esc(f.name)}</span> <span class="qtychip gang-tag">[${esc(f.tag)}]</span></div>
       <div class="vdesc">You ride as <b style="text-transform:capitalize">${f.myRole}</b>. ${f.roster.length} of ${f.cap} beds are filled; every chest movement and operation is logged below.</div></div></div>
@@ -2237,6 +2259,8 @@
         <p style="margin:8px 0 0;font-size:13.5px">${esc(f.announce.text)}</p></div>` : ''}
       <div class="gang-metrics">
         <div class="gang-metric"><span>CREW POWER</span><b>${(f.power || 0).toLocaleString()}</b><small>${(f.reputation || 0).toLocaleString()} reputation</small></div>
+        <div class="gang-metric"><span>GANG LEVEL</span><b>LV ${f.level || 1} · ${esc(gangTitle(f.level))}</b><small>rank #${f.rank || '—'} of ${f.rankOf || '—'} crews</small></div>
+        <div class="gang-metric"><span>WARS</span><b>${wars.wins}W – ${wars.losses}L</b><small>${shielded ? 'barricaded ' + shielded : 'no barricade up'}</small></div>
         <div class="gang-metric"><span>OPERATIONS</span><b>${(f.operationCount || 0).toLocaleString()}</b><small>clean crew jobs</small></div>
         <div class="gang-metric"><span>CREW ROLL</span><b>DAY ${roll.streak || 0}</b><small>${roll.checkedIn || 0}/${roll.total || 0} checked in</small></div>
         <div class="gang-metric"><span>RECRUITING</span><b>${recruitLabel(f.recruiting)}</b><small>${f.applications && f.applications.length ? f.applications.length + ' applications waiting' : 'roster controlled by the boss'}</small></div>
@@ -2257,14 +2281,46 @@
       </div>
       <div class="card"><div class="subhead">🎯 Crew Operations <small style="color:var(--dim)">personal cooldowns · shared rewards · server-resolved</small></div>
         <p class="gang-section-copy">Run a job for your own envelope and the war chest. More members and a Lookout Grid improve the chance; Runner Network improves both payouts.</p>
+        ${chainActive
+          ? `<p class="gang-chain on">🔗 Coordinated chain live — ${chain.count} hands worked in the last 24h: <b>+25%</b> on every crew payout</p>`
+          : `<p class="gang-chain">🔗 Coordinated chain: ${chain.count || 0}/${chain.need || 3} hands in 24h — get ${(chain.need || 3) - (chain.count || 0)} more working for +25% on crew payouts</p>`}
         <div class="gang-op-grid">${operationCards}</div></div>
+      ${meOfficer ? `<div class="card war-room"><div class="subhead">⚔️ The War Room <small style="color:var(--dim)">officers call the raids · ${raid.energy}⚡ ${raid.nerve}🧠 ${money(raid.cost)} a hit</small></div>
+        <p class="gang-section-copy">Raid a rival chest for up to 8% of it. Odds run on crew power; win or lose, both crews go quiet for a while — and a raided gang barricades for 2 hours.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <span class="qtychip ${playerCd ? '' : 'roll-done'}">${playerCd ? 'you ride again in ' + playerCd : 'you are ready'}</span>
+          <span class="qtychip ${gangCd ? '' : 'roll-done'}">${gangCd ? 'crew rides again in ' + gangCd : 'crew is ready'}</span>
+        </div>
+        <div class="gang-op-grid">${raidTargets.length ? raidTargets.map(g => `
+          <div class="gang-op ready"><div class="gang-op-icon">🏴</div><div class="gang-op-copy"><b>${esc(g.name)}</b> <span class="qtychip gang-tag">[${esc(g.tag)}]</span><span>LV ${g.level || 1} · ⚔ ${g.wins || 0}W–${g.losses || 0}L · 💪 ${g.power.toLocaleString()} power</span>
+          <small>chest ${money(g.bank || 0)} · ${g.members}/${g.capacity} hands · run by ${esc(g.owner)}</small></div>
+          <button class="btn sm ${playerCd || gangCd ? 'ghost' : 'danger'}" data-act="faction_raid" data-fid="${g.id}" ${playerCd || gangCd ? 'disabled' : ''}>${playerCd || gangCd ? 'Cooling' : 'Raid'}</button>
+        </div>`).join('') : '<p style="color:var(--dim);font-size:12.5px">No other flags flying. Found a rival worth hitting first.</p>'}</div></div>` : ''}
+      <div class="card"><div class="subhead">🛡️ The Armoury <small style="color:var(--dim)">shared stash · officers hand gear out · 50 pieces, 250 with the vault</small></div>
+        <p class="gang-section-copy">Stash spare iron where the whole crew can reach it. Anyone can put gear in; only officers can draw it out. The ledger remembers both.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="farmory-item" style="max-width:230px">${myBag.length ? myBag.map(([id, q]) => `<option value="${id}">${(G.meta.items[id] || {}).icon || '📦'} ${esc((G.meta.items[id] || {}).name || id)} ×${q}</option>`).join('') : '<option value="">— your bag is empty —</option>'}</select>
+          <input id="farmory-qty" type="number" min="1" value="1" style="width:70px">
+          <button class="btn sm ok" data-act="farmory_in" ${myBag.length ? '' : 'disabled'}>Stash it</button>
+          ${meOfficer ? '<span style="color:var(--dim);font-size:11.5px">drawing uses the same count box</span>' : ''}
+        </div>
+        ${armoryRows.length ? `<div style="max-height:220px;overflow:auto">${armoryRows.map(row => {
+          const it = G.meta.items[row.itemId] || {};
+          return `<div class="itemrow"><span class="ic">${row.icon || it.icon || '📦'}</span><div class="nm"><b>${esc(row.name || it.name || row.itemId)}</b><small>${esc(it.desc || '')}</small></div>
+            <span class="qtychip">×${row.qty}</span>
+            ${meOfficer ? `<button class="btn sm ghost" data-act="farmory_out" data-item="${row.itemId}">Draw</button>` : ''}</div>`;
+        }).join('')}</div>` : '<p style="color:var(--dim);font-size:12.5px">Bare shelves. Stash something worth sharing.</p>'}
+      </div>
       <div class="grid2">
         <div class="card"><div class="subhead">The Roster</div>
           <div style="max-height:280px;overflow:auto">${f.roster.map(r => `
             <div class="itemrow"><span class="ic">${r.role === 'leader' ? '👑' : r.role === 'officer' ? '🎖' : '🕶'}</span>
-              <div class="nm"><b>${esc(r.name)}</b><small>${r.role}${r.jailed ? ' · <b style="color:var(--bad)">INSIDE</b>' : ''} · lvl ${r.level}</small></div>
+              <div class="nm"><b>${esc(r.name)}</b><small>${r.role}${r.jailed ? ' · <b style="color:var(--bad)">INSIDE</b>' : ''} · lvl ${r.level} · ${esc(contribLine(r.contrib))}</small></div>
               ${r.jailed && r.id !== G.me.id ? `<button class="btn sm warn" data-act="bust_out" data-tid="${r.id}" title="12 nerve · risky">Bust</button>` : ''}
-              ${f.myRole === 'leader' && r.id !== G.me.id ? `<button class="btn sm ghost" data-act="fpromote" data-tid="${r.id}" title="give or pull the stripe">${r.role === 'officer' ? 'Demote' : 'Promote'}</button>` : ''}
+              ${f.myRole === 'leader' && r.id !== G.me.id ? `<button class="btn sm ghost" data-act="fpromote" data-tid="${r.id}" title="give or pull the stripe">${r.role === 'officer' ? 'Demote' : 'Promote'}</button>
+                <button class="btn sm bad" data-act="faction_kick" data-tid="${r.id}" title="cut them loose">Kick</button>
+                <button class="btn sm gold" data-act="faction_transfer" data-tid="${r.id}" title="hand them the whole gang">👑</button>` : ''}
+              ${f.myRole === 'officer' && r.role === 'member' ? `<button class="btn sm bad" data-act="faction_kick" data-tid="${r.id}" title="cut them loose">Kick</button>` : ''}
             </div>`).join('')}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px">
             <small style="color:var(--dim)">Busting springs a crewmate off the block — costs 12 nerve, jail risk if it goes wrong.</small>
@@ -2274,8 +2330,13 @@
           <div class="gang-ledger">${(f.ledger || []).map(e => `<div class="gang-ledger-row"><span class="gang-ledger-kind">${esc(e.kind)}</span><span class="gang-ledger-text">${esc(e.text)}</span><b class="${e.amount > 0 ? 'plus' : e.amount < 0 ? 'minus' : ''}">${e.amount ? (e.amount > 0 ? '+' : '−') + money(Math.abs(e.amount)) : '—'}</b></div>`).join('') || '<p style="color:var(--dim);font-size:12px">Nothing in the book yet. Start with a Crew Roll.</p>'}</div>
         </div>
       </div>
-      ${meOfficer && f.applications && f.applications.length ? `<div class="card"><div class="subhead">✉️ Recruitment Desk <small style="color:var(--dim)">${f.applications.length} waiting</small></div>
-        <div class="gang-applications">${f.applications.map(a => `<div class="gang-app"><div><b>${esc(a.name)}</b><small>level ${a.level} · applied ${timeAgo(a.at)}</small></div><span><button class="btn sm ok" data-act="faction_review" data-tid="${a.id}" data-decision="accept">Accept</button><button class="btn sm ghost" data-act="faction_review" data-tid="${a.id}" data-decision="decline">Decline</button></span></div>`).join('')}</div></div>` : ''}
+      ${meOfficer ? `<div class="card"><div class="subhead">✉️ Recruitment Desk <small style="color:var(--dim)">${(f.applications || []).length} waiting · ${(f.invites || []).length} invites out</small></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <input id="finvite-name" maxlength="20" placeholder="citizen name" style="flex:1;min-width:140px">
+          <button class="btn sm cyan" data-act="faction_invite">Send invite</button>
+        </div>
+        ${(f.invites || []).length ? `<div class="gang-applications" style="margin-bottom:10px">${f.invites.map(a => `<div class="gang-app"><div><b>${esc(a.name)}</b><small>invited ${timeAgo(a.at)}</small></div><span><button class="btn sm ghost" data-act="faction_invite_cancel" data-tid="${a.id}">Pull back</button></span></div>`).join('')}</div>` : ''}
+        <div class="gang-applications">${(f.applications || []).map(a => `<div class="gang-app"><div><b>${esc(a.name)}</b><small>level ${a.level} · applied ${timeAgo(a.at)}</small></div><span><button class="btn sm ok" data-act="faction_review" data-tid="${a.id}" data-decision="accept">Accept</button><button class="btn sm ghost" data-act="faction_review" data-tid="${a.id}" data-decision="decline">Decline</button></span></div>`).join('') || '<p style="color:var(--dim);font-size:12.5px">No applications on the desk.</p>'}</div></div>` : ''}
       <div class="card"><div class="subhead">🛠️ Crew Arrangements <small style="color:var(--dim)">paid from the war chest · every member feels them</small></div>
         <div class="upgrid" style="margin-top:10px">${f.upgrades.map(u => `
           <div class="upcard ${u.owned ? 'owned' : ''}">
@@ -2285,7 +2346,14 @@
       ${f.myRole === 'leader' ? `<div class="grid2"><div class="card"><div class="subhead">📣 Put the word out</div>
         <div style="display:flex;gap:8px;margin-top:8px"><input id="fannounce" maxlength="200" placeholder="one line, the whole crew sees it" style="flex:1"><button class="btn sm cyan" data-act="fannounce">Pin it</button></div></div>
         <div class="card"><div class="subhead">🚪 Recruitment desk</div><p class="gang-section-copy">Open lets anyone join; Applications puts officers in control; Closed hides the door.</p>
-          <div style="display:flex;gap:8px"><select id="frecruiting"><option value="open" ${f.recruiting === 'open' ? 'selected' : ''}>Open roster</option><option value="apply" ${f.recruiting === 'apply' ? 'selected' : ''}>Applications</option><option value="closed" ${f.recruiting === 'closed' ? 'selected' : ''}>Closed</option></select><button class="btn sm cyan" data-act="faction_recruiting">Save</button></div></div></div>` : ''}`;
+          <div style="display:flex;gap:8px"><select id="frecruiting"><option value="open" ${f.recruiting === 'open' ? 'selected' : ''}>Open roster</option><option value="apply" ${f.recruiting === 'apply' ? 'selected' : ''}>Applications</option><option value="closed" ${f.recruiting === 'closed' ? 'selected' : ''}>Closed</option></select><button class="btn sm cyan" data-act="faction_recruiting">Save</button></div></div></div>
+        <div class="card"><div class="subhead">🎨 Flag & colours <small style="color:var(--dim)">the public line is free · a new name or tag costs ${money(f.renameCost || 50000)} cash</small></div>
+          <div class="grid2" style="align-items:end;gap:8px">
+            <div class="field" style="margin:0"><label>The public line</label><input id="fedit-desc" maxlength="180" value="${esc(f.desc || '')}" placeholder="one line the whole town reads"></div>
+            <div style="display:flex;gap:8px"><div class="field" style="margin:0;flex:1"><label>Gang name</label><input id="fedit-name" maxlength="24" value="${esc(f.name)}"></div>
+            <div class="field" style="margin:0"><label>Tag</label><input id="fedit-tag" maxlength="4" value="${esc(f.tag)}" style="width:80px;text-transform:uppercase"></div></div>
+          </div>
+          <div style="margin-top:10px"><button class="btn sm gold" data-act="faction_edit">Save the flag</button></div></div>` : ''}`;
   }
 
   // ---- ACHIEVEMENTS
@@ -3265,6 +3333,21 @@
       case 'faction_operation': { const r = await actCatch('faction_operation', { opId: btn.dataset.op }); if (r) { U.toast(esc(r.res.text), r.res.success ? 'good' : 'bad'); renderFaction(); } break; }
       case 'faction_recruiting': { const mode = ($('#frecruiting') || {}).value; const r = await actCatch('faction_recruiting', { mode }); if (r) renderFaction(); break; }
       case 'faction_review': { const r = await actCatch('faction_review', { targetId: +btn.dataset.tid, decision: btn.dataset.decision }); if (r) renderFaction(); break; }
+      case 'faction_kick': { if (!confirm('Cut this hand loose? They walk with what they carry.')) break; const r = await actCatch('faction_kick', { targetId: +btn.dataset.tid }); if (r) { G.cache.factions = null; U.toast(esc(r.res.text || 'Cut loose.'), 'good'); renderFaction(); } break; }
+      case 'faction_transfer': { if (!confirm('Hand them the WHOLE gang? You drop to officer. This cannot be undone.')) break; const r = await actCatch('faction_transfer', { targetId: +btn.dataset.tid }); if (r) { G.cache.factions = null; U.toast(esc(r.res.text || 'The flag changed hands.'), 'good'); renderFaction(); } break; }
+      case 'faction_invite': { const iname = (($('#finvite-name') || {}).value || '').trim(); if (!iname) { U.toast('Name the citizen first.', 'bad'); break; } const r = await actCatch('faction_invite', { target: iname }); if (r) { U.toast(esc(r.res.text || 'Invite sent.'), 'good'); renderFaction(); } break; }
+      case 'faction_invite_cancel': { const r = await actCatch('faction_invite_cancel', { targetId: +btn.dataset.tid }); if (r) renderFaction(); break; }
+      case 'faction_edit': {
+        const desc = (($('#fedit-desc') || {}).value || '').trim();
+        const factionName = (($('#fedit-name') || {}).value || '').trim();
+        const tag = (($('#fedit-tag') || {}).value || '').trim();
+        const r = await actCatch('faction_edit', { desc, factionName, tag });
+        if (r) { G.cache.factions = null; U.toast(esc(r.res.text || 'Flag saved.'), 'good'); renderFaction(); }
+        break;
+      }
+      case 'farmory_in': { const itemId = ($('#farmory-item') || {}).value; const qty = parseInt(($('#farmory-qty') || {}).value, 10) || 0; if (!itemId) break; const r = await actCatch('farmory_in', { itemId, qty }); if (r) { U.toast(esc(r.res.text || 'Stashed.'), 'good'); renderFaction(); } break; }
+      case 'farmory_out': { const qty = parseInt(($('#farmory-qty') || {}).value, 10) || 1; const r = await actCatch('farmory_out', { itemId: btn.dataset.item, qty }); if (r) { U.toast(esc(r.res.text || 'Drawn.'), 'good'); renderFaction(); } break; }
+      case 'faction_raid': { const r = await actCatch('faction_raid', { fid: +btn.dataset.fid }); if (r) { G.cache.factions = null; U.toast(esc(r.res.text || 'The raid went out.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); renderFaction(); } break; }
       case 'side_toggle': document.body.classList.toggle('side-open'); break;
       case 'transfer': FIN.sub = 'bank'; nav('bank'); break;
       case 'chat_toggle': chatToggle(); break;

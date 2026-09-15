@@ -344,6 +344,9 @@ const routes = async (req, res, urlPath, q) => {
     const clampAmt = (n, dflt) => { n = parseInt(n, 10); if (!Number.isFinite(n) || n === 0) n = dflt || 0; return Math.max(-50000000, Math.min(50000000, n)); };
     if (op === 'reset_self') {
       const cur = W.load(id);
+      // step out of any gang first so the roster never holds a ghost seat
+      if (cur.faction) { try { W.leaveFaction(id); } catch (_) {} }
+      try { W.factionClearPending(id); } catch (_) {}
       const fresh = A.defaultPlayerJson({ name: cur.name, origin: cur.origin || 'street', avatar: cur.avatar, bio: cur.bio });
       fresh._acc = id;
       fresh.sub_founder = cur.sub_founder;      // founder tier survives a wipe, by design
@@ -697,6 +700,14 @@ const routes = async (req, res, urlPath, q) => {
       faction_review: () => W.factionReviewApplication(id, body.targetId, body.decision),
       faction_roll: () => W.factionRoll(id),
       faction_operation: () => W.factionOperation(id, body.opId),
+      faction_kick: () => W.factionKick(id, body.targetId),
+      faction_transfer: () => W.factionTransfer(id, body.targetId),
+      faction_invite: () => W.factionInvite(id, body.target),
+      faction_invite_cancel: () => W.factionInviteCancel(id, body.targetId),
+      faction_edit: () => W.factionEdit(id, { name: body.factionName, tag: body.tag, desc: body.desc }),
+      farmory_in: () => W.factionArmoryIn(id, body.itemId, body.qty),
+      farmory_out: () => W.factionArmoryOut(id, body.itemId, body.qty),
+      faction_raid: () => W.factionRaid(id, body.fid),
       // ---------- 2026 systems ----------
       // arcade
       arcade_mines: () => S.arcadeMines(id, body),
@@ -760,7 +771,7 @@ const routes = async (req, res, urlPath, q) => {
       try { S.track(id, name, out); } catch (_) {}
       if (out && out.err) return send(res, 400, { err: out.err });
       if (out && out.p) { out.p.id = id; pushAll('p', { id, name: out.p.name, rep: out.p.reputation, level: out.p.level }); }
-      if (/^(crime|attack|casino|bazaar_buy|auction_bid|stock_buy|stock_sell|crypto_buy|crypto_sell|street_race|turf_claim|drop_buy|storage_open|lottery_buy)$/.test(name)) pushAll('news', { n: 1 });
+      if (/^(crime|attack|casino|bazaar_buy|auction_bid|stock_buy|stock_sell|crypto_buy|crypto_sell|street_race|turf_claim|drop_buy|storage_open|lottery_buy|faction_raid|faction_operation|faction_roll)$/.test(name)) pushAll('news', { n: 1 });
       if (name === 'bounty_place') pushAll('news', { n: 1 });
       return send(res, 200, out);
     } catch (e) { console.error('action err', e); return sendError(res, 500, 'Something went wrong in the city.'); }
