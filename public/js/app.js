@@ -597,8 +597,8 @@
     v.scrollTop = 0;
     const jail = G.me.jail_until && G.me.jail_until > Date.now();
     const hosp = G.me.hosp_until && G.me.hosp_until > Date.now();
-    // cover lifecycle: the custody cover must never sit on the yard or the cells — and drops on release
-    if (!jail || view === 'crime' || view === 'jail') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
+    // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
+    if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
       arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
     (renders[view] || renderCity)();
@@ -611,7 +611,7 @@
       const jail = me.jail_until && me.jail_until > Date.now();
       const hosp = me.hosp_until && me.hosp_until > Date.now();
       if (!jail && !hosp) return;
-      if (G.view === 'crime' || G.view === 'jail') return;   // the yard and the cells stay tappable behind bars
+      if (G.view === 'crime' || G.view === 'jail' || G.view === 'dev') return;   // the yard, the cells AND founder tools stay tappable behind bars
       const el = document.createElement('div');
       el.id = 'lock-cover'; el.className = 'cover';
       v.parentElement.style.position = 'relative';
@@ -1030,21 +1030,46 @@
       <div class="pill"><span>${panel.players.length} players in town</span> <b style="color:var(--cyn)">${claims.length} payment claims waiting</b></div></div>
 
       <div class="card"><div class="subhead" style="color:var(--gold)">🧰 Self tools — ${esc(me.name)}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn sm ok" data-act="dev_self" data-op="refill">Refill all bars</button>
+          <button class="btn sm" data-act="dev_self" data-op="heal">Heal to full</button>
           <button class="btn sm" data-act="dev_self" data-op="clear_status">Clear jail & hospital</button>
+          <button class="btn sm" data-act="dev_self" data-op="clear_jail">Clear jail only</button>
+          <button class="btn sm" data-act="dev_self" data-op="clear_hospital">Clear hospital</button>
           <button class="btn sm gold" data-act="dev_self" data-op="grant_cash">Give me $100,000 cash</button>
           <button class="btn sm gold" data-act="dev_self" data-op="grant_bank">Bank me $500,000</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="give_vault">+Vault $100k</button>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
-          <input class="in" id="dev-amt" style="width:130px" type="number" placeholder="amount">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <input class="in" id="dev-amt" style="width:120px" type="number" placeholder="amount" value="100000">
           <button class="btn sm" data-act="dev_self" data-op="grant_cash" data-amt="1">Cash ↑</button>
           <button class="btn sm" data-act="dev_self" data-op="grant_bank" data-amt="1">Bank ↑</button>
+          <button class="btn sm" data-act="dev_self" data-op="set_money">Set cash =</button>
           <input class="in" id="dev-lvl" style="width:80px" type="number" min="1" max="100" placeholder="level">
           <button class="btn sm" data-act="dev_self" data-op="set_level">Set my level</button>
           <select class="in" id="dev-item" style="width:210px">${Object.entries(G.meta.items).map(([iid, it]) => `<option value="${iid}">${it.icon} ${esc(it.name)}</option>`).join('')}</select>
           <input class="in" id="dev-qty" style="width:64px" type="number" min="1" max="99" value="1">
           <button class="btn sm" data-act="dev_self" data-op="grant_item">Grant item</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_all_items">Grant all items ×1</button>
+          <button class="btn sm ok" data-act="dev_self" data-op="max_stats">Max all stats</button>
+          <select class="in" id="dev-stat" style="width:90px"><option value="st">STR</option><option value="de">DEF</option><option value="sp">SPD</option><option value="dx">DEX</option></select>
+          <input class="in" id="dev-stat-val" style="width:70px" type="number" min="1" max="200" value="100">
+          <button class="btn sm" data-act="dev_self" data-op="set_stat">Set stat</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_xp">+5k XP</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_rep">+5k Rep</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_merit">+1 Merit</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <button class="btn sm ghost" data-act="dev_self" data-op="reset_cooldowns">Reset cooldowns</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="time_warp">Time-warp course/jail</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="unlock_all_courses">Unlock all courses</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="unlock_all_achievements">Unlock all feats</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="spawn_car">Spawn random car</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="grant_pass">Give 7-day pass</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="grant_founder_pass">Give founder ∞</button>
+          <button class="btn sm bad" data-act="dev_self" data-op="revoke_pass">Revoke pass</button>
         </div>
         <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1055,13 +1080,31 @@
       </div>
 
       <div class="card"><div class="subhead" style="color:var(--cyn)">🌐 World tools — any player</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <select class="in" id="dev-target" style="width:250px">${panel.players.map(tp => `<option value="${tp.acc_id}">${esc(tp.name)} (@${esc(tp.username)}) · L${tp.level} · $${(tp.money || 0).toLocaleString()}${tp.dev ? ' · DEV' : ''}</option>`).join('')}</select>
           <input class="in" id="dev-wamt" style="width:120px" type="number" placeholder="amount" value="100000">
           <button class="btn sm gold" data-act="dev_world" data-op="grant_cash">Give cash</button>
-          <button class="btn sm ok" data-act="dev_world" data-op="clear_status">Clear jail / hospital</button>
+          <button class="btn sm gold" data-act="dev_world" data-op="grant_bank">Bank</button>
+          <button class="btn sm" data-act="dev_world" data-op="set_money">Set cash =</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="clear_status">Clear jail/hosp</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="heal">Heal</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <button class="btn sm cyan" data-act="dev_world" data-op="grant_item">Grant random item</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="grant_all_items">Grant all items</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="max_stats">Max stats</button>
+          <button class="btn sm" data-act="dev_world" data-op="grant_xp">+5k XP</button>
+          <button class="btn sm" data-act="dev_world" data-op="grant_rep">+5k Rep</button>
+          <button class="btn sm" data-act="dev_world" data-op="grant_merit">+1 Merit</button>
+          <button class="btn sm ghost" data-act="dev_world" data-op="reset_cooldowns">Reset CDs</button>
+          <button class="btn sm ghost" data-act="dev_world" data-op="time_warp">Time-warp</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_courses">Unlock courses</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_achievements">Unlock feats</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="give_vault">+Vault 100k</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="grant_sub">Give 7-day pass</button>
+          <button class="btn sm gold" data-act="dev_world" data-op="founder_sub">Give founder ∞</button>
           <button class="btn sm bad" data-act="dev_world" data-op="revoke_sub">Revoke pass</button>
+          <button class="btn sm bad" data-act="dev_world" data-op="hospital">Hospital 30m</button>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <input class="in" id="dev-msg" style="flex:1" maxlength="200" placeholder="announcement to the whole town wire (reads: FOUNDER: …)">
@@ -3044,7 +3087,15 @@
       if (!confirm('Reset YOUR character to a brand-new citizen? Money, bank, items, stats, records — all gone. Sub + founder tier stay.')) return;
     }
     const payload = { op };
-    if (btn.dataset.amt) payload.amount = parseInt(($('#dev-amt') || { value: '' }).value, 10) || 0;
+    // amount source is the main dev-amt field; also support data-amt implicit
+    const amtVal = parseInt(($('#dev-amt') || { value: '' }).value, 10) || 0;
+    if (btn.dataset.amt) payload.amount = amtVal || 100000;
+    if (['grant_cash','grant_bank','set_money','give_vault','grant_xp','grant_rep','grant_merit'].includes(op)) payload.amount = amtVal || (op==='grant_merit'?1:100000);
+    if (op === 'grant_merit' && !amtVal) payload.amount = 1;
+    if (op === 'grant_xp' && !payload.amount) payload.amount = 5000;
+    if (op === 'grant_rep' && !payload.amount) payload.amount = 5000;
+    if (op === 'set_money') payload.amount = amtVal;
+    if (op === 'set_stat') { payload.stat = ($('#dev-stat')||{value:'st'}).value; payload.value = parseInt(($('#dev-stat-val')||{value:'100'}).value,10)||100; }
     if (op === 'set_level') payload.level = parseInt(($('#dev-lvl') || { value: '' }).value, 10) || 1;
     if (op === 'grant_item') { payload.item = ($('#dev-item') || { value: '' }).value; payload.qty = parseInt(($('#dev-qty') || { value: '' }).value, 10) || 1; }
     try {
@@ -3064,7 +3115,11 @@
     } else {
       payload.target = parseInt(btn.dataset.tid || (($('#dev-target') || { value: '' }).value), 10);
       if (!payload.target) { U.toast('Pick a player.', 'bad'); return; }
-      if (op === 'grant_cash') payload.amount = parseInt(($('#dev-wamt') || { value: '' }).value, 10) || 0;
+      if (['grant_cash','grant_bank','set_money','give_vault','grant_xp','grant_rep','grant_merit'].includes(op)) payload.amount = parseInt(($('#dev-wamt') || { value: '' }).value, 10) || (op==='grant_merit'?1:100000);
+      if (op === 'set_money') payload.amount = parseInt(($('#dev-wamt')||{value:''}).value,10)||0;
+      if (op === 'grant_item') { const inv = Object.keys(G.meta.items); payload.item = inv[Math.floor(Math.random()*inv.length)]; payload.qty=1; }
+      if (op === 'set_stat') { payload.stat='st'; payload.value=100; }
+      if (op === 'hospital') payload.minutes=30;
       if (op === 'ban') {
         payload.reason = (prompt('Reason for the ban (shown to nobody but founders, kept in the ledger):') || '').trim();
         if (!confirm('Ban this account? They are locked out until you un-ban them.')) return;

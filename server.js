@@ -354,12 +354,87 @@ const routes = async (req, res, urlPath, q) => {
     switch (op) {
       case 'grant_cash': p.money = (p.money || 0) + clampAmt(body.amount, 100000); break;
       case 'grant_bank': p.bank = (p.bank || 0) + clampAmt(body.amount, 500000); break;
-      case 'refill': p.life = p.max_life; p.energy = p.max_energy; p.nerve = p.max_nerve; p.happy = 100; break;
+      case 'set_money': p.money = Math.max(0, clampAmt(body.amount, 50000)); break;
+      case 'refill': p.life = p.max_life || 200; p.energy = p.max_energy || 100; p.nerve = p.max_nerve || 20; p.happy = p.max_happy || 100; p.life = p.max_life; p.energy = p.max_energy; p.nerve = p.max_nerve; break;
+      case 'heal': p.life = p.max_life; p.hosp_until = 0; p.jail_until = p.jail_until || 0; break;
       case 'clear_status': p.jail_until = 0; p.hosp_until = 0; break;
+      case 'clear_jail': p.jail_until = 0; break;
+      case 'clear_hospital': p.hosp_until = 0; p.life = p.max_life; break;
       case 'grant_item': {
         const it = String(body.item || ''); if (!C.ITEMS[it]) return send(res, 400, { err: 'No such item.' });
         const q = Math.max(1, Math.min(99, parseInt(body.qty, 10) || 1));
         p.items = p.items || {}; p.items[it] = (p.items[it] || 0) + q; break;
+      }
+      case 'grant_all_items': {
+        p.items = p.items || {};
+        for (const k of Object.keys(C.ITEMS)) p.items[k] = (p.items[k] || 0) + 1;
+        break;
+      }
+      case 'grant_xp': {
+        const amt = Math.max(1, Math.min(5000000, parseInt(body.amount, 10) || 1000));
+        p.xp = (p.xp || 0) + amt;
+        break;
+      }
+      case 'grant_rep': {
+        const amt = clampAmt(body.amount, 1000);
+        p.reputation = (p.reputation || 0) + amt;
+        break;
+      }
+      case 'grant_merit': {
+        const amt = Math.max(1, Math.min(100, parseInt(body.amount, 10) || 1));
+        p.merits = (p.merits || 0) + amt;
+        p.merits_earned = (p.merits_earned || 0) + amt;
+        break;
+      }
+      case 'max_stats': {
+        p.stats = p.stats || { st:10,de:10,sp:10,dx:10 };
+        p.stats.st = 100; p.stats.de = 100; p.stats.sp = 100; p.stats.dx = 100;
+        break;
+      }
+      case 'set_stat': {
+        const k = String(body.stat || 'st');
+        const v = Math.max(1, Math.min(200, parseInt(body.value,10)||10));
+        if (!['st','de','sp','dx'].includes(k)) return send(res,400,{err:'bad stat'});
+        p.stats[k]=v; break;
+      }
+      case 'grant_pass': {
+        p.sub_until = Math.max(Date.now(), p.sub_until||0)+7*86400000; break;
+      }
+      case 'grant_founder_pass': p.sub_founder=true; p.sub_until=Math.max(Date.now(),p.sub_until||0)+365*86400000; break;
+      case 'revoke_pass': p.sub_until=0; p.sub_founder=false; break;
+      case 'reset_cooldowns': {
+        if (p.prison) { p.prison.shift_at=0; p.prison.gym_at=0; p.prison.gamble_at=0; p.prison.bust_at=0; }
+        if (p.sys){ if(p.sys.fish) p.sys.fish.at=0; if(p.sys.salvage) p.sys.salvage.at=0; if(p.sys.plasma) p.sys.plasma.at=0; if(p.sys.courier) p.sys.courier.at=0; p._ref={ ...p._ref, energy:Date.now()-3600000, nerve:Date.now()-3600000 };}
+        if(p.shop_caps) p.shop_caps={day:0,counts:{}};
+        if(p.daily) {} // leave daily
+        break;
+      }
+      case 'time_warp': {
+        // fast-forward: clear course, jail, hospital timers
+        if (p.course_ends) p.course_ends = Date.now()-1000;
+        p.jail_until=0; p.hosp_until=0; p.life=p.max_life; p.energy=p.max_energy;
+        break;
+      }
+      case 'unlock_all_courses': {
+        p.courses = p.courses || {};
+        for(const c of C.COURSES) p.courses[c.id]=Date.now();
+        p.course=null; p.course_ends=null;
+        break;
+      }
+      case 'unlock_all_achievements': {
+        p.achievements = p.achievements || {};
+        for(const k of Object.keys(C.ACHIEVEMENTS)) p.achievements[k]=Date.now();
+        break;
+      }
+      case 'spawn_car': {
+        // give a random car by directly pushing to sys garage — handled via items fallback
+        const cars = C.CARS || [];
+        if(cars.length){ const cid=cars[Math.floor(Math.random()*cars.length)].id; S.carBuy(id,cid); }
+        break;
+      }
+      case 'give_vault': {
+        const amt = clampAmt(body.amount, 100000);
+        p.vault = (p.vault||0)+amt; break;
       }
       case 'set_level': {
         const lvl = Math.max(1, Math.min(100, parseInt(body.level, 10) || 1));
@@ -370,7 +445,8 @@ const routes = async (req, res, urlPath, q) => {
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
     W.save(id, p);
-    return send(res, 200, { ok: true, me: withId(id, p) });
+    // ensure derived fields refresh
+    try{ const fresh=W.load(id); return send(res,200,{ok:true,me:withId(id,fresh)});}catch(e){ return send(res,200,{ok:true,me:withId(id,p)});}
   }
 
   if (urlPath === '/api/dev/world' && method === 'POST') {
@@ -454,13 +530,64 @@ const routes = async (req, res, urlPath, q) => {
     const tp = W.load(target);
     switch (op) {
       case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
+      case 'grant_bank': tp.bank = (tp.bank || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
+      case 'set_money': tp.money = Math.max(0, Math.min(50000000, parseInt(body.amount, 10) || 0)); break;
       case 'clear_status': tp.jail_until = 0; tp.hosp_until = 0; break;
-      case 'grant_sub': grantSubDays(db, target, Math.max(1, Math.min(30, parseInt(body.days, 10) || 7))); break;
-      case 'founder_sub': tp.sub_founder = true; break;
+      case 'clear_jail': tp.jail_until = 0; break;
+      case 'clear_hospital': tp.hosp_until = 0; tp.life = tp.max_life; break;
+      case 'heal': tp.life = tp.max_life; tp.hosp_until = 0; break;
+      case 'refill': tp.life = tp.max_life || 200; tp.energy = tp.max_energy || 100; tp.nerve = tp.max_nerve || 20; tp.happy = tp.max_happy || 100; break;
+      case 'grant_item': {
+        const it = String(body.item || ''); if (!C.ITEMS[it]) return send(res, 400, { err: 'No such item.' });
+        const q = Math.max(1, Math.min(99, parseInt(body.qty, 10) || 1));
+        tp.items = tp.items || {}; tp.items[it] = (tp.items[it] || 0) + q; break;
+      }
+      case 'grant_all_items': {
+        tp.items = tp.items || {};
+        for (const k of Object.keys(C.ITEMS)) tp.items[k] = (tp.items[k] || 0) + 1;
+        break;
+      }
+      case 'grant_xp': tp.xp = (tp.xp||0)+ Math.max(1,Math.min(5000000,parseInt(body.amount,10)||1000)); break;
+      case 'grant_rep': tp.reputation = (tp.reputation||0)+ Math.max(-50000000,Math.min(50000000,parseInt(body.amount,10)||1000)); break;
+      case 'grant_merit': { const amt=Math.max(1,Math.min(100,parseInt(body.amount,10)||1)); tp.merits=(tp.merits||0)+amt; tp.merits_earned=(tp.merits_earned||0)+amt; break; }
+      case 'max_stats': tp.stats={st:100,de:100,sp:100,dx:100}; break;
+      case 'set_stat': { const k=String(body.stat||'st'); const v=Math.max(1,Math.min(200,parseInt(body.value,10)||10)); if(!['st','de','sp','dx'].includes(k)) return send(res,400,{err:'bad stat'}); tp.stats[k]=v; break; }
+      case 'set_level': {
+        const lvl = Math.max(1, Math.min(100, parseInt(body.level, 10) || 1));
+        let acc = 0, need = 300;
+        for (let i = 1; i < lvl; i++) { acc += need; need = Math.floor(need * 1.06) + 100; }
+        tp.xp = acc; break;
+      }
+      case 'grant_sub': {
+        const days=Math.max(1, Math.min(30, parseInt(body.days,10)||7));
+        tp.sub_until=Math.max(Date.now(), tp.sub_until||0)+days*86400000; break;
+      }
+      case 'founder_sub': tp.sub_founder = true; tp.sub_until=Math.max(Date.now(),tp.sub_until||0)+30*86400000; break;
       case 'revoke_sub': {
         const a = db.prepare('SELECT username FROM accounts WHERE id=?').get(target);
         if (a && C.WIRE_PASS.founders.includes(String(a.username).toLowerCase())) return send(res, 400, { err: 'Founders carry the pass forever.' });
         tp.sub_until = 0; tp.sub_founder = false; break;
+      }
+      case 'hospital': {
+        const mins = Math.max(1, Math.min(1440, parseInt(body.minutes,10)||30));
+        tp.hosp_until = Date.now()+ mins*60000; tp.life=1; break;
+      }
+      case 'give_vault': tp.vault=(tp.vault||0)+ Math.max(0,Math.min(50000000,parseInt(body.amount,10)||100000)); break;
+      case 'reset_cooldowns': {
+        if (tp.prison) { tp.prison.shift_at=0; tp.prison.gym_at=0; tp.prison.gamble_at=0; tp.prison.bust_at=0; }
+        tp._ref={ ...tp._ref, energy:Date.now()-3600000, nerve:Date.now()-3600000 };
+        if(tp.shop_caps) tp.shop_caps={day:0,counts:{}};
+        break;
+      }
+      case 'time_warp': {
+        if(tp.course_ends) tp.course_ends=Date.now()-1000; tp.jail_until=0; tp.hosp_until=0; tp.life=tp.max_life; tp.energy=tp.max_energy;
+        break;
+      }
+      case 'unlock_all_courses': {
+        tp.courses = tp.courses||{}; for(const c of C.COURSES) tp.courses[c.id]=Date.now(); tp.course=null; tp.course_ends=null; break;
+      }
+      case 'unlock_all_achievements': {
+        tp.achievements=tp.achievements||{}; for(const k of Object.keys(C.ACHIEVEMENTS)) tp.achievements[k]=Date.now(); break;
       }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
