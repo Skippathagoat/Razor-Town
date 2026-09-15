@@ -234,7 +234,7 @@
   }
 
   // ------- character creator
-  const CREATOR = { skin: 1, face: 0, hair: 2, shirt: 0, accent: 0, body: 0, origin: 'street', name: '' };
+  const CREATOR = { skin: 1, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, origin: 'street', name: '' };
   function openCreator(creds) {
     CREATOR.name = creds.username;
     G.creds = creds;

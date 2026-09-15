@@ -410,7 +410,7 @@ if (!LIVE) {
       shirt: document.querySelectorAll('[data-el-opt="shirt"]').length,
       accent: document.querySelectorAll('[data-el-opt="accent"]').length
     }));
-    ok('editor carries the full wardrobe (12/25/9/35/25)', counts.face === 12 && counts.hair === 25 && counts.skin === 9 && counts.shirt === 35 && counts.accent === 25, counts);
+    ok('editor carries the full wardrobe (22/25/9/14/8)', counts.face === 22 && counts.hair === 25 && counts.skin === 9 && counts.shirt === 14 && counts.accent === 8, counts);
     await pg.evaluate(() => document.querySelector('#modal-root [data-act="close-modal"]').click());
     await sleep(300);
     ok('close-modal actually closes', await pg.evaluate(() => document.querySelector('#modal-root').innerHTML === ''));

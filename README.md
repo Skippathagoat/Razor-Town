@@ -4,7 +4,7 @@
 
 > **New in the 2026 overhaul:** 1,735 playable additions, including 1,000 server-backed City Contracts — see **[FEATURES.md](FEATURES.md)** for the numbered ledger and verification details.
 
-**The look:** a Torn-style layout — status bars across the top header, a grouped left sidebar, dense zebra-striped panels and tables, and a full-length **modeled character** on your profile: two body builds (masculine & feminine), 9 skin tones, 18 faces, 38 hairstyles (including a full range of women's styles), 46 modern streetwear garments and 29 accents, each figure shaded and proportioned like a real character rather than a flat paper doll. The art and icons are our own; the structure is what makes it read like the games you already know.
+**The look:** a Torn-style layout — status bars across the top header, a grouped left sidebar, dense zebra-striped panels and tables, and a full-length **modeled character** on your profile: two body builds (masculine & feminine), 9 skin tones, 22 faces (beards, moustaches, scars, crows' feet), 25 haircuts and caps, 14 weathered coats and 8 trinkets — each figure shaded and proportioned like a real character rather than a flat paper doll, with a default of an older, rugged flat-cap-and-moustache type. The art and icons are our own; the structure is what makes it read like the games you already know.
 
 **Every citizen in this town is a real player.** There are no NPC characters and no seeded gangs: the streets start empty, and the only names on the wire, the leaderboard and the target list are people who actually signed up. Fight reports land in your inbox, so nobody gets jumped without being told.
 
@@ -35,7 +35,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ## 🎩 What you can do
 | Area | What's in it |
 |---|---|
-| **Character creator** | Fully modeled characters in two body builds (masc/fem) — 9 skin tones, 18 faces, 38 hairstyles with a full range of women's styles, 46 modern streetwear garments (hoodies, puffers, bombers, varsities, crop tops, dresses…) and 29 accents (snapbacks, chains, shades, headphones…). Garments dress the whole figure with matching bottoms & sneakers. Save up to 3 looks in your **wardrobe**. The vintage wardrobe is gone. Re-style any time from your profile. |
+| **Character creator** | Fully modeled characters in two body builds (masc/fem) — 9 skin tones, 22 faces (beards, moustaches, scars, crows' feet), 25 haircuts with flat caps, bowlers, fedoras and grey long locks, 14 weathered coats (overcoats, dusters, peacoats, frocks…), and 8 trinkets (cravats, watch chains, carnations, a briar pipe, wire specs…). Coats dress the whole figure with matching trousers and boots. Save up to 3 looks in your **wardrobe**. Clean-shaven faces are always available, but the town defaults to older, rugged sorts. Re-style any time from your profile. |
 | **Crimes** | 47 original jobs across 7 categories. Each costs nerve + energy, has skill requirements, odds, loot drops and bust risk. Chain successes for a **🔥 Spree** cash bonus. |
 | **Busted** | Screw up badly and you're **NICKED!** — the gaol keeps you below stairs (or the infirmary takes you in). Timers run live; energy refills while you wait. |
 | **Profile** | Your character model in full, every stat and slot, what you're wearing, your street title and followers, and your career record. |

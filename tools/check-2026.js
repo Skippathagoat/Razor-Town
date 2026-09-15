@@ -51,7 +51,7 @@ const uniq = Date.now().toString(36);
 
   // ---- avatar clamping (new catalog + 6 parts) ----
   const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9' } });
-  ok(pr.code === 200 && pr.j.p.avatar === '8|17|37|45|28|1', 'avatar clamp to new catalog');
+  ok(pr.code === 200 && pr.j.p.avatar === '8|21|24|13|7|1', 'avatar clamp to new catalog');
   const pr5 = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '1|2|3|4|5' } });
   ok(pr5.j.p.avatar === '1|2|3|4|5|0', 'legacy 5-part spec keeps body 0');
 
