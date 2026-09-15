@@ -69,10 +69,16 @@ fussy about capacity — upgrading to Pay-As-You-Go stays $0 within free limits 
 |---|---|
 | login | `ghost` |
 | password | `Delilah2023!@` |
-| character | **Ghost** — level 100, $500M net worth, #1 in the Gallery |
+| character | **Ghost** — created as level 100 / $500M net worth / #1 in the Gallery, on a *fresh* world only |
 
 Change it with the env vars `FOUNDER_USER` / `FOUNDER_PASS` / `FOUNDER_NAME` **before the first boot**, or
 run `node tools/founder.js reset` afterwards to set the password back to the constant.
+
+Empty the founder out (or any citizen) with `node tools/wipe-account.js ghost` — that resets the account to a
+blank recruit and sets a **wipe lock** so no restart or redeploy puts the demo millions back. `FOUNDER_DEMO=0`
+skips the demo founder entirely on a new world; `node tools/founder.js god` re-enables and restores it.
+A **redeploy re-boots the app, and boot recreates a maxed founder only when the founder account is missing** —
+a wiped one is left alone.
 
 ### 🛠 Keeping it up
 | Command | What it does |

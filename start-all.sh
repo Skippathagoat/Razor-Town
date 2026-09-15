@@ -61,6 +61,7 @@ else
 fi
 echo "      logs:    logs/server.log"
 echo "      founder: ghost / Delilah2023!@   (change with FOUNDER_PASS, or node tools/founder.js reset)"
+echo "                 wipe it to nothing with: node tools/wipe-account.js ghost   (add --dry-run to preview)"
 
 if [ "$PUBLIC" = "1" ]; then
   echo ""

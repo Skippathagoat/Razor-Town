@@ -27,7 +27,10 @@ they go missing. A brand-new empty host **builds its own world** on first boot (
 seed news, founder account), so there is nothing to set up by hand. `curl localhost:8787/api/health`
 reports liveness. True 24/7 for other people needs a host with an account — see **DEPLOY.md**.
 
-**Founder login:** `ghost` · `Delilah2023!@` — level 100, half a billion in the bank, top of the Gallery.
+**Founder login:** `ghost` · `Delilah2023!@` — created as a demo citizen (level 100, half a billion in the bank,
+top of the Gallery) and **currently wiped to nothing**: $0, level 1, empty bag, no gang, no property, no Wire Pass.
+Wipe it (or any account) yourself with `node tools/wipe-account.js ghost` — a wiped account stays wiped across
+restarts and redeploys, and `node tools/founder.js god` puts the demo back.
 (create your own account + character in about 30 seconds — accounts save to the city database and work from any device.)
 
 ---
@@ -69,6 +72,7 @@ is a fault worth reporting).
 
 **Verify the systems yourself — 432 automated checks, all passing:**
 `node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — avatar clamping, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, wardrobe, respec, insurance, friends/blocks/gifts, and the 1,000-lead City Contracts board (95 assertions).
+`node tools/check-wipe.js` runs 44 assertions on the wipe/reset path (blank citizen, refunds to neighbours, the boot lock).
 `node tools/check-systems.js` runs 236 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
 `node tools/check-api.js` adds 93 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
 `node tools/e2e/qa.mjs` drives a real headless browser through all tabs on desktop and phone, the whole casino floor, a full two-citizen bazaar sale, an auction bid-buyout-pull round, and the character editor (29 checks; one-time browser setup with `tools/e2e/setup-qa.sh`).
@@ -95,6 +99,8 @@ lib/game/contract-catalog.js 1,000 validated City Contract definitions (10 × 10
 lib/systems.js      the 2026 systems layer (arcade, hustles, garage, turf, stocks, cards…)
 lib/seed.js         builds the world; purges any legacy NPC citizens/gangs on boot
 tools/founder.js    (re)creates the founder account on a fresh world
+lib/wipe.js         account wipe/reset — blank a citizen and lock them against boot top-ups
+tools/wipe-account.js  wipe any account to nothing (`--dry-run`, `--like-new`, `--purge-news`)
 tools/dlfonts.js    one-time: downloads the self-hosted era fonts
 public/             the whole client (HTML/CSS/JS, self-hosted fonts, art)
 ```
@@ -113,7 +119,12 @@ npm install                              # installs better-sqlite3
 npm start                                # -> http://localhost:8787  (PORT overrides)
 npm run seed                             # optional; NPCs only if you set BOTS>0
 node tools/founder.js                    # (re)create login ghost / Delilah2023!@
+node tools/wipe-account.js ghost          # wipe any account back to a blank citizen (see --dry-run)
+FOUNDER_DEMO=0 node server.js             # boot without ever creating the demo founder
 ```
+`--dry-run` prints exactly what would go without touching the world. The wipe keeps the login, the password,
+the character's name and look, and cancels nothing that belongs to anyone else: bounties other players placed
+on the wiped account are refunded to them and any auction escrow the house was holding goes back to the bidder.
 `node server.js` self-bootstraps: an empty or missing database gets the citizens, gangs, seed news and
 the founder account automatically (see `lib/bootstrap.js`). No API keys, no build step, Node >= 18 only.
 

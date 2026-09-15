@@ -300,6 +300,23 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
   const bAfter = await call('/api/me', 'GET', null, B);
   (bAfter.status === 200 && !(bAfter.json.me.jail_until && bAfter.json.me.jail_until > Date.now())) ? ok('the inmate walks free') : bad('inmate freed', bAfter);
 
+  console.log('\n-- founder dev panel: zero grants and a real reset --');
+  const me0 = (await call('/api/me', 'GET', null, founder)).json.me;
+  const zero = await call('/api/dev/self', 'POST', { op: 'grant_cash', amount: 0 }, founder);
+  const me1 = (await call('/api/me', 'GET', null, founder)).json.me;
+  (zero.status === 200 && me1.money === me0.money) ? ok('an explicit grant of $0 pays out nothing') : bad('grant_cash amount 0', me1.money - me0.money);
+  const dflt = await call('/api/dev/self', 'POST', { op: 'grant_cash' }, founder);
+  const me2 = (await call('/api/me', 'GET', null, founder)).json.me;
+  (dflt.status === 200 && me2.money === me1.money + 100000) ? ok('an omitted amount still defaults to $100,000') : bad('grant_cash default', me2.money - me1.money);
+  const reset = await call('/api/dev/self', 'POST', { op: 'reset_self' }, founder);
+  const me3 = (await call('/api/me', 'GET', null, founder)).json.me;
+  (reset.status === 200 && me3.money === 2500 && me3.bank === 0 && me3.level === 1 && Object.keys(me3.items).length > 0)
+    ? ok('reset_self hands back a brand-new citizen') : bad('reset_self', reset.json && reset.json.err);
+  const gid = db.prepare("SELECT id, wiped FROM accounts WHERE username='ghost'").get();
+  (gid && gid.wiped === 1) ? ok('...and locks it, so boot cannot refill the founder demo') : bad('reset_self set the wipe lock', gid);
+  const others = await call('/api/me', 'GET', null, B);
+  (others.status === 200) ? ok('the rest of the town is still standing') : bad('other players after a reset', others.status);
+
   console.log('\n-- uptime / no-crash --');
   const h1 = await call('/api/health', 'GET');
   await wait(300);

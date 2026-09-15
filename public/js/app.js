@@ -3130,7 +3130,7 @@
     const op = btn.dataset.op;
     if (op === 'reset_self') {
       if (!($('#dev-wipe-confirm') && $('#dev-wipe-confirm').value.trim() === 'WIPE')) { U.toast('Type WIPE into the box first.', 'bad'); return; }
-      if (!confirm('Reset YOUR character to a brand-new citizen? Money, bank, items, stats, records — all gone. Sub + founder tier stay.')) return;
+      if (!confirm('Reset YOUR character to a brand-new citizen? Money, bank, items, stats, records, your stall, auction lots, bounties, gang seat and turf — all gone, and the town stays that way after a restart. Sub + founder tier stay.')) return;
     }
     const payload = { op };
     // amount source is the main dev-amt field; also support data-amt implicit

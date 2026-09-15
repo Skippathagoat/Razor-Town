@@ -57,7 +57,7 @@ Stack used here: your GitHub repo → Northflank builds the included **`Dockerfi
     Razor Town listening on http://0.0.0.0:8787
     ```
 14. Open your Northflank URL. You'll land on the 1920s auth screen → log in:
-    **`ghost`** / **`Delilah2023!@`** (level 100, $500M, #1 in the Gallery), or register a new recruit.
+    **`ghost`** / **`Delilah2023!@`** (a demo citizen on a fresh world), or register a new recruit.
 15. Quick check from your own machine:
     ```bash
     curl https://YOUR-URL/api/health
@@ -108,7 +108,9 @@ You can also turn **CD off** if you'd rather stage builds and promote them manua
 > every deploy, so those edits disappear — it's only useful for one-off commands (e.g. `node tools/founder.js reset`).
 
 ## 🔑 Founder account
-`ghost` / `Delilah2023!@` — created automatically when the world is empty. To force a password reset later,
+`ghost` / `Delilah2023!@` — created automatically when the world is empty. To wipe it (or anyone) back to
+nothing from the console: `node tools/wipe-account.js ghost --dry-run` then the same without `--dry-run`;
+the lock it leaves behind survives a redeploy. To force a password reset later,
 run once from the Northflank **Shell/Exec** tab:
 ```bash
 node tools/founder.js reset

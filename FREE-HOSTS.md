@@ -47,7 +47,7 @@ one step, and a host that wipes its disk is annoying, not fatal.
 4. Health check path: `/api/health` (already supported).
 5. Create a free **uptimerobot.com** monitor → HTTP(s) → your URL + `/api/health` → every 5 minutes.
 6. Open the URL. First boot log shows `Citizens: 42 | gangs: 3 | accounts: 43 | founder created: ghost`.
-   Log in as `ghost` / `Delilah2023!@`.
+   Log in as `ghost` / `Delilah2023!@` (a demo citizen — `node tools/wipe-account.js ghost` empties it out for good).
 
 ## Option 2 — Northflank (free + always-on + persistent saves)
 

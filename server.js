@@ -14,15 +14,21 @@ const C = require('./lib/game/content.js');
 const boot = require('./lib/bootstrap.js');
 const E = require('./lib/game/engine.js');
 const S = require('./lib/systems.js');
+const V = require('./lib/wipe.js');
 
-// First boot anywhere = playable world: seeds NPC citizens + gangs and creates the
-// founder account when the database is empty. Idempotent, so restarts are cheap.
+// First boot anywhere = playable world: seeds any requested NPC citizens + gangs and
+// creates the founder account when the database is empty. Idempotent, so restarts are
+// cheap — and an account reset with tools/wipe-account.js is deliberately left alone.
 const world = boot.ensureWorld();   // BOTS env controls NPCs; default 0 = real players only
 S.attach(W);                        // wire the 2026 systems once the DB exists
 console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items |', C.CITY_CONTRACTS.length, 'City Contracts');
 console.log('Citizens:', world.citizens, '| gangs:', world.gangs, '| accounts:', world.accounts,
   world.bots ? '| NPC bots: ' + world.bots : '| NPC bots: off (real players only)',
   world.founder && world.founder.created ? '| founder created: ' + world.founder.username : '');
+if (world.founder && world.founder.locked) {
+  console.log('Founder "' + world.founder.username + '" was wiped to nothing — boot left it that way.',
+    '(`node tools/founder.js god` puts the demo account back; `FOUNDER_DEMO=0` hides it for good.)');
+}
 if (world.purged && (world.purged.bots || world.purged.factions)) {
   console.log('Purged NPCs ->', world.purged.bots, 'accounts,', world.purged.characters, 'characters,',
     world.purged.factions, 'seeded gangs,', world.purged.news, 'news rows,',
@@ -341,15 +347,22 @@ const routes = async (req, res, urlPath, q) => {
   if (urlPath === '/api/dev/self' && method === 'POST') {
     const id = devOf(req, res); if (!id) return;
     const op = String(body.op || '');
-    const clampAmt = (n, dflt) => { n = parseInt(n, 10); if (!Number.isFinite(n) || n === 0) n = dflt || 0; return Math.max(-50000000, Math.min(50000000, n)); };
+    const clampAmt = (n, dflt) => {
+      // an explicit 0 must stay 0 — only a missing amount falls back to the default
+      const raw = (n === undefined || n === null || n === '');
+      n = raw ? (dflt || 0) : (parseInt(n, 10) || 0);
+      return Math.max(-50000000, Math.min(50000000, n));
+    };
     if (op === 'reset_self') {
-      const cur = W.load(id);
-      const fresh = A.defaultPlayerJson({ name: cur.name, origin: cur.origin || 'street', avatar: cur.avatar, bio: cur.bio });
-      fresh._acc = id;
-      fresh.sub_founder = cur.sub_founder;      // founder tier survives a wipe, by design
-      fresh.sub_until = cur.sub_until;
-      W.save(id, fresh);
-      return send(res, 200, { ok: true, me: withId(id, fresh) });
+      // The full reset: the character *and* everything they hold in the world (stall, auction
+      // lots, bounties, gang seat, turf, notes), plus the lock that stops the boot-time founder
+      // demo refilling them. Same code path as `node tools/wipe-account.js <name>`.
+      // The pass and the founder tier are deliberately kept, and the recruit's start is handed over.
+      let out;
+      try { out = V.wipe(id, { likeNew: true, keepPass: true }); }
+      catch (e) { return send(res, 400, { err: e.message }); }
+      const fresh = W.ready(W.load(id));
+      return send(res, 200, { ok: true, me: withId(id, fresh), cleared: out.gone });
     }
     const p = W.load(id);
     switch (op) {
@@ -529,9 +542,16 @@ const routes = async (req, res, urlPath, q) => {
       return send(res, 200, { ok: true, gone: pname });
     }
     const tp = W.load(target);
+    // an omitted amount still means $100k, but an explicit 0 must mean 0 — a "noop"
+    // grant that quietly paid out six figures is how a wiped account gets refilled
+    const grantAmt = () => {
+      const raw = body.amount;
+      const n = (raw === undefined || raw === null || raw === '') ? 100000 : (parseInt(raw, 10) || 0);
+      return Math.max(-50000000, Math.min(50000000, n));
+    };
     switch (op) {
-      case 'grant_cash': tp.money = (tp.money || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
-      case 'grant_bank': tp.bank = (tp.bank || 0) + Math.max(-50000000, Math.min(50000000, parseInt(body.amount, 10) || 100000)); break;
+      case 'grant_cash': tp.money = (tp.money || 0) + grantAmt(); break;
+      case 'grant_bank': tp.bank = (tp.bank || 0) + grantAmt(); break;
       case 'set_money': tp.money = Math.max(0, Math.min(50000000, parseInt(body.amount, 10) || 0)); break;
       case 'clear_status': tp.jail_until = 0; tp.hosp_until = 0; break;
       case 'clear_jail': tp.jail_until = 0; break;

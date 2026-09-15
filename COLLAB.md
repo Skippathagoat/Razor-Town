@@ -25,6 +25,7 @@ ours. Do not import art, fiction or data from Torn or any other game.
 | `lib/game/content.js` | Content tables: crimes, casino flavor, items, achievements. |
 | `lib/game/engine.js` | Rolls/resolution for content tables. |
 | `lib/seed.js`, `lib/bootstrap.js` | First-boot world build (founder + seed news). Runs automatically — **ignore `npm run seed`, it's a stale pointer; booting the server self-seeds**. |
+| `lib/wipe.js`, `tools/wipe-account.js` | Wiping/resetting an account to a blank citizen + the wipe lock that keeps boot from refilling it. |
 | `public/js/app.js` | All in-game UI (SPA). Tabs, renders, click handling, dev panel. |
 | `public/js/avatar.js` | SVG paper-doll renderer + jail mugshot renderer. Original art only. |
 | `public/js/net.js`, `public/js/ui.js` | Fetch/SSE helpers, shared widgets. |
