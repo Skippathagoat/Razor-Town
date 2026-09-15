@@ -70,11 +70,11 @@ restarts and redeploys, and `node tools/founder.js god` puts the demo back.
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
 is a fault worth reporting).
 
-**Verify the systems yourself — 432 automated checks, all passing:**
+**Verify the systems yourself — 481 automated checks, all passing:**
 `node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — avatar clamping, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, wardrobe, respec, insurance, friends/blocks/gifts, and the 1,000-lead City Contracts board (95 assertions).
 `node tools/check-wipe.js` runs 44 assertions on the wipe/reset path (blank citizen, refunds to neighbours, the boot lock).
 `node tools/check-systems.js` runs 236 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
-`node tools/check-api.js` adds 93 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
+`node tools/check-api.js` adds 98 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
 `node tools/e2e/qa.mjs` drives a real headless browser through all tabs on desktop and phone, the whole casino floor, a full two-citizen bazaar sale, an auction bid-buyout-pull round, and the character editor (29 checks; one-time browser setup with `tools/e2e/setup-qa.sh`).
 
 ### The auction rooms

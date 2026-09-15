@@ -153,7 +153,8 @@ Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 pla
     City Contracts, through real HTTP against throwaway accounts.
 90. **`tools/check-systems.js`** — 236 rule-level assertions (property, education, merits,
     bounties, bazaar, auctions, every casino table).
-91. **`tools/check-api.js`** — 93 API-contract assertions.
+91. **`tools/check-api.js`** — 98 API-contract assertions (including the founder dev-panel
+    grants and the full `reset_self` wipe).
 92. **`tools/check-http.js`** — 8 resilience checks (dead sessions, garbage payloads, path
     traversal, abuse without crash).
 
