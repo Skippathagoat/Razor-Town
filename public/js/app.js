@@ -2681,6 +2681,7 @@
     const sp = await sysPanel(true);
     if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The board is down. Try again.</p></div>'; return; }
     const gig = sp.gigs;
+    const contracts = sp.contracts || { offers: [], catalogSize: 1000, completed: 0, total: 0, wins: 0, until: sp.now };
     const cd = (readyTxt, left) => left ? `<span class="pill" style="color:var(--dim)">⏳ ${left}</span>` : `<span class="pill" style="color:var(--ok)">${readyTxt}</span>`;
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">📦 <span class="head">SIDE HUSTLES</span></div>
@@ -2692,6 +2693,12 @@
             <span class="v" style="text-align:right"><b style="color:var(--gold)">$${g.cash[0].toLocaleString()}–${g.cash[1].toLocaleString()}</b><br>
             <button class="btn cyan xs" data-act="gig_do" data-gig="${g.id}" ${me.energy < g.energy ? 'disabled' : ''}>Do it (${g.energy}⚡)</button></span></div>`).join('') || '<p style="color:var(--dim)">The board rotates soon.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${gig.left}/${(gig.ids || []).length * 3} gigs done this rotation · ${gig.slots} slots</div></div>
+        <div class="card" style="border-color:rgba(91,192,190,.38)"><div class="subhead">📜 City Contracts <span class="pill" style="color:var(--cyn);margin-left:5px">${contracts.catalogSize.toLocaleString()} live leads</span></div>
+          <p style="color:var(--mut);font-size:12px;margin:0 0 7px">Three one-shot jobs, selected for you every four hours. Match the weather for +8% success.</p>
+          ${(contracts.offers || []).map(c => `<div class="kv" style="align-items:center;border-top:1px solid var(--line);padding:8px 0"><span class="k" style="flex:1;min-width:0">${c.icon} <b>#${c.serial} · ${esc(c.name)}</b><br><span style="color:var(--dim);font-size:11px">${esc(c.sector)} · ${esc(c.blurb)}</span><br><span style="font-size:10.5px;color:${c.weatherLive ? 'var(--ok)' : 'var(--dim)'}">${c.weatherLive ? '✦ Weather edge active: +8%' : `Best in ${esc(c.weather)}`}</span></span>
+            <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br><span style="font-size:11px;color:var(--dim)">${c.chance}% · 🧠 ${c.nerve}</span><br>
+            <button class="btn ${c.done ? 'ghost' : 'cyan'} xs" data-act="city_contract" data-contract="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No leads came through this rotation.</p>'}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${contracts.completed}/3 closed this rotation · ${contracts.wins} clean / ${contracts.total} total · resets in ${fmtDur(Math.max(0, contracts.until - sp.now))}</div></div>
         <div class="card"><div class="subhead">🚚 Courier dispatch</div>
           ${sp.courier.active ? `<div class="kv"><span class="k">Package for</span><span class="v">${sp.courier.active.dest}</span></div>
             <div class="kv"><span class="k">Deadline</span><span class="v" style="color:${sp.courier.active.deadline < sp.now + 120000 ? 'var(--bad)' : 'var(--ok)'}">${fmtDur(Math.max(0, sp.courier.active.deadline - sp.now))}</span></div>
@@ -3359,6 +3366,7 @@
       }
       case 'lottery_go': { const r = await actCatch('lottery_buy', { qty: +btn.dataset.qty }); if (r) sysPanel(true).then(renderArcade); break; }
       case 'gig_do': { const r = await actCatch('gig_do', { gigId: btn.dataset.gig }); if (r) { U.toast(esc(r.res.text || 'Gig done.'), 'good'); sysPanel(true).then(renderHustle); } break; }
+      case 'city_contract': { const r = await actCatch('city_contract', { contractId: btn.dataset.contract }); if (r) { U.toast(esc(r.res.text || 'Contract resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
       case 'courier_take': { const r = await actCatch('courier_take'); if (r) sysPanel(true).then(renderHustle); break; }
       case 'courier_deliver': { const r = await actCatch('courier_deliver'); if (r) { U.toast(esc(r.res.text), r.res.late ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
       case 'fish_cast': { const r = await actCatch('fish_cast'); if (r) { U.toast(`${r.res.icon || '🎣'} ${esc(r.res.text)}`, 'good'); sysPanel(true).then(renderHustle); } break; }

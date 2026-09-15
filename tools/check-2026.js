@@ -45,6 +45,7 @@ const uniq = Date.now().toString(36);
   ok(Array.isArray(meta.j.districts) && meta.j.districts.length === 8, 'meta: districts');
   ok(Array.isArray(meta.j.titles) && meta.j.titles.length >= 5, 'meta: titles');
   ok(meta.j.items.drop_kicks && meta.j.items.insurance_pol, 'meta: new items');
+  ok(meta.j.contractCatalog && meta.j.contractCatalog.count === 1000 && meta.j.contractCatalog.offersPerRotation === 3, 'meta: 1,000 City Contracts');
 
   const panel = async (tok) => (await req('/api/sys/panel', { token: tok })).j;
 
@@ -127,6 +128,16 @@ const uniq = Date.now().toString(36);
 
   // ================= HUSTLES =================
   let p = await panel(A.tok);
+  ok(p.contracts && p.contracts.catalogSize === 1000 && p.contracts.offers.length === 3 && p.contracts.offers.every(c => c.id && c.chance >= 20 && c.chance <= 95), 'City Contracts board serves three valid offers');
+  const contract = p.contracts.offers[0];
+  r = detail(await act(A.tok, 'city_contract', { contractId: contract.id }));
+  ok(r.code === 200 && typeof r.j.res.win === 'boolean' && r.j.res.contract === contract.name, 'City Contract resolves server-side');
+  r = await act(A.tok, 'city_contract', { contractId: contract.id });
+  ok(r.code === 400, 'City Contract cannot be repeated in a rotation');
+  r = await act(A.tok, 'city_contract', { contractId: 'contract_not_on_board' });
+  ok(r.code === 400, 'City Contract rejects forged lead');
+  p = await panel(A.tok);
+  ok(p.contracts.completed === 1, 'City Contract completion persists on the board');
   const g0 = p.gigs.ids[0];
   const gigId = typeof g0 === 'object' ? g0.id : g0;
   r = detail(await act(A.tok, 'gig_do', { gigId }));

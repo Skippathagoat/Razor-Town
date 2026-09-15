@@ -1,8 +1,8 @@
 # 🧢 RAZOR TOWN
 
-**An online crime sim you can play in the browser — fully overhauled for 2026.** Modern streetwear, real modeled characters, an arcade floor of ten games, eight side hustles, a garage, a turf war across eight districts, stocks, crafting, trading cards and 47 crimes. Real accounts & passwords (hashed + salted), crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
+**An online crime sim you can play in the browser — fully overhauled for 2026.** Modern streetwear, real modeled characters, an arcade floor of ten games, eight side hustles, a 1,000-contract city board, a garage, a turf war across eight districts, stocks, crafting, trading cards and 47 crimes. Real accounts & passwords (hashed + salted), crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
 
-> **New in the 2026 overhaul:** 135 new features — see **[FEATURES.md](FEATURES.md)** for the full numbered ledger, verified by 403 automated checks.
+> **New in the 2026 overhaul:** 1,735 playable additions, including 1,000 server-backed City Contracts — see **[FEATURES.md](FEATURES.md)** for the numbered ledger and verification details.
 
 **The look:** a Torn-style layout — status bars across the top header, a grouped left sidebar, dense zebra-striped panels and tables, and a full-length **modeled character** on your profile: two body builds (masculine & feminine), 9 skin tones, 18 faces, 38 hairstyles (including a full range of women's styles), 46 modern streetwear garments and 29 accents, each figure shaded and proportioned like a real character rather than a flat paper doll. The art and icons are our own; the structure is what makes it read like the games you already know.
 
@@ -54,7 +54,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 | **Messages** | Telegrams — send a note to any citizen by character name. |
 | **Live city** | A town wire fed by what real players actually do — heists, scraps, gang notices — plus plain street colour when the town is quiet, hourly weather and rotating city events. |
 | **🎮 Arcade** *(tab 7)* | Ten games: Mines, Plinko, Dice, Coin flip, Hoops, Buzz wire, Memory, Safe cracker, scratch cards and a daily lottery. |
-| **📦 Hustles** *(tab 8)* | Gig board (rotates every 4h), courier runs, canal fishing, scrapyard salvage, plasma donation, fight trials, busking, storage-unit auctions (hints only until you pay) and mystery boxes. |
+| **📦 Hustles** *(tab 8)* | A three-lead **City Contracts** board drawn from 1,000 distinct jobs every 4h, plus gig board, courier runs, canal fishing, scrapyard salvage, plasma donation, fight trials, busking, storage-unit auctions (hints only until you pay) and mystery boxes. |
 | **🚗 Garage** *(tab 9)* | 8 cars with ratings, a 10-color paint shop, street races for stakes, and a chop shop. |
 | **🗺️ Turf** *(tab 5)* | 8 districts to claim with influence earned from crimes and fight wins; held turf pays collectible income. |
 | **💸 Money games** | Stocks & crypto with transparent fees, staking, term deposits, 6-hour dividends, a crafting bench (7 recipes), trading-card packs with a set bonus, weekly limited drops, insurance policies, clout followers that pay out, and gifts between citizens. |
@@ -67,10 +67,10 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
 is a fault worth reporting).
 
-**Verify the systems yourself — 403 automated checks, all passing:**
-`node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — avatar clamping, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, wardrobe, respec, insurance, friends/blocks/gifts (89 assertions).
-`node tools/check-systems.js` runs 219 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
-`node tools/check-api.js` adds 87 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
+**Verify the systems yourself — 432 automated checks, all passing:**
+`node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — avatar clamping, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, wardrobe, respec, insurance, friends/blocks/gifts, and the 1,000-lead City Contracts board (95 assertions).
+`node tools/check-systems.js` runs 236 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
+`node tools/check-api.js` adds 93 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
 `node tools/e2e/qa.mjs` drives a real headless browser through all tabs on desktop and phone, the whole casino floor, a full two-citizen bazaar sale, an auction bid-buyout-pull round, and the character editor (29 checks; one-time browser setup with `tools/e2e/setup-qa.sh`).
 
 ### The auction rooms
@@ -91,6 +91,7 @@ lib/accounts.js     accounts, salted+hashed passwords, signed session cookies
 lib/world.js        all gameplay actions + rules
 lib/game/engine.js  battle math, progression, regen timers (pure functions)
 lib/game/content.js the content DB (crimes/items/jobs/gyms/feats/cars/gigs/districts/recipes)
+lib/game/contract-catalog.js 1,000 validated City Contract definitions (10 × 10 × 10)
 lib/systems.js      the 2026 systems layer (arcade, hustles, garage, turf, stocks, cards…)
 lib/seed.js         builds the world; purges any legacy NPC citizens/gangs on boot
 tools/founder.js    (re)creates the founder account on a fresh world

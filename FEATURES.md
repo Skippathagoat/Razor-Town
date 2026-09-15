@@ -1,9 +1,6 @@
 # Razor Town — 2026 Feature Ledger
 
-Everything new in the 2026 overhaul. Numbered so you can count them: **735 new features**, plus a
-rebuilt character engine and a full content expansion. Every system below is live, wired to the UI,
-and covered by the automated check suites (`tools/check-2026.js`, `check-api.js`, `check-systems.js`,
-`check-http.js` — 403 assertions in total).
+Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
 
 ---
 
@@ -152,11 +149,11 @@ and covered by the automated check suites (`tools/check-2026.js`, `check-api.js`
     get).
 88. **Tracking hooks** — every action feeds challenges, influence, mission tallies and lazy income
     without touching core rules.
-89. **`tools/check-2026.js`** — 89 end-to-end assertions driving every new action family through
-    real HTTP against throwaway accounts.
-90. **`tools/check-systems.js`** — 219 rule-level assertions (property, education, merits,
+89. **`tools/check-2026.js`** — 95 end-to-end assertions driving every new action family, including
+    City Contracts, through real HTTP against throwaway accounts.
+90. **`tools/check-systems.js`** — 236 rule-level assertions (property, education, merits,
     bounties, bazaar, auctions, every casino table).
-91. **`tools/check-api.js`** — 87 API-contract assertions.
+91. **`tools/check-api.js`** — 93 API-contract assertions.
 92. **`tools/check-http.js`** — 8 resilience checks (dead sessions, garbage payloads, path
     traversal, abuse without crash).
 
@@ -811,13 +808,40 @@ and covered by the automated check suites (`tools/check-2026.js`, `check-api.js`
 
 ---
 
+## 📜 City Contracts — 1,000 server-backed jobs
+
+**Features 736–1,735: City Contract #001 through City Contract #1,000.** The catalog is exactly
+**10 playbooks × 10 objectives × 10 city sectors**. Each of the 1,000 entries has its own stable ID,
+serial number, name, sector, briefing, energy and nerve cost, base success chance, cash range,
+reputation/XP reward, failure consequence, and preferred weather condition. The catalog is generated
+from the original playbook/objective/sector data in `lib/game/contract-catalog.js` and hard-fails at
+boot if it is ever not exactly 1,000 entries.
+
+The feature is playable rather than a list of placeholders:
+
+- The Hustles tab gives every citizen **three unique City Contracts** every four hours, selected
+  deterministically from the 1,000-entry catalog for that citizen and rotation.
+- A contract can be closed once per rotation. The server owns the active board and rejects forged,
+  stale, or repeated contract IDs.
+- Each run spends its displayed energy and nerve, resolves against its server-side chance, pays its
+  own cash/reputation/XP rewards on a clean close, and has a modest life/reputation consequence on a
+  miss. Matching the listed live weather grants +8% success.
+- Progress persists: the board shows the current rotation, completed leads, all-time clean closes,
+  total attempts, and reset time. Twenty successful closes unlock the Contract Closer feat.
+- City Contracts feed the daily challenge pool (`Close 2 city contracts`) and are exposed in
+  `/api/meta` as a 1,000-entry catalog count so clients and checks can verify the expansion without
+  downloading unnecessary data.
+
+
+---
+
 ### Verified working
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every 2026 action family over HTTP | **89 / 89 pass** |
-| `node tools/check-api.js` | core API contract | **87 / 87 pass** |
-| `node tools/check-systems.js` | rules of every system | **219 / 219 pass** |
+| `node tools/check-2026.js` | every 2026 action family over HTTP, including City Contracts | **95 / 95 pass** |
+| `node tools/check-api.js` | core API contract | **93 / 93 pass** |
+| `node tools/check-systems.js` | rules of every system, including the 1,000-contract catalog | **236 / 236 pass** |
 | `node tools/check-http.js` | resilience & abuse | **8 / 8 pass** |
 
 Avatar renderer additionally smoke-tested across 30,000 random part combinations with zero broken

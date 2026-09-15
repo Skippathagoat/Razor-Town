@@ -89,7 +89,7 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
   const mailLogin = await call('/api/login', 'POST', { username: 'alfie@test.io', password: 'password1' });
   (mailLogin.status === 200 && mailLogin.json.me.name === 'Alfie Riggs') ? ok('an account can log in with its email') : bad('email login', mailLogin);
   const meta = await call('/api/meta', 'GET');
-  (meta.status === 200 && meta.json.crimes && meta.json.items && meta.json.origins) ? ok('/api/meta serves content') : bad('/api/meta', meta);
+  (meta.status === 200 && meta.json.crimes && meta.json.items && meta.json.origins && meta.json.contractCatalog && meta.json.contractCatalog.count === 1000) ? ok('/api/meta serves content + 1,000-contract catalog') : bad('/api/meta', meta);
   const meA = await call('/api/me', 'GET', null, A);
   (meA.status === 200 && meA.json.me.name === 'Alfie Riggs') ? ok('/api/me returns the logged-in self') : bad('/api/me', meA);
 

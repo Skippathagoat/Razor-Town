@@ -17,6 +17,8 @@ const W = require('../lib/world.js');
 const E = require('../lib/game/engine.js');
 const CT = require('../lib/game/content.js');
 const A = require('../lib/accounts.js');
+const S = require('../lib/systems.js');
+S.attach(W);
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail) => {
@@ -779,6 +781,26 @@ head('The mission board');
   const r2 = W.missionClaim(ma.id, 'm_longcon');
   q = load(ma.id);
   ok('burning the board pays the big envelope', !!r2.p && q.money === 15000 + 250000 && (q.items.crypto_rig || 0) === 1, [q.money, q.items.crypto_rig]);
+}
+
+
+head('City Contracts — 1,000 lead catalog');
+{
+  ok('the City Contracts catalog contains exactly 1,000 unique stable IDs', CT.CITY_CONTRACTS.length === 1000 && new Set(CT.CITY_CONTRACTS.map(c => c.id)).size === 1000 && new Set(CT.CITY_CONTRACTS.map(c => c.name)).size === 1000);
+  const ca = A.createAccount('contracta', 'pw123456', 'user'); A.createPlayerForAccount(ca, { name: 'Contract Runner', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  let q = load(ca.id); q.energy = 100; q.nerve = 20; q.life = q.max_life; W.save(ca.id, q);
+  const board = S.cityContractBoard(load(ca.id));
+  ok('a citizen sees three unique valid contracts from the catalog', board.catalogSize === 1000 && board.offers.length === 3 && new Set(board.offers.map(c => c.id)).size === 3 && board.offers.every(c => c.chance >= 20 && c.chance <= 95), board);
+  const first = S.cityContractDo(ca.id, board.offers[0].id);
+  ok('a City Contract resolves and returns a public player view', !!first.ok && first.p && typeof first.res.win === 'boolean', first);
+  ok('the same City Contract cannot be resolved twice in a rotation', !!S.cityContractDo(ca.id, board.offers[0].id).err);
+  ok('forged City Contract IDs are refused', !!S.cityContractDo(ca.id, 'contract_not_on_board').err);
+  const updated = S.cityContractBoard(load(ca.id));
+  ok('a completed City Contract persists on the current board', updated.completed === 1 && updated.offers.some(c => c.id === board.offers[0].id && c.done));
+  const before = (S.sys(load(ca.id)).today.contracts || 0);
+  S.track(ca.id, 'city_contract', first);
+  S.track(ca.id, 'city_contract', { err: 'nope' });
+  ok('only a resolved City Contract advances daily challenge progress', (S.sys(load(ca.id)).today.contracts || 0) === before + 1);
 }
 
 head('Daily Streak');
