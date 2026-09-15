@@ -1179,7 +1179,11 @@ input:focus, select:focus, textarea:focus { border-color: #a8abb2 !important; bo
 .gang-list-desc { min-height:34px; color:var(--mut); font-size:12px; margin:10px 0; line-height:1.45; }
 .gang-status { font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
 .gang-status.open { color:var(--ok); }.gang-status.apply { color:var(--gold); }.gang-status.closed { color:var(--dim); }
-.gang-metrics { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:8px; margin:0 0 12px; }
+.gang-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:0 0 12px; }
+.gang-chain { padding:8px 12px; border:1px dashed var(--line2); font-size:12px; color:var(--mut); margin:0 0 10px; }
+.gang-chain.on { border:1px solid rgba(226,183,20,.5); color:var(--gold); background:rgba(226,183,20,.06); }
+.gang-op.locked { opacity:.6; border-left:3px solid var(--bad); }
+.war-room { border-top:2px solid var(--bad) !important; }
 .gang-metric { min-height:78px; padding:11px 12px; background:linear-gradient(180deg,#2b2d33,#22242a); border:1px solid var(--line); border-top:2px solid #64666d; }
 .gang-metric span, .gang-metric small { display:block; font-size:9px; letter-spacing:.1em; color:var(--dim); text-transform:uppercase; }.gang-metric b { display:block; margin:3px 0 1px; color:var(--ink); font-size:17px; font-variant-numeric:tabular-nums; }.gang-metric small { color:var(--mut); letter-spacing:0; text-transform:none; }
 .crew-roll-card p, .gang-section-copy { color:var(--mut); font-size:12px; line-height:1.5; margin:8px 0 10px; }.crew-roll-bottom { display:flex; align-items:center; justify-content:space-between; gap:8px; }.roll-done { color:var(--ok); border-color:rgba(120,182,139,.45) !important; }
