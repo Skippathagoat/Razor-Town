@@ -27,6 +27,7 @@
     { id: 'casino', label: 'Betting', ico: '🎰', key: 'g' },
     { id: 'arcade', label: 'Arcade', ico: '🎮', key: '7' },
     { id: 'hustle', label: 'Side Hustles', ico: '📦', key: '8' },
+    { id: 'life', label: 'Street Life', ico: '🌃', key: '6' },
     { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
@@ -425,6 +426,7 @@
         <span class="cash mono" id="cash-val">${money(me.money)}</span>
         <span class="banked mono" id="bank-val">🏦 ${money(me.bank)}</span>
       </div>
+      <button class="iconbtn" data-act="street_snack" title="Grab the cheapest street food">🌯</button>
       <button class="iconbtn" data-act="transfer" title="Money transfer — wire cash to a citizen, or move money in and out of the branch">💸</button>
       <div class="hud-meta">
         <span class="hstat" title="Level"><span class="hl">LV</span><span class="hv">${me.level}</span></span>
@@ -538,7 +540,7 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
-    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'garage', 'turf'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -600,7 +602,7 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -883,7 +885,7 @@
 
   function reRenderCurrent(res) {
     const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -1070,6 +1072,17 @@
           <button class="btn sm gold" data-act="dev_self" data-op="grant_pass">Give 7-day pass</button>
           <button class="btn sm gold" data-act="dev_self" data-op="grant_founder_pass">Give founder ∞</button>
           <button class="btn sm bad" data-act="dev_self" data-op="revoke_pass">Revoke pass</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <button class="btn sm gold" data-act="dev_self" data-op="god_mode">⚡ God mode</button>
+          <button class="btn sm" data-act="dev_self" data-op="fill_energy">Fill energy</button>
+          <button class="btn sm" data-act="dev_self" data-op="fill_nerve">Fill nerve</button>
+          <button class="btn sm" data-act="dev_self" data-op="fill_happy">Fill happy</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_influence">+500 influence</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="grant_followers">+1k followers</button>
+          <button class="btn sm gold" data-act="dev_self" data-op="spawn_all_cars">Spawn every car</button>
+          <button class="btn sm bad" data-act="dev_self" data-op="jail_self">Jail me 10m</button>
+          <button class="btn sm bad" data-act="dev_self" data-op="wipe_items">Empty bag</button>
         </div>
         <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1653,6 +1666,13 @@
         ${typeof it.sell === 'number' ? `<button class="btn sm ghost" data-act="sell" data-item="${id}">Sell</button>` : ''}
         </div></div>`;
       }).join('')}</div>`;
+    const bq = $('#bag-q');
+    if (bq) bq.addEventListener('input', () => {
+      const q = bq.value.toLowerCase();
+      $$('#view .itemrow').forEach(row => {
+        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
     renderItemsSys();
   }
   // ---- ITEMS EXTRAS: craft bench + trading card set
@@ -2743,13 +2763,81 @@
     }));
   }
 
+  // ---------------- STREET LIFE ----------------
+  async function renderStreet() {
+    const v = $('#view'); const me = G.me;
+    const sp = await sysPanel(true);
+    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The street is quiet.</p></div>'; return; }
+    const st = sp.street || { catalogs: {}, pets: [], ink: [], contacts: [], heat: 0, streak: { n: 0 } };
+    const cat = st.catalogs || {};
+    const heat = st.heat || 0;
+    const heatCol = heat > 70 ? 'var(--bad)' : heat > 35 ? 'var(--gold)' : 'var(--ok)';
+    const ownedPet = new Set((st.pets || []).map(x => x.id));
+    const ownedInk = new Set((st.ink || []).map(x => x.id));
+    const known = new Set((st.contacts || []).map(x => x.id));
+    const ownedSkin = new Set(st.skins || []);
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🌃 <span class="head">Street Life</span></div>
+      <div class="vdesc">Eat, go out, keep animals, get inked, call in favours, crash at a hide. Heat rises when you work the street.</div></div>
+      <div class="pill" style="color:${heatCol}">HEAT ${heat}/100</div></div>
+      <div class="grid2">
+        <div class="card"><div class="subhead">📅 Daily drop — streak ${st.streak.n || 0}</div>
+          <p style="color:var(--mut);font-size:12px">${st.streak.claimed ? 'Claimed today. Come back tomorrow.' : ((st.streak.next && st.streak.next.desc) || 'A thin envelope is waiting.')}</p>
+          <button class="btn gold" data-act="street_streak" ${st.streak.claimed ? 'disabled' : ''}>Claim daily</button>
+          <button class="btn ghost xs" data-act="street_cool" style="margin-left:6px">Quiet the heat ($$)</button>
+        </div>
+        <div class="card"><div class="subhead">🏠 Hide ${st.hideout ? '· ' + esc(st.hideout.name) : ''}</div>
+          ${st.hideout ? `<p style="color:var(--mut);font-size:12px">${esc(st.hideout.desc)}</p>
+            <button class="btn cyan" data-act="street_rest" ${st.restReady ? '' : 'disabled'}>Crash here (+energy, −heat)</button>` : '<p style="color:var(--dim);font-size:12px">Buy a hide to rest off heat.</p>'}
+          ${(cat.hideouts || []).map(h => `<div class="kv"><span class="k">${esc(h.name)} <span style="color:var(--dim);font-size:11px">${esc(h.desc)}</span></span>
+            <span class="v">${money(h.price)} <button class="btn xs ${st.hideout && st.hideout.id===h.id ? 'ghost' : 'gold'}" data-act="street_hide" data-hide="${h.id}" ${st.hideout && st.hideout.id===h.id ? 'disabled' : ''}>${st.hideout && st.hideout.id===h.id ? 'Yours' : 'Take'}</button></span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">🌯 Street food ${st.foodReady ? '' : '· digesting'}</div>
+          ${(cat.food || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${money(f.price)} <button class="btn cyan xs" data-act="street_eat" data-food="${f.id}" ${st.foodReady && me.money>=f.price ? '' : 'disabled'}>Eat</button></span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">🍸 Nightlife ${st.nightReady ? '' : '· still ringing'}</div>
+          ${(cat.venues || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · cover ${money(f.cover)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v"><button class="btn gold xs" data-act="street_out" data-venue="${f.id}" ${st.nightReady && me.money>=f.cover && me.energy>=4 ? '' : 'disabled'}>Go out</button></span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">🐾 Pets ${st.pets.length}/4</div>
+          ${(cat.pets || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${ownedPet.has(f.id) ? `<button class="btn ghost xs" data-act="street_rehome" data-pet="${f.id}">Rehome</button>` : `${money(f.price)} <button class="btn cyan xs" data-act="street_pet" data-pet="${f.id}" ${me.money>=f.price && st.pets.length<4 ? '' : 'disabled'}>Keep</button>`}</span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">✒️ Ink ${st.ink.length} pieces</div>
+          ${(cat.tats || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · ${esc(f.slot)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${ownedInk.has(f.id) ? '<span class="pill">on you</span>' : `${money(f.price)} <button class="btn gold xs" data-act="street_ink" data-tat="${f.id}" ${me.money>=f.price ? '' : 'disabled'}>Sit</button>`}</span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">📡 Contacts</div>
+          ${(cat.contacts || []).map(f => `<div class="kv"><span class="k">${f.icon || '📡'} ${esc(f.name)} <span style="color:var(--dim)">${esc(f.role || '')} · lv ${f.lvl||1}</span><div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${known.has(f.id) ? `<button class="btn cyan xs" data-act="street_call" data-contact="${f.id}" ${st.callReady ? '' : 'disabled'}>Call</button>` : `<button class="btn ghost xs" data-act="street_meet" data-contact="${f.id}">Meet</button>`}</span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">📦 Crates</div>
+          ${(cat.crates || []).map(f => `<div class="kv"><span class="k">${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${money(f.price)} <button class="btn gold xs" data-act="street_crate" data-crate="${f.id}">Crack</button></span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">🔫 Weapon finishes</div>
+          ${(cat.skins || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v">${ownedSkin.has(f.id) ? `<button class="btn ${st.skinOn===f.id?'gold':'ghost'} xs" data-act="street_wear_skin" data-skin="${f.id}">${st.skinOn===f.id?'On':'Wear'}</button>` : `${money(f.price)} <button class="btn cyan xs" data-act="street_skin" data-skin="${f.id}">Buy</button>`}</span></div>`).join('')}
+        </div>
+        <div class="card"><div class="subhead">🔧 Vehicle kits — fit from the Garage too</div>
+          <p style="color:var(--mut);font-size:12px">${(cat.mods||[]).length} kits. Open Garage, then Street Life after you own a car. Fit via the buttons below if you have a car in bay 0.</p>
+          ${(cat.mods || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · ${money(f.price)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
+            <span class="v"><button class="btn cyan xs" data-act="street_mod" data-mod="${f.id}" data-idx="0">Fit bay 0</button></span></div>`).join('')}
+        </div>
+      </div>`;
+  }
+
   // ---------------- SIDE HUSTLES ----------------
   async function renderHustle() {
     const v = $('#view'); const me = G.me;
     const sp = await sysPanel(true);
     if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The board is down. Try again.</p></div>'; return; }
-    const gig = sp.gigs;
+    const gig = sp.gigs || { ids: [], left: 0, done: 0, slots: 0 };
     const contracts = sp.contracts || { offers: [], catalogSize: 1000, completed: 0, total: 0, wins: 0, until: sp.now };
+    sp.courier = sp.courier || { active: null, at: 0 };
+    sp.fish = sp.fish || { caught: 0, at: 0 };
+    sp.salvage = sp.salvage || { runs: 0, at: 0 };
     const cd = (readyTxt, left) => left ? `<span class="pill" style="color:var(--dim)">⏳ ${left}</span>` : `<span class="pill" style="color:var(--ok)">${readyTxt}</span>`;
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">📦 <span class="head">SIDE HUSTLES</span></div>
@@ -2757,7 +2845,7 @@
       ${sp.event ? `<div class="card" style="border-color:rgba(226,183,20,.5);padding:8px 12px;display:flex;gap:10px;align-items:center"><span style="font-size:20px">${sp.event.icon}</span><div style="flex:1"><b>${sp.event.name}</b> <span style="color:var(--dim);font-size:12px">— ${sp.event.desc}</span></div><span class="mono" style="color:var(--gold)">${fmtDur(sp.event.until - sp.now)}</span></div>` : ''}
       <div class="grid2">
         <div class="card"><div class="subhead">📋 Gig board — refreshes every 4h</div>
-          ${(gig.ids || []).map(g => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${g.icon} <b>${g.name}</b><br><span style="color:var(--dim);font-size:11px">${g.desc}</span></span>
+          ${(gig.ids || []).filter(g => g && g.id).map(g => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${g.icon} <b>${g.name}</b><br><span style="color:var(--dim);font-size:11px">${g.desc}</span></span>
             <span class="v" style="text-align:right"><b style="color:var(--gold)">$${g.cash[0].toLocaleString()}–${g.cash[1].toLocaleString()}</b><br>
             <button class="btn cyan xs" data-act="gig_do" data-gig="${g.id}" ${me.energy < g.energy ? 'disabled' : ''}>Do it (${g.energy}⚡)</button></span></div>`).join('') || '<p style="color:var(--dim)">The board rotates soon.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${gig.left}/${(gig.ids || []).length * 3} gigs done this rotation · ${gig.slots} slots</div></div>
@@ -2767,6 +2855,18 @@
             <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br><span style="font-size:11px;color:var(--dim)">${c.chance}% · 🧠 ${c.nerve}</span><br>
             <button class="btn ${c.done ? 'ghost' : 'cyan'} xs" data-act="city_contract" data-contract="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No leads came through this rotation.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${contracts.completed}/3 closed this rotation · ${contracts.wins} clean / ${contracts.total} total · resets in ${fmtDur(Math.max(0, contracts.until - sp.now))}</div></div>
+        <div class="card" style="border-color:rgba(226,183,20,.35)"><div class="subhead">🌙 Night Briefs <span class="pill" style="color:var(--gold);margin-left:5px">${((sp.nights && sp.nights.catalogSize) || 1000).toLocaleString()} live leads</span></div>
+          <p style="color:var(--mut);font-size:12px;margin:0 0 7px">Three after-dark jobs, selected for you every four hours. Match the weather for +8% success.</p>
+          ${((sp.nights && sp.nights.offers) || []).map(c => `<div class="kv" style="align-items:center;border-top:1px solid var(--line);padding:8px 0"><span class="k" style="flex:1;min-width:0">${c.icon} <b>#${c.serial} · ${esc(c.name)}</b><br><span style="color:var(--dim);font-size:11px">${esc(c.sector)} · ${esc(c.blurb)}</span></span>
+            <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br>
+            <button class="btn ${c.done ? 'ghost' : 'gold'} xs" data-act="night_lead" data-lead="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No briefs came through this rotation.</p>'}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${(sp.nights && sp.nights.completed) || 0}/3 closed · ${(sp.nights && sp.nights.wins) || 0} clean</div></div>
+        <div class="card" style="border-color:rgba(90,200,250,.28)"><div class="subhead">📡 Wire Favours <span class="pill" style="color:var(--ok);margin-left:5px">${((sp.favours && sp.favours.catalogSize) || 600).toLocaleString()} on the wire</span></div>
+          <p style="color:var(--mut);font-size:12px;margin:0 0 8px">Quiet jobs from the street. Three new favours every 4 hours. ${(sp.favours && sp.favours.total) || 0} closed all-time.</p>
+          ${((sp.favours && sp.favours.offers) || []).map(c => `<div class="kv" style="align-items:flex-start"><span class="k">${c.done ? '✓ ' : ''}${c.name}<div style="font-size:11px;color:var(--dim);font-weight:400;margin-top:2px">${c.sector} · ${c.xp} XP · ${c.chance}% · ${c.weatherLive ? 'weather bonus' : c.weather}</div></span>
+            <span class="v" style="text-align:right">${money(c.cash[0])}–${money(c.cash[1])}<br>
+            <button class="btn ${c.done ? 'ghost' : 'gold'} xs" data-act="wire_favour" data-favour="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No favours on this rotation.</p>'}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${(sp.favours && sp.favours.completed) || 0}/3 closed · ${(sp.favours && sp.favours.wins) || 0} paid</div></div>
         <div class="card"><div class="subhead">🚚 Courier dispatch</div>
           ${sp.courier.active ? `<div class="kv"><span class="k">Package for</span><span class="v">${sp.courier.active.dest}</span></div>
             <div class="kv"><span class="k">Deadline</span><span class="v" style="color:${sp.courier.active.deadline < sp.now + 120000 ? 'var(--bad)' : 'var(--ok)'}">${fmtDur(Math.max(0, sp.courier.active.deadline - sp.now))}</span></div>
@@ -3450,6 +3550,24 @@
       case 'lottery_go': { const r = await actCatch('lottery_buy', { qty: +btn.dataset.qty }); if (r) sysPanel(true).then(renderArcade); break; }
       case 'gig_do': { const r = await actCatch('gig_do', { gigId: btn.dataset.gig }); if (r) { U.toast(esc(r.res.text || 'Gig done.'), 'good'); sysPanel(true).then(renderHustle); } break; }
       case 'city_contract': { const r = await actCatch('city_contract', { contractId: btn.dataset.contract }); if (r) { U.toast(esc(r.res.text || 'Contract resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
+      case 'night_lead': { const r = await actCatch('night_lead', { leadId: btn.dataset.lead }); if (r) { U.toast(esc(r.res.text || 'Brief resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
+      case 'wire_favour': { const r = await actCatch('wire_favour', { favourId: btn.dataset.favour }); if (r) { U.toast(esc(r.res.text || 'Favour resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
+      case 'street_eat': { const r = await actCatch('street_eat', { foodId: btn.dataset.food }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_out': { const r = await actCatch('street_out', { venueId: btn.dataset.venue }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_pet': { const r = await actCatch('street_pet', { petId: btn.dataset.pet }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_rehome': { const r = await actCatch('street_rehome', { petId: btn.dataset.pet }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_ink': { const r = await actCatch('street_ink', { tatId: btn.dataset.tat }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_meet': { const r = await actCatch('street_meet', { contactId: btn.dataset.contact }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_call': { const r = await actCatch('street_call', { contactId: btn.dataset.contact }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_hide': { const r = await actCatch('street_hide', { hideId: btn.dataset.hide }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_rest': { const r = await actCatch('street_rest'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_crate': { const r = await actCatch('street_crate', { crateId: btn.dataset.crate }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_skin': { const r = await actCatch('street_skin', { skinId: btn.dataset.skin }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_wear_skin': { const r = await actCatch('street_wear_skin', { skinId: btn.dataset.skin }); if (r) sysPanel(true).then(renderStreet); break; }
+      case 'street_mod': { const r = await actCatch('street_mod', { idx: +btn.dataset.idx, modId: btn.dataset.mod }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_streak': { const r = await actCatch('street_streak'); if (r) { U.toast(esc(r.res.text), 'good'); SND.cash(); sysPanel(true).then(renderStreet); } break; }
+      case 'street_cool': { const r = await actCatch('street_cool'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
+      case 'street_snack': { const r = await actCatch('street_snack'); if (r) { U.toast(esc(r.res.text), 'good'); } break; }
       case 'courier_take': { const r = await actCatch('courier_take'); if (r) sysPanel(true).then(renderHustle); break; }
       case 'courier_deliver': { const r = await actCatch('courier_deliver'); if (r) { U.toast(esc(r.res.text), r.res.late ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
       case 'fish_cast': { const r = await actCatch('fish_cast'); if (r) { U.toast(`${r.res.icon || '🎣'} ${esc(r.res.text)}`, 'good'); sysPanel(true).then(renderHustle); } break; }

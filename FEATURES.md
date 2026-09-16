@@ -1,5 +1,7 @@
 # Razor Town — 2026 Feature Ledger
 
+**Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
+
 Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
 
 ---

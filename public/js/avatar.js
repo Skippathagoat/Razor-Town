@@ -17,8 +17,9 @@
 
   // ------------------------------------------------------------------ catalogue
   const SKINS = ['#d9a878', '#c68b5f', '#a96d45', '#7d4e2f', '#e0bd9a',
-                 '#b97a4c', '#8f5c39', '#efd8ba', '#5e3a22'];
-  const SKIN_NAMES = ['Sun-weathered', 'Ruddy', 'Olive', 'Deep brown', 'Pale', 'Bronzed', 'Umber', 'Ivory', 'Ebony'];
+                 '#b97a4c', '#8f5c39', '#efd8ba', '#5e3a22',
+                 '#f3c9a4', '#6b3f28', '#c4a07a'];
+  const SKIN_NAMES = ['Sun-weathered', 'Ruddy', 'Olive', 'Deep brown', 'Pale', 'Bronzed', 'Umber', 'Ivory', 'Ebony', 'Warm peach', 'Mahogany', 'Honey'];
 
   // hair entry: { t: shape, c: colour, cap: headwear, hc: hair under headwear, g: grey streak, f: feminine-leaning }
   const HAIRS = [
@@ -46,7 +47,12 @@
     { t: 'longw',     c: '#2a1c10',  f: 1,                              n: 'Long dark waves' },
     { t: 'greylongw', c: '#9a948c',  f: 1,                              n: 'Long grey waves' },
     { t: 'bob',       c: '#2e2016',  f: 1,                              n: 'Bob, side sweep' },
-    { t: 'updo',      c: '#6f5a3e',  f: 1,                              n: 'Rolled updo' }
+    { t: 'updo',      c: '#6f5a3e',  f: 1,                              n: 'Rolled updo' },
+    { t: 'fade',      c: '#1a1410',                                     n: 'Skin fade' },
+    { t: 'afro',      c: '#1c120c',                                     n: 'Short afro' },
+    { t: 'locs',      c: '#2a1c12',                                     n: 'Locs, tied' },
+    { t: 'snapback',  cap: 'snap',    c: '#1e2430', hc: '#171310',      n: 'Night snapback' },
+    { t: 'hoodiecap', cap: 'hood',    c: '#2a2e38', hc: '#171310',      n: 'Hood up' }
   ];
 
   // tops: { c: colour, s: coat cut, l: layer colour (shirt/cravat under coat), f: feminine cut, n: name }
@@ -65,7 +71,11 @@
     { c: '#5c4a3a', l: '#e8e0d0', s: 'ladycoat', f: 1, n: 'Tailored lady\u2019s coat' },
     { c: '#2e2530', l: '#e8e0d0', s: 'longcoatf', f: 1, n: 'Long plum coat' },
     { c: '#3a4a52', l: '#e8e0d0', s: 'wrapcoat', f: 1,  n: 'Slate wrap coat' },
-    { c: '#566046', l: '#f0ead8', s: 'ladycoat', f: 1, n: 'Bottle-green coat' }
+    { c: '#566046', l: '#f0ead8', s: 'ladycoat', f: 1, n: 'Bottle-green coat' },
+    { c: '#1f2a38', l: '#cfd6e2', s: 'hoodie', n: 'Night navy hoodie' },
+    { c: '#2c1818', l: '#e8dcc8', s: 'hoodie', n: 'Oxblood hoodie' },
+    { c: '#1a1c22', l: '#e8e0d0', s: 'bomber', n: 'Black bomber' },
+    { c: '#3a4a3c', l: '#e8e0d0', s: 'bomber', n: 'Olive bomber' }
   ];
   const SHIRT_NAMES = SHIRTS.map(x => x.n);
   const SHIRT_STYLE = SHIRTS.map(x => x.s);
@@ -94,7 +104,13 @@
     { n: 'Sharp liner',               sex: 1, eye: 'open',   eyeC: '#2a2014', brow: 1, nose: 'straight', mouth: 'flat', lashes: true },
     { n: 'Warm, weathered smile',     sex: 1, eye: 'open',   eyeC: '#4a3a22', brow: 0, nose: 'straight', mouth: 'smile', wrinkle: 1 },
     { n: 'Cool grey eyes',            sex: 1, eye: 'open',   eyeC: '#6a7480', brow: 0, nose: 'straight', mouth: 'flat', lashes: true },
-    { n: 'Tired eyes, knowing',       sex: 1, eye: 'halflid', eyeC: '#3a2c1a', brow: 1, nose: 'straight', mouth: 'frown', wrinkle: 2 }
+    { n: 'Tired eyes, knowing',       sex: 1, eye: 'halflid', eyeC: '#3a2c1a', brow: 1, nose: 'straight', mouth: 'frown', wrinkle: 2 },
+    { n: 'Bright hazel stare',        sex: 0, eye: 'open', eyeC: '#6b4a22', brow: 0, nose: 'straight', mouth: 'smile' },
+    { n: 'Cool blue, clean',         sex: 0, eye: 'open', eyeC: '#3a4a62', brow: 0, nose: 'straight', mouth: 'flat' },
+    { n: 'Green-eyed grin',          sex: 0, eye: 'open', eyeC: '#3d5a38', brow: 0, nose: 'straight', mouth: 'smile' },
+    { n: 'Gold liner, sharp',        sex: 1, eye: 'open', eyeC: '#8a5a28', brow: 1, nose: 'straight', mouth: 'flat', lashes: true, rouge: true },
+    { n: 'Soft brown, calm',         sex: 1, eye: 'open', eyeC: '#4a3220', brow: 0, nose: 'straight', mouth: 'smile', lashes: true },
+    { n: 'Night-shift tired',        sex: 0, eye: 'halflid', eyeC: '#2a2218', brow: 1, nose: 'straight', mouth: 'flat', stubble: true }
   ];
 
   // accents: index-stable. { k: kind, c: colour, n: name }
@@ -106,7 +122,11 @@
     { k: 'cuffs',  c: '#c8cdd4', n: 'Ivory cufflinks' },
     { k: 'cigar',  c: '#3a2a1a', n: 'Unlit cigar' },
     { k: 'pipe',   c: '#2a2015', n: 'Bent briar pipe' },
-    { k: 'specs',  c: '#8a8d91', n: 'Round wire spectacles' }
+    { k: 'specs',  c: '#8a8d91', n: 'Round wire spectacles' },
+    { k: 'chain',  c: '#d4b45a', n: 'Gold street chain' },
+    { k: 'ear',    c: '#c8cdd4', n: 'Silver hoop' },
+    { k: 'scarf',  c: '#8f2f28', n: 'Wine knit scarf' },
+    { k: 'specs',  c: '#1a1c20', n: 'Dark frames' }
   ];
   const ACCENT_COLORS = ACCENTS.map(x => x.c);
   const ACCENT_NAMES = ACCENTS.map(x => x.n);
@@ -123,7 +143,9 @@
     peacoat: { bottom: 'Sailor\u2019s whites', shoes: 'Deck shoes' },
     ladycoat: { bottom: 'Long pleated skirt', shoes: 'Heeled court shoes' },
     longcoatf: { bottom: 'Long narrow skirt', shoes: 'Heeled boots' },
-    wrapcoat: { bottom: 'Wrap skirt', shoes: 'Low heels' }
+    wrapcoat: { bottom: 'Wrap skirt', shoes: 'Low heels' },
+    hoodie: { bottom: 'Black joggers', shoes: 'Runners' },
+    bomber: { bottom: 'Selvedge denim', shoes: 'Chunky trainers' }
   };
 
   const BODIES = ['Masculine build', 'Feminine build'];
@@ -425,7 +447,6 @@
     }
     else if (t === 'greyneat') {
       f += `<path d="M -29.5 4 L -30 -10 Q -31 -34 0 -36 Q 31 -34 30 -10 L 29.5 4 Q 22 -7 0 -7 Q -22 -7 -29.5 4 Z" fill="${c}"/>`;
-      f += `<path d="M -22 -8 Q 0 -13 22 -8 M -14 -26 Q 0 -32 14 -26" stroke="${cl}" stroke-width="1" fill="none" opacity=".5"/>`;
       for (const sx of [-1, 1]) f += `<path d="M ${sx * 29} -2 q ${sx * -1.4} 8 ${sx * -1.2} 14" stroke="${c}" stroke-width="2" fill="none" opacity=".8" stroke-linecap="round"/>`;
     }
     else if (t === 'whitefull') {
@@ -455,6 +476,11 @@
       f += `<path d="M -29.5 3 L -30 -10 Q -31 -34 0 -36 Q 31 -34 30 -10 Q 29 0 12 1 L -12 1 Q -27 0 -29.5 3 Z" fill="${c}"/>`;
       f += `<path d="M -6 -34 Q 0 -44 8 -36 Q 9 -33 4 -32 Q -2 -36 -6 -34 Z" fill="${shade(c, -0.08)}"/>`;
       f += `<path d="M -16 -8 q 16 -4 32 0" stroke="${cl}" stroke-width="1.1" fill="none" opacity=".5"/>`;
+    }
+    else if (t === 'fade' || t === 'afro' || t === 'locs') {
+      f += `<path d="M -29.5 4 L -30 -10 Q -31 -36 0 -38 Q 31 -36 30 -10 L 29.5 4 Q 22 -8 0 -8 Q -22 -8 -29.5 4 Z" fill="${c}"/>`;
+      if (t === 'afro') f += `<ellipse cx="0" cy="-22" rx="28" ry="20" fill="${c}"/>`;
+      if (t === 'locs') for (const sx of [-1, 1]) f += `<path d="M ${sx * 18} -8 Q ${sx * 22} 10 ${sx * 16} 28" stroke="${c}" stroke-width="4" fill="none" opacity=".9"/>`;
     }
 
     // headwear drawn over hair
@@ -488,8 +514,14 @@
       f += `<path d="M -29.5 -4 Q -31 -26 -12 -30 Q 0 -32 12 -30 Q 31 -26 29.5 -4 Q 0 -10 -29.5 -4 Z" fill="${c}"/>`;
       for (let i = -2; i <= 2; i++) f += `<path d="M ${i * 8} -7 Q ${i * 9} -18 ${i * 8} -28" stroke="${shade(c, -0.18)}" stroke-width="1.3" fill="none" opacity=".7"/>`;
       f += `<path d="M -29 -3 Q 0 1 29 -3 L 29 1 Q 0 5 -29 1 Z" fill="${shade(c, -0.2)}"/>`;
+    } else if (h.cap === 'snap') {
+      f += `<path d="M -28 -6 Q -28 -24 -10 -28 Q 0 -30 10 -28 Q 28 -24 28 -6 Z" fill="${c}"/>`;
+      f += `<path d="M -18 0 L 18 0 L 16 8 Q 0 12 -16 8 Z" fill="${cd}"/>`;
+    } else if (h.cap === 'hood') {
+      f += `<path d="M -34 8 Q -36 -24 0 -40 Q 36 -24 34 8 Q 0 4 -34 8 Z" fill="${c}" opacity=".95"/>`;
+      f += `<path d="M -22 6 Q 0 -8 22 6" stroke="${cd}" stroke-width="2" fill="none"/>`;
     }
-    return f;
+return f;
   }
 
   // ------------------------------------------------------------------ GARMENTS
