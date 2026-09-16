@@ -60,9 +60,12 @@
     list.forEach(el => { el._until = +(el.dataset.until); el._lab = el.querySelector('.tlbl'); el._b = el.querySelector('b'); });
   }
   function updateTimers(root) {
-    $$('[data-timer]', root).forEach(el => {
+    // Always derive the display from the absolute deadline.  A one-second
+    // interval can be delayed/throttled by the browser, but elapsed time cannot.
+    $$('[data-timer]', root || document).forEach(el => {
+      if (!el._until) el._until = +(el.dataset.until || 0);
       const d = el._until - Date.now();
-      if (el._b) el._b.textContent = fmtDur(d);
+      if (el._b || el.querySelector('b')) (el._b || el.querySelector('b')).textContent = fmtDur(d);
       if (d <= 0) el.style.opacity = '.35';
     });
   }

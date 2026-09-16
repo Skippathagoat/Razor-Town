@@ -560,6 +560,12 @@
 
   function fmtClock(ms) { ms = Math.max(0, ms); const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000); return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
   function tickClocks() {
+    // Paint every visible deadline from its wall-clock timestamp. This keeps
+    // timers honest even when a tab is backgrounded or a frame is delayed.
+    document.querySelectorAll('[data-clock-until]').forEach(el => {
+      const left = +(el.dataset.clockUntil || 0) - Date.now();
+      el.textContent = left > 0 ? fmtClock(left) : (el.dataset.clockDone || '00:00');
+    });
     const me = G.me; if (!me || !me.reftick) return;
     const eIn = (me.reftick.energyIn || 0), nIn = (me.reftick.nerveIn || 0);
     const eEl = $('#tick-energy b'); if (eEl) eEl.textContent = me.energy >= me.max_energy ? 'FULL' : fmtClock(eIn - (Date.now() - (G._tickAt || Date.now())));
@@ -595,7 +601,7 @@
     // 2026.5: the event on the wire, and who is in the yard right now
     if (G.eventNow && G.eventNow.until > Date.now()) {
       const ev = G.eventNow;
-      html += `<div class="ev-banner"><b>${ev.icon || '⚡'} ${esc(ev.name)}<span class="ev-timer">${fmtClock(ev.until - Date.now())}</span></b><span>${esc(ev.desc || '')}</span></div>`;
+      html += `<div class="ev-banner"><b>${ev.icon || '⚡'} ${esc(ev.name)}<span class="ev-timer" data-clock-until="${ev.until}">${fmtClock(ev.until - Date.now())}</span></b><span>${esc(ev.desc || '')}</span></div>`;
     }
     html += `<div class="online-card"><div class="oc-head"><span>In the yard</span><b>${G.onlineCount || 0} live</b></div>
       <div class="oc-list">${(G.onlineNames || []).map(n => `<div class="oc-row ${n.you ? 'you' : ''}"><span class="oc-dot"></span>${esc(n.name)}${n.you ? ' (you)' : ''}</div>`).join('') || '<div class="oc-row" style="color:var(--dim)">just you and the pigeons</div>'}</div></div>`;
@@ -4141,12 +4147,13 @@
   // timers loop
   setInterval(() => {
     if (!G.authed) return;
-    const cc = $('#lock-cover');
-    if (cc) U.updateTimers(cc);
+    // Use a short paint interval while calculating from Date.now(): the
+    // numbers still represent real elapsed seconds and do not drift.
+    U.updateTimers(document);
     if (G.view === 'college') tickCourse();
     tickClocks();
     // re-render hud bars periodically (regeneration display)
-  }, 1000);
+  }, 250);
   setInterval(() => {
     if (!G.authed || !G.me) return;
     Net.get('/api/me').then(r => {
