@@ -908,6 +908,271 @@ head('Founder dials — weather, events, economy levers');
   ok('the payout dial changes what a crime actually pays', base > 0 && doubled >= base, { base, doubled });
 }
 
+head('The Long Game — 10,000 underworld operations across ten families');
+{
+  const O = S.OPS;
+  S.setDials({ payout: 100, danger: 100 });        // the long game is read against known dials
+  const oa = A.createAccount('opsrunner', 'pw123456', 'user');
+  A.createPlayerForAccount(oa, { name: 'Ops Runner', origin: 'street', avatar: '0|0|0|0|0|0|0|0', bio: '' });
+  const oid = oa.id;
+  const withRandom = (vals, fn) => { const R = Math.random; let i = 0; Math.random = () => (i < vals.length ? vals[i++] : 0.999); try { return fn(); } finally { Math.random = R; } };
+  // a fresh, funded, high-level citizen with a fast car and a crew behind him
+  const arm = () => {
+    const q = W.ready(load(oid));
+    S.sys(q);                                  // the systems state lives on p.sys
+    q.money = 20000000; q.xp = 2000000; q.energy = q.max_energy; q.nerve = q.max_nerve;
+    q.life = q.max_life; q.jail_until = 0; q.hosp_until = 0; q.gang = 1;
+    if (!Array.isArray(q.sys.cars)) q.sys.cars = [];
+    if (!q.sys.cars.length) q.sys.cars.push({ id: 'ghost_proto', spd: 0, grp: 0, color: 0 });
+    if (q.sys.ops && q.sys.ops.cool) q.sys.ops.cool = {};
+    W.save(oid, q);
+    return q;
+  };
+  const opsOf = (q) => q.sys.ops;
+  const heatAfter = (a) => { const q = load(a); return (q.sys && q.sys.life && q.sys.life.heat) || 0; };
+
+  ok('the catalog holds exactly 10,000 unique stable IDs', O.TOTAL === 10000 && new Set(O.OPS.map(o => o.id)).size === 10000);
+  ok('all ten families hold exactly 1,000 operations each', O.FAMILIES.length === 10 && O.FAMILIES.every(f => O.byFamily(f.id).length === 1000));
+  ok('the catalog spans ten families, ten districts and ten grades',
+    new Set(O.OPS.map(o => o.fam)).size === 10 && new Set(O.OPS.map(o => o.district)).size === 10 && new Set(O.OPS.map(o => o.grade)).size === 10);
+  ok('the ten families run on ten distinct resolvers', new Set(O.FAMILIES.map(f => f.special)).size === 10);
+  ok('every operation carries a level bar, odds, a cost and a consequence',
+    O.OPS.every(o => o.level >= 1 && o.chance >= 5 && o.chance <= 97 && o.energy > 0 && o.xp > 0 && o.heat > 0 && o.crew >= 0));
+  ok('payouts and prices climb with grade and district',
+    O.byId('rackets_protection_lamp_row_0').min < O.byId('rackets_protection_lock_cut_9').min
+    && O.byId('heists_bank_lamp_row_0').cash < O.byId('heists_bank_lock_cut_9').cash);
+  ok('the whole catalogue is reachable by family, id and search', O.FAMILIES.every(f => O.byFamily(f.id)[0] && O.byId(O.byFamily(f.id)[999].id)));
+
+  arm();
+  ok('unknown operation ids are refused', !!S.opDo(oid, 'ops_nope_nope').err);
+  {
+    const low = A.createAccount('opslow', 'pw123456', 'user');
+    A.createPlayerForAccount(low, { name: 'Ops Low', origin: 'street' });
+    ok('a mythic-tier job is locked until you are level 68', !!S.opDo(low.id, 'heists_bank_lock_cut_9').err
+      && load(low.id).level < 68);
+  }
+  {
+    const q = arm(); q.money = 0; W.save(oid, q);
+    ok('an operation you cannot afford is refused', !!S.opDo(oid, 'rackets_protection_lamp_row_0').err);
+    const q2 = arm(); q2.energy = 0; W.save(oid, q2);
+    ok('an operation you have no strength for is refused', !!S.opDo(oid, 'rackets_protection_lamp_row_0').err);
+    const q3 = arm(); q3.jail_until = Date.now() + 60000; W.save(oid, q3);
+    ok('the underworld shuts down while you are in a cell', !!S.opDo(oid, 'rackets_protection_lamp_row_0').err);
+  }
+
+  // ---- 🏦 rackets
+  arm();
+  {
+    const op = O.byId('rackets_protection_lamp_row_0');
+    const before = load(oid);
+    const r = withRandom([0.5], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('a racket is set up, paid for and remembered', !!r.ok && !!opsOf(after).rackets[op.id] && after.money < before.money, r.err);
+    // let the envelope fill
+    after.sys.ops.rackets[op.id].at = Date.now() - 5 * 3600000; W.save(oid, after);
+    const view = S.opsView(load(oid), { fam: 'rackets' });
+    ok('a standing racket banks takings while you are away', view.rackets.length === 1 && view.rackets[0].value > 0, view.rackets);
+    const c = withRandom([0.5], () => S.opCollect(oid));
+    ok('collecting pays the envelope and restarts the clock', !!c.ok && c.res.paid > 0 && !!opsOf(load(oid)).rackets[op.id], c.res);
+    // a racket left cooking in a red-hot district gets raided
+    const q = load(oid); q.sys.ops.rackets[op.id].at = Date.now() - 20 * 3600000; W.save(oid, q);
+    S.attach(W);
+    const hot = load(oid); hot.sys.life = hot.sys.life || {}; hot.sys.life.heat = 100; hot.sys.life.heatAt = Date.now(); W.save(oid, hot);
+    const raid = withRandom([0.0], () => S.opCollect(oid));
+    ok('a racket left full in a hot district gets raided', raid.ok && raid.res.lost === 1 && !opsOf(load(oid)).rackets[op.id], raid.res);
+    const stale = load(oid); stale.sys.life.heat = 0; stale.sys.life.heatAt = Date.now(); W.save(oid, stale);
+  }
+
+  // ---- 💣 heists (three stages)
+  arm();
+  {
+    const op = O.byId('heists_bank_lamp_row_0');
+    const s1 = withRandom([0.01], () => S.opDo(oid, op.id));
+    ok('a heist starts with a clean scout stage', !!s1.ok && opsOf(load(oid)).chains[op.id].stage === 1, s1.err || s1.res);
+    const q = load(oid); q.sys.ops.cool = {}; q.energy = q.max_energy; q.nerve = q.max_nerve; W.save(oid, q);
+    const s2 = withRandom([0.01], () => S.opDo(oid, op.id));
+    ok('the second stage assembles the crew and banks the quality', !!s2.ok && opsOf(load(oid)).chains[op.id].stage === 2 && opsOf(load(oid)).chains[op.id].quality >= 2, s2.err || s2.res);
+    const q2 = load(oid); q2.sys.ops.cool = {}; q2.energy = q2.max_energy; q2.nerve = q2.max_nerve; W.save(oid, q2);
+    const money0 = load(oid).money;
+    const s3 = withRandom([0.01], () => S.opDo(oid, op.id));
+    const fin = load(oid);
+    ok('the pull pays out and closes the chain', !!s3.ok && s3.res.win && s3.res.pay > 0 && !opsOf(fin).chains[op.id] && fin.money > money0, s3.err || s3.res);
+    ok('a pulled job leaves a cooldown behind', opsOf(fin).cool[op.id] > Date.now());
+    const again = S.opDo(oid, op.id);
+    ok('the cooldown actually blocks the next attempt', !!again.err, again.err);
+    const q3 = load(oid); q3.sys.ops.cool = {}; q3.energy = q3.max_energy; q3.nerve = q3.max_nerve; W.save(oid, q3);
+    const bad = withRandom([0.99], () => S.opDo(oid, op.id));
+    ok('a rushed job can still come apart', !!bad.ok && bad.res.win === false || !!bad.err);
+  }
+
+  // ---- 🚚 smuggling runs
+  arm();
+  {
+    const op = O.byId('runs_cigs_lamp_row_0');
+    const heat0 = S.opsView(load(oid), {}).total === 10000 ? (load(oid).sys.life.heat || 0) : 0;
+    const m0 = load(oid).money;
+    const win = withRandom([0.01], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('a clean run pays out and leaves heat behind', !!win.ok && win.res.win && after.money > m0 && (after.sys.life.heat || 0) > heat0, win.err || win.res);
+    // a hard run (mythic grade, low odds) is where a load actually gets seized
+    const hard = O.byId('runs_weapons_lock_cut_9');
+    const q = load(oid); q.sys.ops.cool = {}; q.money = 5000000; q.energy = q.max_energy; q.nerve = q.max_nerve; W.save(oid, q);
+    const failed = withRandom([0.99, 0.99], () => S.opDo(oid, hard.id));
+    ok('a seized run loses the load and stings harder',
+      !!failed.ok && failed.res.win === false && load(oid).money < 5000000 && heatAfter(oid) > 0, failed.err || failed.res);
+  }
+
+  // ---- 🖨️ forgery → a usable document
+  arm();
+  {
+    const op = O.byId('prints_ids_lamp_row_0');
+    const made = withRandom([0.01], () => S.opDo(oid, op.id));
+    ok('a forged document goes into your coat', !!made.ok && made.res.win && opsOf(load(oid)).docs[op.id] === 1, made.err || made.res);
+    const q = load(oid); q.sys.life = q.sys.life || {}; q.sys.life.heat = 40; q.sys.life.heatAt = Date.now(); W.save(oid, q);
+    const used = S.docUse(oid, op.id);
+    const afterUse = load(oid);
+    ok('using a forgery burns it and cools the tail on you',
+      !!used.ok && !opsOf(afterUse).docs[op.id] && (afterUse.sys.life.heat || 0) < 40, used.err || used.res);
+    ok('an empty pocket has no document to use', !!S.docUse(oid, op.id).err);
+  }
+
+  // ---- 🥊 muscle work
+  arm();
+  {
+    const op = O.byId('muscle_collections_lamp_row_0');
+    const win = withRandom([0.01], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('muscle work pays and leaves your hands heavy', !!win.ok && win.res.win && win.res.pay > 0 && S.tipPct(after, 'muscle') > 0, win.err || win.res);
+    const q = load(oid); q.sys.ops.cool = {}; q.energy = q.max_energy; q.nerve = q.max_nerve; q.life = q.max_life; W.save(oid, q);
+    const life0 = load(oid).life;
+    const bad = withRandom([0.99, 0.99], () => S.opDo(oid, op.id));
+    ok('a muscle job that goes wrong costs blood', !!bad.ok && bad.res.win === false && load(oid).life < life0, bad.err || bad.res);
+  }
+
+  // ---- 🔧 chop shop
+  arm();
+  {
+    const op = O.byId('chops_saloon_lamp_row_0');
+    const before = load(oid);
+    const cars0 = before.sys.cars.length;
+    const r = withRandom([0.01], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('the chop shop eats a car and pays for the parts', !!r.ok && r.res.win && r.res.pay > 0 && after.sys.cars.length === cars0 - 1, r.err || r.res);
+    const q = load(oid); q.sys.cars = []; W.save(oid, q);
+    ok('with nothing in the garage the yard turns you away', !!S.opDo(oid, op.id).err);
+    const q2 = arm(); q2.sys.cars = [{ id: 'rust_bucket', spd: 0, grp: 0, color: 0 }]; W.save(oid, q2);
+    ok('a car under the grade is refused', !!S.opDo(oid, 'chops_prototype_lamp_row_9').err);
+  }
+
+  // ---- 💻 cyber jobs
+  arm();
+  {
+    const op = O.byId('cyber_records_lamp_row_0');
+    const q = load(oid); q.sys.life = q.sys.life || {}; q.sys.life.heat = 30; q.sys.life.heatAt = Date.now(); W.save(oid, q);
+    const m0 = load(oid).money;
+    const r = withRandom([0.01], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('a records job pays and shortens the trail', !!r.ok && r.res.win && after.money > m0 && (after.sys.life.heat || 0) < 30, r.err || r.res);
+    const q2 = load(oid); q2.sys.ops.cool = {}; q2.money = 5000000; q2.energy = q2.max_energy; q2.nerve = q2.max_nerve; W.save(oid, q2);
+    const bad = withRandom([0.99], () => S.opDo(oid, op.id));
+    ok('a honeypot costs you a clean-up bill', !!bad.ok && bad.res.win === false && load(oid).money < 5000000, bad.err || bad.res);
+  }
+
+  // ---- 🩺 clinic
+  arm();
+  {
+    const op = O.byId('clinic_stitch_lamp_row_0');
+    const q = load(oid); q.life = 10; W.save(oid, q);
+    const r = withRandom([0.01], () => S.opDo(oid, op.id));
+    const after = load(oid);
+    ok('the clinic patches you up and leaves a course of treatment', !!r.ok && r.res.win && after.life > 10 && S.tipPct(after, 'patch') > 0, r.err || r.res);
+    const q2 = load(oid); q2.sys.ops.cool = {}; q2.life = 500; W.save(oid, q2);
+    const bad = withRandom([0.99], () => S.opDo(oid, op.id));
+    ok('a bad table leaves you worse than you arrived', !!bad.ok && bad.res.win === false && load(oid).life < 500, bad.err || bad.res);
+  }
+
+  // ---- 🖼️ art & collectibles
+  arm();
+  {
+    const op = O.byId('art_oil_lamp_row_0');
+    const r = withRandom([0.01], () => S.opDo(oid, op.id));
+    ok('a piece goes into the vault at what you paid for it', !!r.ok && r.res.win && opsOf(load(oid)).art.length === 1, r.err || r.res);
+    const q = load(oid); q.sys.ops.art[0].at = Date.now() - 8 * 3600000; W.save(oid, q);
+    const v = S.opsView(load(oid), { fam: 'art' });
+    ok('a piece appreciates while it sits in the vault', v.art.length === 1 && v.art[0].value > v.art[0].paid, v.art);
+    const m0 = load(oid).money;
+    const sold = withRandom([0.01], () => S.opSell(oid, 0));
+    ok('selling a piece pays more than the purchase price', !!sold.ok && sold.res.pay > v.art[0].paid && load(oid).money > m0 && opsOf(load(oid)).art.length === 0, sold.err || sold.res);
+    const q2 = arm(); q2.sys.ops.art = Array.from({ length: 12 }, () => ({ id: op.id, at: Date.now(), paid: 8000 })); W.save(oid, q2);
+    ok('the vault has a lid on it', !!S.opDo(oid, op.id).err);
+  }
+
+  // ---- 🏁 street circuits
+  arm();
+  {
+    const op = O.byId('circuits_docks_lamp_row_0');
+    const gq = arm(); gq.sys.cars = [{ id: 'ghost_proto', spd: 0, grp: 0, color: 0 }]; W.save(oid, gq);
+    const m0 = load(oid).money;
+    const win = withRandom([0.01], () => S.opDo(oid, op.id));
+    ok('a won circuit pays out and puts you on the wrong kind of list', !!win.ok && win.res.win && win.res.pay > 0 && load(oid).money > m0, win.err || win.res);
+    const q = load(oid); q.sys.ops.cool = {}; q.money = 5000000; q.sys.cars = [{ id: 'rust_bucket', spd: 0, grp: 0, color: 0 }]; W.save(oid, q);
+    ok('a field that out-rates your car will not let you in', !!S.opDo(oid, 'circuits_kingsway_lamp_row_9').err);
+    const q2 = arm(); q2.sys.ops.cool = {}; q2.money = 5000000; q2.sys.cars = [{ id: 'ghost_proto', spd: 0, grp: 0, color: 0 }]; W.save(oid, q2);
+    const bad = withRandom([0.99], () => S.opDo(oid, op.id));
+    ok('a lost circuit bills you for bodywork', !!bad.ok && bad.res.win === false && load(oid).money < 5000000, bad.err || bad.res);
+  }
+
+  // ---- the economy dials, the danger dial, the panel and the board
+  arm();
+  {
+    const op = O.byId('runs_cigs_lamp_row_0');
+    const runIt = (vals) => withRandom(vals, () => S.opDo(oid, op.id));
+    S.setDials({ payout: 100, danger: 100 });
+    const q0 = load(oid); q0.sys.ops.cool = {}; q0.money = 5000000; W.save(oid, q0);
+    const base = runIt([0.01]);
+    const q1 = load(oid); q1.sys.ops.cool = {}; q1.money = 5000000; W.save(oid, q1);
+    S.setDials({ payout: 200, danger: 100 });
+    const doubled = runIt([0.01]);
+    ok('the payout dial doubles what the same job pays', doubled.res.pay > base.res.pay * 1.8, { base: base.res.pay, doubled: doubled.res.pay });
+    S.setDials({ payout: 100, danger: 400 });
+    const q2 = load(oid); q2.sys.ops.cool = {}; q2.money = 5000000; q2.jail_until = 0; q2.life = q2.max_life; W.save(oid, q2);
+    const jailed = runIt([0.999, 0.05]);
+    ok('the danger dial can turn a bad night into a cell', jailed.ok && (load(oid).jail_until || 0) > Date.now(), jailed.res);
+    const q3 = load(oid); q3.sys.ops.cool = {}; q3.money = 5000000; q3.jail_until = 0; W.save(oid, q3);
+    S.setDials({ payout: 100, danger: 10 });
+    const spared = runIt([0.999, 0.05]);
+    ok('and a low danger dial lets the same night go', spared.ok && !(load(oid).jail_until > Date.now()), spared.res);
+    S.setDials({ payout: 100, danger: 100 });
+    ok('the dials read back what was set', S.dials().payout === 100 && S.dials().danger === 100);
+  }
+  {
+    arm();
+    const view = S.opsView(load(oid), { fam: 'heists', limit: 10 });
+    ok('the board reports the whole catalogue and one family at a time',
+      view.total === 10000 && view.perFamily === 1000 && view.matched === 1000 && view.list.length === 10, { matched: view.matched, shown: view.list.length });
+    const filtered = S.opsView(load(oid), { fam: 'heists', district: 'lock_cut', grade: '9' });
+    ok('the board filters by district and grade', filtered.matched === 10 && filtered.list.every(o => o.district === 'lock_cut' && o.grade === 9), filtered.matched);
+    const searched = S.opsView(load(oid), { fam: 'heists', q: 'museum' });
+    ok('the board searches names and pitches', searched.matched === 100 && searched.list.every(o => o.cat === 'museum'), searched.matched);
+    ok('every listing carries live odds, its lock state and its flavour',
+      view.list.every(o => Number.isFinite(o.live) && o.live >= 5 && o.live <= 97 && o.blurb && o.flavour && o.chance > 0));
+    ok('the board counts rackets, vault pieces, papers and live chains',
+      typeof view.rackets.length === 'number' && typeof view.artValue === 'number' && typeof view.stats.total === 'number' && view.artCap > 0);
+    const panel = S.panel(oid);
+    ok('the main panel carries a summary of the long game',
+      panel.ops && panel.ops.total === 10000 && panel.ops.perFamily === 1000 && Number.isFinite(panel.ops.earned), panel.ops);
+  }
+  {
+    const q = load(oid); W.save(oid, q);
+    const stats = opsOf(load(oid));
+    ok('the ledger counts attempts, wins, failures, spending and takings',
+      stats.total > 0 && stats.spent > 0 && stats.earned > 0 && stats.wins > 0 && stats.fails > 0, { total: stats.total, wins: stats.wins, fails: stats.fails, earned: stats.earned });
+    const fams = Object.keys(stats.fam);
+    ok('every family that was worked shows up in the family ledger', fams.length >= 8, fams);
+    ok('the meta-shaped catalogue surface matches the module', S.OPS.FAMILIES.length === 10 && S.OPS.PER_FAMILY === 1000 && S.OPS.TOTAL === 10000);
+  }
+}
+
 head('Daily Streak');
 {
   const da = A.createAccount('dailya', 'pw123456', 'user'); A.createPlayerForAccount(da, { name: 'Daily Regular', origin: 'street', avatar: '0|0|0|0|0', bio: '' });

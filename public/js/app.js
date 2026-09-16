@@ -31,6 +31,7 @@
     { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
     { id: 'informants', label: 'Informants', ico: '🕵️', key: '1' },
+    { id: 'ops', label: 'Operations', ico: '📋', key: '2' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
@@ -543,7 +544,8 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
-    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf', 'informants'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf'] },
+    { id: 'under', name: 'The Long Game', ico: '🕶️', tabs: ['informants', 'ops'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -605,7 +607,7 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf, informants: renderInformants };
+      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -2653,6 +2655,127 @@
       </div>` ;
   }
 
+  // ================================================================ THE LONG GAME — 10,000 operations
+  function renderOps() {
+    const v = $('#view');
+    v.innerHTML = U.spinner('Opening the book on ten families of work…');
+    refreshOps(v);
+  }
+  async function refreshOps(v, keepScroll) {
+    const q = G.opsQ = Object.assign({ fam: 'rackets', q: '', district: '', grade: '', offset: 0 }, G.opsQ || {});
+    const st = v.scrollTop;
+    let b;
+    try { b = await Net.post('/api/action', { name: 'ops', fam: q.fam, q: q.q, district: q.district, grade: q.grade, offset: q.offset, limit: q.limit || 24 }); }
+    catch (e) { v.innerHTML = `<div class="card"><p style="color:var(--bad)">${esc(e.message)}</p></div>`; return; }
+    const d = (b && b.res) || {};
+    if (b && b.p) applyMe(b.p, null);
+    const money = (G.me && G.me.money) || 0;
+    const fam = (d.families || []).find(f => f.id === q.fam) || {};
+    const res = G.opsResult;
+    const shownTo = Math.min(q.offset + (d.list || []).length, d.matched || 0);
+    const rackets = d.rackets || [], art = d.art || [], docs = d.docs || [], chains = d.chains || [];
+    const docLabel = (id) => ({ paper: 'passing paper', bail: 'court brief', shield: 'screen from the law' })[id] || '';
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">📋 <span class="head">The Long Game</span></div>
+      <div class="vdesc">Ten families of underworld work — <b>${(d.total || 10000).toLocaleString()}</b> named operations across
+      ten districts and ten grades. Every one of them is a real job: its own price, its own odds, its own consequence.
+      ${fam.blurb ? '<br>' + esc(fam.blurb) : ''}</div></div>
+      <div class="pill"><span>Worked <b style="color:var(--cyn)">${(d.stats && d.stats.total) || 0}</b></span>
+      <b style="color:var(--gold)">${((d.stats && d.stats.earned) || 0).toLocaleString()} earned</b>
+      ${chains.length ? `<b style="color:var(--bad)">${chains.length} live job${chains.length === 1 ? '' : 's'}</b>` : ''}</div></div>
+
+      ${res ? `<div class="card" style="border-color:${res.win ? 'rgba(90,220,160,0.4)' : 'rgba(255,90,90,0.35)'}">
+        <div class="subhead">${res.win ? '✅' : '⚠️'} ${esc(res.op ? res.op.name : 'Result')}</div>
+        <p style="font-size:13px;color:var(--mut);margin:6px 0">${esc(res.text || '')}</p></div>` : ''}
+
+      ${rackets.length ? `<div class="card"><div class="subhead">🏦 Standing rackets <span style="color:var(--dim);font-weight:400">— ${rackets.length} running, $${(d.racketIncome || 0).toLocaleString()} in the envelopes</span>
+        <button class="btn sm cyan" style="float:right" data-act="op_collect" ${d.readyRackets ? '' : 'disabled'}>Collect all</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${rackets.map(r => `
+          <div class="slot" style="padding:8px"><span class="s-ico">${r.ico}</span><span>
+          <span class="s-slot">${esc(r.name)}</span>
+          <span class="s-val">$${r.value.toLocaleString()} banked · ${r.full ? '<b style="color:var(--bad)">full</b>' : 'next in ' + fmtDur(r.nextIn)}</span></span></div>`).join('')}</div></div>` : ''}
+
+      ${(art.length || docs.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card"><div class="subhead">🖼️ The vault <span style="color:var(--dim);font-weight:400">— ${art.length}/${d.artCap} pieces, $${(d.artValue || 0).toLocaleString()} on the wall</span></div>
+          ${art.length ? art.map(a => `<div class="slot" style="padding:8px;margin-top:6px"><span class="s-ico">${a.ico || '🖼️'}</span><span>
+            <span class="s-slot">${esc(a.name || '')}</span>
+            <span class="s-val">paid $${a.paid.toLocaleString()} · now <b style="color:var(--gold)">$${a.value.toLocaleString()}</b></span></span>
+            <button class="btn sm ghost" data-act="op_sell" data-idx="${a.idx}">Sell</button></div>`).join('') : '<p style="color:var(--dim);font-size:12px">Nothing in the vault. Art grades get more valuable the longer they sit.</p>'}
+        </div>
+        <div class="card"><div class="subhead">🖨️ Papers in your coat <span style="color:var(--dim);font-weight:400">— ${docs.reduce((a, x) => a + x.n, 0)} held</span></div>
+          ${docs.length ? docs.map(x => `<div class="slot" style="padding:8px;margin-top:6px"><span class="s-ico">${x.ico}</span><span>
+            <span class="s-slot">${esc(x.catName)} ×${x.n}</span><span class="s-val">one-shot ${docLabel(x.cat)}</span></span>
+            <button class="btn sm ghost" data-act="doc_use" data-id="${x.id}">Use</button></div>`).join('') : '<p style="color:var(--dim);font-size:12px">No documents. Forgery work earns its keep later.</p>'}
+        </div></div>` : ''}
+
+      <div class="card"><div class="subhead">📋 Browse the book</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${(d.families || []).map(f => `
+          <button class="btn sm ${f.id === q.fam ? 'cyan' : 'ghost'}" data-act="ops-fam" data-fam="${f.id}" title="${esc(f.blurb)}">${f.ico} ${esc(f.name)} <span style="color:var(--dim)">${f.count}</span></button>`).join('')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="ops-q" placeholder="Search ${esc(fam.name || '')} — name, pitch, grade…" value="${esc(q.q)}" style="flex:1;min-width:200px">
+          <select id="ops-district"><option value="">All districts</option>${(d.districts || []).map(x => `<option value="${x.id}" ${q.district === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+          <select id="ops-grade"><option value="">All grades</option>${(d.grades || []).map(g => `<option value="${g.i}" ${String(q.grade) === String(g.i) ? 'selected' : ''}>${g.roman} — ${esc(g.name)}</option>`).join('')}</select>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px">${(d.matched || 0).toLocaleString()} operations match · showing ${q.offset + 1}–${shownTo}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${(d.list || []).map(op => {
+        const lock = op.locked, cool = op.cool > 0;
+        const verb = (fam.verb || 'Work').replace(/^\w/, c => c.toUpperCase());
+        const button = lock ? `<span class="tag bad">${esc(lock)}</span>`
+          : cool ? `<span class="tag">settling · ${Math.ceil(op.cool / 60000)}m</span>`
+          : `<button class="btn sm ${op.canAfford ? 'cyan' : 'ghost'}" data-act="op_do" data-id="${op.id}">${op.special === 'chain' && op.stage ? `Stage ${op.stage + 1}` : verb}${op.cash ? ` · $${op.cash.toLocaleString()}` : ''}</button>`;
+        return `<div class="card" style="margin:0">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div><div style="font-weight:800">${op.ico} ${esc(op.name)}</div>
+              <div style="font-size:11px;color:var(--dim);letter-spacing:0.4px">${esc(op.tag)} · ${esc(op.districtName)} · #${op.serial}</div></div>
+            <div style="text-align:right;font-size:11px;color:var(--dim)">${Math.round(op.live)}% solid<br>
+              <span style="color:var(--gold)">${op.min ? '$' + op.min.toLocaleString() + (op.max !== op.min ? '–' + op.max.toLocaleString() : '') : 'no cash payout'}</span></div>
+          </div>
+          <p style="font-size:12px;color:var(--mut);margin:8px 0 4px">${esc(op.blurb)}</p>
+          <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${esc(op.flavour)}</div>
+          <div style="font-size:11px;color:var(--cyn);margin-bottom:8px">Lv ${op.level}${op.crew ? ` · crew ${op.crew}` : ''} · ⚡${op.energy}${op.nerve ? ` · 🎲${op.nerve}` : ''} · 🔥${op.heat} heat${op.carMin ? ` · car ${op.carMin}+` : ''}${op.special === 'chain' && op.stage ? ` · stage ${op.stage}/3 (${esc(op.stageName || '')})` : ''}</div>
+          ${op.owned ? `<span class="tag ok">running · banks $${op.rate.toLocaleString()} every ${op.hours}h</span>` : button}
+        </div>`;
+      }).join('')}</div>
+
+      ${shownTo < (d.matched || 0) ? `<div style="text-align:center;margin:14px 0"><button class="btn ghost" data-act="ops-more">Show 24 more</button></div>` : ''}
+
+      <div class="card" style="margin-top:12px"><div class="subhead">📈 The book so far</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px;font-size:12px;text-align:center">
+          <div><b style="color:var(--cyn)">${(d.stats && d.stats.total) || 0}</b><br><span style="color:var(--dim)">jobs worked</span></div>
+          <div><b style="color:var(--good)">${(d.stats && d.stats.wins) || 0}</b><br><span style="color:var(--dim)">clean</span></div>
+          <div><b style="color:var(--bad)">${(d.stats && d.stats.fails) || 0}</b><br><span style="color:var(--dim)">blown</span></div>
+          <div><b style="color:var(--gold)">$${(((d.stats && d.stats.earned) || 0) / 1000).toFixed(0)}k</b><br><span style="color:var(--dim)">taken</span></div>
+          <div><b style="color:var(--mut)">$${(((d.stats && d.stats.spent) || 0) / 1000).toFixed(0)}k</b><br><span style="color:var(--dim)">laid out</span></div>
+        </div></div>`;
+    const input = $('#ops-q');
+    if (input) {
+      input.addEventListener('input', () => {
+        clearTimeout(G.opsT); G.opsT = setTimeout(() => { G.opsQ.q = input.value; G.opsQ.offset = 0; refreshOps(v); }, 320);
+      });
+    }
+    const ds = $('#ops-district'); if (ds) ds.addEventListener('change', () => { G.opsQ.district = ds.value; G.opsQ.offset = 0; refreshOps(v); });
+    const gs = $('#ops-grade'); if (gs) gs.addEventListener('change', () => { G.opsQ.grade = gs.value; G.opsQ.offset = 0; refreshOps(v); });
+    if (keepScroll) v.scrollTop = st;
+  }
+  async function opRun(name, payload) {
+    if (G.busy.has(name)) return;
+    G.busy.add(name);
+    try {
+      const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name }));
+      if (r.p) applyMe(r.p, r.res);
+      G.opsResult = r.res || null;
+      if (r.res && r.res.lines) G.opsResult = Object.assign({}, r.res, { text: r.res.lines.join(' ') });
+      U.toast(r.res && r.res.win === false ? '⚠️ ' + esc(r.res.text || 'That went wrong.') : '✅ ' + esc((r.res && r.res.text) || 'Done.'), r.res && r.res.win === false ? 'bad' : 'good', 4200);
+    } catch (e) {
+      U.toast('<span style="color:var(--bad)">⚠️</span> ' + esc(e.message), 'bad');
+    } finally {
+      G.busy.delete(name);
+      if (G.view === 'ops') refreshOps($('#view'));
+    }
+  }
+
   // ================================================================ EDIT LOOK (modal)
   function openEditLook() {
     const me = G.me;
@@ -3284,6 +3407,12 @@
         break;
       }
       case 'informant_hire': { act('informant_hire', { informantId: btn.dataset.id }).then(() => { if (G.view === 'informants') refreshInformants($('#view')); }); break; }
+      case 'ops-fam': { G.opsQ = Object.assign({}, G.opsQ, { fam: btn.dataset.fam, offset: 0 }); refreshOps($('#view'), true); break; }
+      case 'ops-more': { G.opsQ = Object.assign({}, G.opsQ, { offset: (G.opsQ.offset || 0) + 24 }); refreshOps($('#view'), true); break; }
+      case 'op_do': opRun('op_do', { id: btn.dataset.id }); break;
+      case 'op_collect': opRun('op_collect', {}); break;
+      case 'op_sell': opRun('op_sell', { idx: +btn.dataset.idx }); break;
+      case 'doc_use': opRun('doc_use', { id: btn.dataset.id }); break;
       case 'train': act('train', { stat: btn.dataset.stat, gymId: btn.dataset.gym || 'abandoned_gym' }); break;
       case 'job_apply': act('job_apply', { jobId: btn.dataset.job }); break;
       case 'job_quit': act('job_quit', {}); break;

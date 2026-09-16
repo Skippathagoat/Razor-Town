@@ -12,6 +12,15 @@ event injector, NPC spawning and a metrics board.
 **This round is +1,063 features (1,736–2,798):** 1,000 playable informants plus 63 engine, system
 and console additions. Every one of them is live, wired to the UI, and covered by the check suites.
 
+**The Long Game (2026.3): +10,022 features (2,799–12,820).** Ten families of underworld work ×
+ten districts × ten grades = **10,000 individually playable operations**, each with its own name,
+patch of the city, grade, price, level bar, crew demand, energy and nerve cost, live odds, payout
+band, heat trail, cooldown and consequence — plus the engine, console and tooling that drives them.
+Every operation is real: rackets bank money while you are elsewhere, heists run in three stages,
+smuggling runs turn ugly in bad weather, forgeries print one-shot papers you burn later, art
+appreciates in a capped vault, and chop shops and street circuits read the car in your garage.
+Run `node tools/check-2026.js` against a fresh world and all 152 end-to-end checks pass.
+
 **Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
 
 Everything from the first 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
@@ -952,15 +961,99 @@ strength and duration.
 > round**, on top of the 1,735 from the first 2026 overhaul — **2,798 numbered additions in total**.
 
 
+---
+
+## 🕶️ The Long Game — features 2,799–12,820
+
+### The ten families — 2,799–12,798 (10,000 operations)
+
+Each family below is **1,000 individual operations**: ten trades × ten districts (Lamp Row, the Back
+Arcade, Steel Bridge, Chapel Cut, the Yard Gates, Hotel Service, the Market, the Tram Loop, the
+Roof Garden, Lock Cut) × ten grades (I Street → X Mythic). Every record carries its own level bar,
+cash price, energy and nerve cost, crew demand, live odds, payout band, heat trail, cooldown and
+consequence, and the catalogue hard-fails at boot if it is ever not exactly 10,000.
+
+2,799–3,798. **🏦 Rackets — 1,000 standing operations.** Protection, numbers, slots, bookmaking,
+   loan-sharking, vending, parking, laundry, waste, contraband. Set one up and it banks for twelve
+   hours; collect the envelope and it starts again. A racket left full in a hot district gets
+   raided — and the block gets hotter.
+3,799–4,798. **💣 Heists — 1,000 three-stage jobs.** Banks, jewellers, armoured vans, casino cages,
+   bond offices, galleries, pharmacies, freight yards, counting houses, museums. Case it, crew up,
+   pull it. Every stage you rush leaves the door heavier on the night.
+4,799–5,798. **🚚 Smuggling runs — 1,000 one-shot deliveries.** Cigarettes, spirits, pharmaceuticals,
+   fireworks, diamonds, weapons, passage, art, fuel, counterfeit. Bad weather hides a loaded van
+   from the wrong eyes and ruins the road; half a load through is a real outcome.
+5,799–6,798. **🖨️ Forgery — 1,000 documents.** IDs, passports, permits, plates, banknote papers,
+   cheque books, deeds, warrant cards, court papers, certificates. Each print is a one-shot: passing
+   paper becomes cash, a court brief cuts bail, a screen burns the tail off you.
+6,799–7,798. **🥊 Muscle work — 1,000 contracts.** Collections, protection, door work, evictions,
+   escorts, wrecking, intimidation, debt buyout, witness chasing, union votes. Paid in cash and in
+   heavy hands: a good week leaves you sharper in a fight for hours.
+7,799–8,798. **🔧 Chop shop — 1,000 strip-downs.** Saloons to prototypes. The yard wants metal rated
+   for the grade — high-grade work eats cars you would rather keep and pays accordingly.
+8,799–9,798. **💻 Cyber jobs — 1,000 data operations.** Records, wallets, cameras, ledgers, message
+   boards, the grid, casino software, bank rails, traffic control, satellite time. Some pay clean,
+   some buy information, some simply make you hard to see.
+9,799–10,798. **🩺 Back-alley clinic — 1,000 treatments.** Stitch-ups to field transplants. The
+   clinic works while you are in a ward — it is how you get out of one — and the expensive grades
+   leave you tougher than you arrived.
+10,799–11,798. **🖼️ Art & collectibles — 1,000 pieces.** Oils to relics. Buy quiet, hold long, sell
+   high: value climbs while a piece sits in the vault, which only takes twelve.
+11,799–12,798. **🏁 Street circuits — 1,000 races.** Docks sprints to the Glass Quarter Grand. Your
+   car's rating is your whole argument; enter short and you pay for the privilege twice.
+
+### The engine, the console and the tooling — 12,799–12,820
+
+12,799. **📋 The Long Game tab** — family chips, search, district and grade filters, twenty-four cards
+   a page, and a book-so-far ledger.
+12,800. **Live odds on every card** — level bar, stat bonus, tips, weather, street heat and the
+   danger dial all folded into one printed number.
+12,801. **Standing-racket panel** with banked totals and a collect-all button.
+12,802. **The vault** — pieces with what you paid, what they are worth now, and a sell button.
+12,803. **Papers in your coat** — every stored document with its one-shot effect and a use button.
+12,804. **Live job tracker** — chains show their stage and quality on the board.
+12,805. **Per-operation cooldowns** — a real settling time after the loud ones.
+12,806. **Chain quality** — how you cased and crewed a heist follows you into the pull.
+12,807. **Appreciation and a capped vault** for collectibles.
+12,808. **Weather-aware smuggling** — fog, storm, rain, wind, heat and clear each move the odds.
+12,809. **Economy dials reach the underworld** — the payout dial scales takings, the danger dial
+   decides how often a bad night ends in a cell.
+12,810. **Ten distinct resolvers**, one per family, each with its own consequence table.
+12,811. **Tip integration** — job intel, payout tips, crew whispers, fight corners, fence intros,
+   magistrate nudges and back-room patches all move operations.
+12,812. **Garage integration** — chop shops and circuits read the actual car in the garage.
+12,813. **Street-heat integration** — operations leave heat, heat lowers odds, hot rackets get raided.
+12,814. **Per-family lifetime ledger** — jobs worked, clean, blown, taken and laid out.
+12,815. **Live board state** — rackets, paper, chains and stats travel in one payload.
+12,816. **Boot assertion** — the catalogue throws if it is ever not exactly 10,000.
+12,817. **Meta advertisement** of all ten families, their counts and their hooks.
+12,818. **`tools/check-fuzz.js`** — static wiring sweep (dead buttons, ghost actions, missing exports,
+   catalogue sanity, 2,000-look avatar sweep) plus a live fuzzer that feeds all 140 actions sixteen
+   malformed payloads each and fails on any 5xx, then re-checks the server's health.
+12,819. **`tools/check-boot.js`** — boots its own clean world: shell, every referenced asset, every
+   shipped script, database integrity, the live stream's hello, a full restart with persistence,
+   and a clean shutdown with no orphans.
+12,820. **Hardened action boundary** — junk identifiers are refused instead of reaching SQLite, and
+   nonsense filters are ignored rather than emptied (both found by the fuzzer, both regression-guarded).
+
+> Count: 10,000 operations + 22 engine, console and tooling features = **10,022 new features**,
+> bringing the ledger to **12,820 numbered additions** in total.
+
+
 ### Verified working
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every 2026 action family over HTTP, incl. City Contracts, the Informant Network and the founder console | **122 / 122 pass** |
+| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **152 / 152 pass** |
+| `node tools/check-systems.js` | the rules of every system, incl. the 1,000-contract, 1,000-informant and 10,000-operation catalogues, tip math and the founder dials | **315 / 315 pass** |
+| `node tools/check-fuzz.js` | wiring sweep + every action fed malformed payloads + the client view contract + a 2,000-look avatar sweep | **18 / 18 pass** |
 | `node tools/check-api.js` | core API contract | **93 / 93 pass** |
-| `node tools/check-systems.js` | rules of every system, incl. the 1,000-contract and 1,000-informant catalogs, tip math and the founder dials | **259 / 259 pass** |
+| `node tools/check-gangs.js` | gang bench, chest, arrangements, operations | **101 / 101 pass** |
+| `node tools/check-boot.js` | clean boot, assets, database integrity, live stream, restart persistence, clean shutdown | **24 / 24 pass** |
 | `node tools/check-http.js` | resilience & abuse | **8 / 8 pass** |
 
 Avatar renderer additionally smoke-tested across 45,000+ random part combinations with zero broken
 renders, plus legacy five- and six-part upgrade paths and empty/garbage spec strings. The informant
-catalogue is asserted at exactly 1,000 entries at boot.
+catalogue is asserted at exactly 1,000 entries at boot and the operation catalogue at exactly 10,000.
+The fuzz suite additionally proves no action can 5xx on malformed input: every failure it found in
+this pass (unbindable identifiers on the bazaar, auction house and turf desk) is fixed and guarded.

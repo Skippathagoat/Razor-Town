@@ -114,7 +114,7 @@ const uniq = Date.now().toString(36);
     await new Promise(s => setTimeout(s, 4 * 350 + 200));
     r = await act(A.tok, 'arcade_safe', { op: 'echo', seq: d2.j.res.seq });
   }
-  ok(r.code === 200 && (r.j.res.op === 'cracked' || r.j.res.op === 'fail'), 'safe echo resolves');
+  ok(r.code === 200 && (r.j.res.op === 'cracked' || r.j.res.op === 'fail'), 'safe echo resolves', detail(r.j));
   // scratch needs cards — founder grants
   await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 0 } });
   const grantItem = async (target, item, qty) => req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'grant_item', item, qty, target } });
@@ -273,7 +273,7 @@ const uniq = Date.now().toString(36);
   const meA = await req('/api/me', { token: A.tok });
   const tot = ['st', 'de', 'sp', 'dx'].reduce((a, k) => a + Math.floor(meA.j.me.stats[k]), 0);
   r = await act(A.tok, 'respec_apply', { stats: { st: tot - 15, de: 5, sp: 5, dx: 5 } });
-  ok(r.code === 200, 'respec apply');
+  ok(r.code === 200, 'respec apply', detail(r.j));
   r = await act(A.tok, 'respec_apply', { stats: { st: 5, de: 5, sp: 5, dx: 5 } });
   ok(r.code === 400, 'respec one-shot enforced');
 
@@ -346,6 +346,97 @@ const uniq = Date.now().toString(36);
     await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'economy', payout: 100, danger: 100 } });
     await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'weather', kind: 'auto' } });
     ok(Array.isArray(botRow), 'the dev panel still serves its player list');
+  }
+
+  // ================= THE LONG GAME — 10,000 UNDERWORLD OPERATIONS =================
+  {
+    const m3 = await req('/api/meta');
+    ok(m3.j.ops && m3.j.ops.total === 10000 && m3.j.ops.perFamily === 1000, 'meta: 10,000-operation catalogue');
+    ok(m3.j.ops.families.length === 10 && m3.j.ops.districts === 10 && m3.j.ops.grades === 10, 'meta: ten families, ten districts, ten grades');
+    ok(m3.j.ops.families.every(f => f.count === 1000 && f.ico && f.blurb), 'meta: every family carries its own hook');
+
+    let board = await act(A.tok, 'ops', { fam: 'rackets' });
+    ok(board.code === 200 && board.j.res.total === 10000 && board.j.res.perFamily === 1000, 'ops board: catalogue totals', detail(board.j));
+    const firstOp = (board.j.res.list || [])[0];
+    ok(!!firstOp && !!firstOp.id && firstOp.chance > 0 && firstOp.energy > 0 && !!firstOp.blurb && !!firstOp.flavour,
+      'ops board: a listing is a complete job card', detail(firstOp));
+    ok(board.j.res.list.length === 24 && board.j.res.matched === 1000, 'ops board: one family, paged twenty-four at a time');
+
+    const filtered = await act(A.tok, 'ops', { fam: 'heists', district: 'lock_cut', grade: '9' });
+    ok(filtered.j.res.matched === 10 && filtered.j.res.list.every(o => o.district === 'lock_cut' && o.grade === 9), 'ops board: district + grade filters');
+    const searched = await act(A.tok, 'ops', { fam: 'heists', q: 'museum' });
+    ok(searched.j.res.matched === 100 && searched.j.res.list.every(o => o.cat === 'museum'), 'ops board: full-text search over the family');
+    const page1 = await act(A.tok, 'ops', { fam: 'runs', offset: 0, limit: 24 });
+    const page2 = await act(A.tok, 'ops', { fam: 'runs', offset: 24, limit: 24 });
+    ok(page2.j.res.list.length === 24 && page1.j.res.list[0].id !== page2.j.res.list[0].id, 'ops board: paging moves the window');
+
+    // ---- guards
+    r = await act(A.tok, 'op_do', { id: 'ops_not_a_real_job' });
+    ok(r.code === 400, 'a forged operation id is refused');
+    r = await act(A.tok, 'op_do', { id: 'heists_bank_lock_cut_9' });
+    ok(r.code === 400, 'a mythic-grade job is locked far above a fresh citizen');
+    r = await act(A.tok, 'op_do', { id: 'heists_bank_lamp_row_0' });
+    ok(r.code === 400, 'a heist without a crew behind you is refused');
+    r = await act(A.tok, 'op_sell', { idx: 0 });
+    ok(r.code === 400, 'selling from an empty vault is refused');
+    r = await act(A.tok, 'doc_use', { id: 'prints_ids_lamp_row_0' });
+    ok(r.code === 400, 'using a document you never printed is refused');
+    r = await act(A.tok, 'op_collect');
+    ok(r.code === 400, 'collecting when nothing is running is refused');
+
+    // ---- a real racket, funded and collected
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 100000 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 100000 } });
+    const m0 = (await req('/api/me', { token: A.tok })).j.me.money;
+    r = await act(A.tok, 'op_do', { id: 'rackets_protection_lamp_row_0' });
+    ok(r.code === 200 && r.j.res.kind === 'racket' && r.j.p.money === m0 - 4500, 'setting up a racket charges the sticker price', detail(r.j.res));
+    board = await act(A.tok, 'ops', { fam: 'rackets' });
+    ok(board.j.res.rackets.length === 1 && board.j.res.list.some(o => o.id === 'rackets_protection_lamp_row_0' && o.owned), 'a standing racket shows as running on the board');
+    r = await act(A.tok, 'op_collect');
+    ok(r.code === 200 && Array.isArray(r.j.res.lines) && r.j.res.lines.length === 1, 'collecting a racket that has not banked yet is handled');
+
+    // ---- a one-shot job, its cooldown and its heat
+    const heatBefore = (await panel(A.tok)).street.heat;
+    r = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
+    ok(r.code === 200 && typeof r.j.res.win === 'boolean' && !!r.j.res.text, 'a smuggling run resolves with a real outcome', detail(r.j.res));
+    const dup = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
+    ok(dup.code === 400, 'a job that is still settling cannot be run twice');
+    ok((await panel(A.tok)).street.heat > heatBefore, 'a night on the road leaves heat behind');
+
+    // ---- forgery → a document you can actually burn
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'clear_status', target: accOf[A.name] } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'refill', target: accOf[A.name] } });
+    let printed = await act(A.tok, 'op_do', { id: 'prints_ids_lamp_row_0' });
+    ok(printed.code === 200 && printed.j.res.kind === 'forgery', 'forgery resolves with a printing outcome', detail(printed.j.res));
+    if (!printed.j.res.win) printed = await act(A.tok, 'op_do', { id: 'prints_plates_lamp_row_0' });   // a second press, so the papers check always runs
+    board = await act(A.tok, 'ops', { fam: 'prints' });
+    ok(Array.isArray(board.j.res.docs) && board.j.res.docs.length > 0, 'the board reports the papers you are holding', detail(board.j.res.docs));
+    const held = (board.j.res.docs || [])[0];
+    if (held) {
+      const used = await act(A.tok, 'doc_use', { id: held.id });
+      ok(used.code === 200 && !!used.j.res.text, 'a printed document can be burned for its effect', detail(used.j));
+    }
+
+    // ---- the clinic, the vault and the panel summary
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'refill', target: accOf[A.name] } });
+    const injured = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'hospital', target: accOf[A.name] } });
+    ok(injured.code === 200, 'dev: the tester is put in a ward');
+    const healed = await act(A.tok, 'op_do', { id: 'clinic_stitch_lamp_row_0' });
+    ok(healed.code === 200 && healed.j.res.kind === 'clinic', 'the back-alley clinic treats real injuries', detail(healed.j.res));
+    ok((await req('/api/me', { token: A.tok })).j.me.life > 1, 'the clinic puts life back on the clock');
+
+    const pn2 = await panel(A.tok);
+    ok(pn2.ops && pn2.ops.total === 10000 && pn2.ops.perFamily === 1000 && pn2.ops.finished >= 3 && pn2.ops.spent > 0,
+      'panel: the long game summary counts jobs, spending and takings', detail(pn2.ops));
+
+    // ---- a levelled citizen can reach the deep end of the book
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_xp', target: accOf[A.name], amount: 3000000 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'reset_cooldowns', target: accOf[A.name] } });
+    const deepBoard = await act(A.tok, 'ops', { fam: 'runs', district: 'lock_cut', grade: '9' });
+    const deepOp = (deepBoard.j.res.list || []).find(o => !o.locked);
+    ok(!!deepOp, 'after a grant of experience the deep end of the book unlocks', detail(deepBoard.j.res.list[0]));
+    r = await act(A.tok, 'op_do', { id: 'runs_weapons_lock_cut_9' });
+    ok(r.code === 200 && (r.j.res.win === true || r.j.res.win === false), 'a mythic-grade smuggling run resolves end to end', detail(r.j.res));
   }
 
   // ================= WARDROBE =================

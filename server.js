@@ -196,6 +196,9 @@ function metaPayload(){
     drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES, factionOperations: C.FACTION_OPERATIONS,
     contractCatalog: { count: C.CITY_CONTRACTS.length, rotationHours: 4, offersPerRotation: 3 },
     informants: { count: S.INF.INFORMANTS.length, rotationHours: 4, perRotation: 6 },
+    ops: { total: S.OPS.TOTAL, perFamily: S.OPS.PER_FAMILY,
+      families: S.OPS.FAMILIES.map(f => ({ id: f.id, name: f.name, ico: f.ico, count: S.OPS.byFamily(f.id).length, special: f.special, verb: f.verb, blurb: f.blurb })),
+      districts: S.OPS.DISTRICTS.length, grades: S.OPS.GRADES.length },
     events: (C.EVENTS || []).map(e => ({ id: e.id, name: e.name, icon: e.icon, dur: e.dur })),
     nightCatalog: { count: C.NIGHT_LEADS.length, rotationHours: 4, offersPerRotation: 3 },
     favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 },
@@ -929,6 +932,12 @@ const routes = async (req, res, urlPath, q) => {
       // the informant network (1,000 leads)
       informants: () => ({ p: W.publicView(W.load(id)), res: { board: S.informantBoard(W.load(id)) } }),
       informant_hire: () => S.informantHire(id, body.informantId || body.id),
+      // the Long Game — 10,000 underworld operations across ten families
+      ops: () => ({ p: W.publicView(W.load(id)), res: S.opsView(W.load(id), body) }),
+      op_do: () => S.opDo(id, body.id, body),
+      op_collect: () => S.opCollect(id),
+      op_sell: () => S.opSell(id, body.idx),
+      doc_use: () => S.docUse(id, body.id),
     };
     const fn = handlers[name];
     if (!fn) return send(res, 404, { err: 'Unknown action.' });
