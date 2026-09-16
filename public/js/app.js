@@ -31,6 +31,9 @@
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
     { id: 'informants', label: 'Informants', ico: '🕵️', key: '1' },
     { id: 'ops', label: 'Operations', ico: '📋', key: '2' },
+    { id: 'travel', label: 'Travel', ico: '🚆', key: 'v' },
+    { id: 'tourney', label: 'Tournament', ico: '🏆', key: '3' },
+    { id: 'pda', label: 'PDA', ico: '📟', key: '4' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
@@ -238,7 +241,7 @@
   // ------- character creator
   // ---- CHARACTER CREATION — Torn-style: you are a body and a name. Nobody
   // sculpts a face here; what the town sees later is whatever you have equipped.
-  const CREATOR = { gender: 'm', origin: 'street', name: '' };
+  const CREATOR = { gender: 'm', origin: 'street', name: '', bio: '', portrait: '' };
   const GENDERS = [['m', 'Male'], ['f', 'Female'], ['e', 'Enby']];
   const PART_LABEL = { legs: 'Legs', feet: 'Feet', torso: 'Torso', hands: 'Hands', neck: 'Neck', head: 'Head', eyes: 'Eyes', mouth: 'Face' };
   const previewLook = (g) => (g || 'm') + '|';
@@ -251,19 +254,38 @@
       return `<div class="slot"><span class="s-ico">${it.icon}</span><span><span class="s-slot">${PART_LABEL[it.wear.part] || it.wear.part}</span><span class="s-val">${esc(it.name)}</span></span></div>`;
     }).join('')}</div>`;
   }
+  function portraitPreviewHTML() {
+    if (CREATOR.portrait) {
+      const src = (G.meta.portraits || []).find(p => p.id === CREATOR.portrait);
+      if (src) return `<div class="av-photo" style="width:150px;height:150px;box-sizing:border-box"><img src="/img/portraits/${src.file}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center 18%"></div>`;
+    }
+    return AV.doll(previewLook(CREATOR.gender), 150);
+  }
   function renderCreator() {
     const w = $('#creator-wrap');
     const o = G.meta.origins;
+    const faces = (G.meta.portraits || []);
+    const faceGrid = faces.length ? `
+          <div class="creator-panel"><h3>🪞 The Face</h3>
+            <div class="portrait-grid">
+              ${faces.map(f => `<div class="portrait-cell ${CREATOR.portrait === f.id ? 'on' : ''}" data-act="portrait_select" data-portrait="${f.id}" role="button" title="${esc(f.label || f.id)}">
+                <img src="/img/portraits/${f.file}" alt="" loading="lazy"><span class="pc-cap">${esc(f.label || '')}</span></div>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+              <button class="btn sm" data-act="portrait_reroll" type="button">🎲 Reroll</button>
+              <span style="color:var(--dim);font-size:11px">Your face on the door — pick one, reroll, or change it any time in Preferences. Upload your own there too.</span>
+            </div>
+          </div>` : '';
     w.innerHTML = `
       <div class="creator-title">🎩 Make Your Name</div>
-      <div class="creator-sub">Account <b style="color:var(--cyn)">@${esc(G.creds.username)}</b> — pick a body and a start. The town sees what you wear, not what you once designed.</div>
+      <div class="creator-sub">Account <b style="color:var(--cyn)">@${esc(G.creds.username)}</b> — pick a face, a body, a start. The town sees what you wear, not what you once designed.</div>
       <div class="creator-grid">
         <div class="creator-preview">
-          <div style="margin:0 auto;width:150px" id="cpv">${AV.doll(previewLook(CREATOR.gender), 150)}</div>
+          <div style="margin:0 auto;width:150px" id="cpv">${portraitPreviewHTML()}</div>
           <div class="preview-name" id="cpname">${esc(CREATOR.name || 'Name')}</div>
           <div class="preview-origin" id="cporigin">—</div>
           <div id="cpwear"><p style="color:var(--dim);font-size:12px;margin-top:10px">Starting kit: plain tee, jeans, trainers. Everything after that is bought, stolen or won — and worn.</p></div>
-          <p style="color:var(--dim);font-size:11px;margin-top:10px">Equipped clothing and armour are what the city sees. You can change your body later in Preferences.</p>
+          <p style="color:var(--dim);font-size:11px;margin-top:10px">Equipped clothing and armour are what the city sees. You can change your face and body later in Preferences.</p>
         </div>
         <div class="creator-steps">
           <div class="creator-panel">
@@ -271,6 +293,7 @@
             <div class="field"><input id="cname" maxlength="20" value="${esc(CREATOR.name)}" placeholder="What should the city call you?"></div>
             <div class="err" id="cname-err"></div>
           </div>
+          ${faceGrid}
           <div class="creator-panel"><h3>🧍 Body</h3>
             <div class="chiprow" id="genderrow" style="margin-top:8px">
               ${GENDERS.map(([id, n]) => `<button type="button" class="chip ${CREATOR.gender === id ? 'on' : ''}" data-gender="${id}">${n}</button>`).join('')}
@@ -281,7 +304,7 @@
             ${o.map(orig => `<button class="chip origin-card ${CREATOR.origin === orig.id ? 'on' : ''}" data-origin="${orig.id}"><b>${orig.icon} ${orig.name}</b><span>${esc(orig.trait)}</span><span class="tag">starts with +${orig.bonus} ${FINGER[orig.stat]}</span></button>`).join('')}
           </div></div>
           <div class="creator-panel"><h3>📝 Tagline (optional)</h3>
-            <input id="cbio" maxlength="120" placeholder="e.g. I steal from the rich, the poor, and everyone in between.">
+            <input id="cbio" maxlength="120" value="${esc(CREATOR.bio)}" placeholder="e.g. I steal from the rich, the poor, and everyone in between.">
           </div>
           <button class="btn primary big" style="width:100%" id="cgo">🎩 Walk into Razor Town</button>
           <div class="err" id="cerr"></div>
@@ -290,13 +313,14 @@
       </div>`;
     const go = () => submitCreator();
     $('#cname').addEventListener('input', e => { CREATOR.name = e.target.value.trim(); $('#cpname').textContent = CREATOR.name || 'Name'; });
+    $('#cbio').addEventListener('input', e => { CREATOR.bio = e.target.value; });
     $('#cgo').addEventListener('click', go);
     $('#cback').addEventListener('click', () => showAuth());
     $('#genderrow').addEventListener('click', e => {
       const b = e.target.closest('[data-gender]'); if (!b) return;
       CREATOR.gender = b.dataset.gender;
       $$('#genderrow .chip').forEach(x => x.classList.toggle('on', x === b));
-      $('#cpv').innerHTML = AV.doll(previewLook(CREATOR.gender), 150);
+      $('#cpv').innerHTML = portraitPreviewHTML();
     });
     $('#originrow').addEventListener('click', e => {
       const b = e.target.closest('[data-origin]'); if (!b) return;
@@ -319,7 +343,7 @@
       await Net.post('/api/validate', { profile: { name: CREATOR.name } });
       const r = await Net.post('/api/register', {
         username: G.creds.username, password: G.creds.password, email: G.creds.email,
-        profile: { name: CREATOR.name, origin: CREATOR.origin, gender: CREATOR.gender, bio: $('#cbio').value }
+        profile: { name: CREATOR.name, origin: CREATOR.origin, gender: CREATOR.gender, bio: $('#cbio').value, portrait: CREATOR.portrait }
       });
       enterGame(r.me);
     } catch (e) { err.textContent = e.message; go.disabled = false; go.textContent = '🎩 Walk into Razor Town'; }
@@ -379,12 +403,25 @@
     if (pill) { pill.className = 'pill ' + (G.online ? 'online' : 'offline'); const t = $('.oltext', pill); if (t) t.textContent = G.online ? 'Live' : 'Reconnecting…'; }
   }
   function startOnlinePulse() {
+    G.onlineNames = G.onlineNames || [];
+    G.onlineCount = 0;
     setInterval(async () => {
       if (!G.authed) return;
-      try { const r = await Net.get('/api/world/online'); const el = $('#online-count'); if (el) el.textContent = r.online; }
+      try {
+        const r = await Net.get('/api/world/online');
+        G.onlineCount = r.online;
+        G.onlineNames = (r.names || []).map(n => ({ name: n.name, you: n.id === (G.me && G.me.id) }));
+        const el = $('#online-count'); if (el) el.textContent = r.online;
+        renderRail();
+      }
       catch (e) {}
       if (G.view === 'city') refreshNews();
     }, 30000);
+    // the city event on the wire (rotates on its own)
+    setInterval(async () => {
+      if (!G.authed) return;
+      try { const p = await sysPanel(true); G.eventNow = (p && p.event) || null; } catch (e) { G.eventNow = null; }
+    }, 60000);
   }
   async function refreshNews() {
     try { const r = await Net.get('/api/world/news'); if (G.view === 'city' && $('#feed')) renderCityFeed(r.items); G.cache.news = r.items; }
@@ -405,6 +442,9 @@
       </div>`;
     $('#hud').innerHTML = `
       <button class="iconbtn side-burger" data-act="side_toggle" title="yard menu">☰</button>
+      <button class="tb-logo" data-nav="city" title="Razor Town — home">
+        <img src="img/razor-town-mark.svg" alt="Razor Town"><span class="tb-word">RAZOR<em>TOWN</em></span><span class="tb-year">'26</span>
+      </button>
       ${!jail && !hosp ? `<div class="hud-points">
         ${point('life', '❤', 'Life', me.life, me.max_life)}
         ${point('energy', '⚡', 'Energy', me.energy, me.max_energy, ' — refills every 30 minutes')}
@@ -530,7 +570,8 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
-    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'garage', 'turf'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'garage', 'turf', 'travel', 'tourney'] },
+    { id: 'pocket', name: 'The Pocket', ico: '📟', tabs: ['pda'] },
     { id: 'under', name: 'The Long Game', ico: '🕶️', tabs: ['informants', 'ops'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
@@ -551,6 +592,13 @@
       return `<button class="rail-item ${G.view === tid ? 'on' : ''} ${disable ? 'rail-dis' : ''}" data-nav="${tid}" ${disable ? 'disabled' : ''}><span class="ico">${tb.ico}</span><span class="rl">${tb.label}</span>${badge}<span class="kbd">${tb.key}</span></button>`;
     };
     let html = itemBtn('city');
+    // 2026.5: the event on the wire, and who is in the yard right now
+    if (G.eventNow && G.eventNow.until > Date.now()) {
+      const ev = G.eventNow;
+      html += `<div class="ev-banner"><b>${ev.icon || '⚡'} ${esc(ev.name)}<span class="ev-timer">${fmtClock(ev.until - Date.now())}</span></b><span>${esc(ev.desc || '')}</span></div>`;
+    }
+    html += `<div class="online-card"><div class="oc-head"><span>In the yard</span><b>${G.onlineCount || 0} live</b></div>
+      <div class="oc-list">${(G.onlineNames || []).map(n => `<div class="oc-row ${n.you ? 'you' : ''}"><span class="oc-dot"></span>${esc(n.name)}${n.you ? ' (you)' : ''}</div>`).join('') || '<div class="oc-row" style="color:var(--dim)">just you and the pigeons</div>'}</div></div>`;
     for (const g of SIDE_GROUPS.map(g => (g.id === 'crew' && me.dev) ? { ...g, tabs: [...g.tabs, 'dev'] } : g)) {
       const hasCurrent = g.tabs.includes(G.view);
       const folded = G.sideFold[g.id] === true && !hasCurrent;
@@ -593,7 +641,8 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps };
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps,
+      travel: renderTravel, tourney: renderTourney, pda: renderPDA };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -874,9 +923,126 @@
       </div>`;
   }
 
+  // ================================================================ 2026.5 VIEWS — TRAVEL · TOURNAMENT · PDA
+  async function renderTravel() {
+    const v = $('#view');
+    v.innerHTML = '<div class="skeleton"></div>';
+    let t;
+    try { t = await Net.get('/api/travel'); }
+    catch (e) { v.innerHTML = `<div class="card"><div class="subhead">The line is quiet</div><p class="dimtext">${esc(e.message)}</p></div>`; return; }
+    const stops = t.districts.map((d, i) =>
+      (i ? '<div class="travel-connector"></div>' : '') +
+      `<button class="travel-stop ${d.here ? 'here' : ''}" data-act="travel" data-to="${d.id}" ${d.here ? 'disabled' : ''}>
+        ${d.visited ? '<span class="ts-visited">✓</span>' : ''}
+        <span class="ts-ico">${d.icon}</span>
+        <span class="ts-name">${esc(d.name)}${d.here ? ' — you' : ''}</span>
+        <span class="ts-mod">${esc(d.modLabel || 'No bonus here — just the view.')}</span>
+        <span class="ts-cost">${d.here ? 'home stop' : '$' + d.cost.toLocaleString() + ' · ' + d.hops + ' stop' + (d.hops === 1 ? '' : 's')}</span>
+      </button>`).join('');
+    const scene = (t.scene || []).length
+      ? (t.scene || []).map(s => `<div class="kv"><span>${s.fresh ? '🟢' : '⚪'} ${esc(s.name)}</span><b>LV ${s.level}</b></div>`).join('')
+      : '<div class="kv"><span class="dimtext">Nobody else on your platform right now.</span></div>';
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🚆 The Line</div><div class="vdesc">Eight districts, one line. The ride is $100 + $200 a stop, costs 5 energy, and the whole town sees where you land. Each district bends the town a different way.</div></div>
+      <div class="dist-chip">${t.hereIcon} ${esc(t.here)}</div></div>
+      <div class="card"><div class="subhead">The line</div>
+        ${t.cdLeft > 0 ? `<div class="kv" style="margin-bottom:8px"><span>Next run</span><b>${fmtClock(t.cdLeft)}</b></div>` : ''}
+        <div class="travel-line">${stops}</div>
+        <div class="dimtext" style="margin-top:10px;font-size:11px">18% of rides turn up with something in your pocket — ${t.findsToday || 0} found today, ${t.trips || 0} lifetime rides.</div>
+      </div>
+      <div class="card"><div class="subhead">On your platform</div>${scene}</div>`;
+  }
+  function warrantChipHTML(w) {
+    return `<span class="warrant-chip w${w.stars}">${w.stars ? '★'.repeat(w.stars) + ' wanted' : '✓ clean'}</span>`;
+  }
+  async function renderTourney() {
+    const v = $('#view'); const me = G.me;
+    v.innerHTML = '<div class="skeleton"></div>';
+    let t;
+    try { t = await Net.get('/api/tourney'); }
+    catch (e) { v.innerHTML = `<div class="card"><div class="subhead">The floor is dark</div><p class="dimtext">${esc(e.message)}</p></div>`; return; }
+    const entry = t.mine
+      ? `<div class="kv"><span>Your name is on the card</span><b>✓ in</b></div>`
+      : (t.state === 'open'
+        ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="tourney_enter">🏆 Enter the card — $${t.fee.toLocaleString()}</button><span class="dimtext" style="font-size:11px">Level ${t.minLevel}+ · one entry per week · level ${me.level} now</span></div>`
+        : `<div class="kv"><span>Entry closed — the bracket settles and a new card opens Monday</span></div>`);
+    const entrants = (t.entrants || []).map((e, i) => `<div class="itemrow"><span class="ic">${i === 0 ? '1️⃣' : i === 1 ? '2️⃣' : i === 2 ? '3️⃣' : '🎖️'}</span><span class="nm"><b>${i + 1}. ${esc(e.name)}${e.id === me.id ? ' (you)' : ''}</b><small>Level ${e.level} · power ${e.power}</small></span>${e.id === me.id ? '<span class="qtychip">you</span>' : ''}</div>`).join('')
+      || '<div class="kv"><span class="dimtext">No names on the card yet. The belt waits.</span></div>';
+    let bracket = '';
+    if (t.result && t.result.rounds) {
+      bracket = `<div class="card"><div class="subhead">The bracket — week of ${esc(t.result.week)}</div>
+        <div class="tourney-bracket">${t.result.rounds.map(r => `<div class="tourney-col"><h4>Round ${r.round}</h4>${r.rows.map(m => `<div class="tourney-match">
+          <div class="tm-a"><span class="${m.winner === m.a ? 'win' : 'lose'}">${esc(m.a)}</span>${m.da ? `<span class="dmg">${m.da}</span>` : ''}</div>
+          <div class="tm-b"><span class="${m.winner === m.b ? 'win' : 'lose'}">${esc(m.b)}</span>${m.db ? `<span class="dmg">${m.db}</span>` : ''}</div>
+        </div>`).join('')}</div>`).join('')}</div></div>`;
+    }
+    const trophy = t.result && t.result.winner ? `
+      <div class="card trophy-card"><div class="subhead" style="background:none;color:#7a5a10;border:none;margin:0 0 8px">🏆 Champion of ${esc(t.result.week)}</div>
+        <div class="kv"><span>Champion</span><b>${esc(t.result.winner)}</b></div>
+        <div class="kv"><span>Pool</span><b>$${(t.result.pool || 0).toLocaleString()}</b></div>
+        <div class="kv"><span>Prize (${t.result.prizePct}%)</span><b>$${(t.result.prize || 0).toLocaleString()}</b></div>
+      </div>` : (t.result && t.result.text ? `<div class="card"><div class="subhead">This week</div><p class="dimtext">${esc(t.result.text)}</p></div>` : '');
+    const lastWk = t.lastWeek && t.lastWeek.result ? (t.lastWeek.result.winner ? `Last week: <b>${esc(t.lastWeek.result.winner)}</b> took $${(t.lastWeek.result.prize || 0).toLocaleString()}.` : esc(t.lastWeek.result.text)) : '';
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🏆 The Championship</div><div class="vdesc">One card a week, 16 slots, no bots. Enter before Sunday 22:00, the bracket settles itself, and the champion takes ${t.poolPct}% of the pool, the belt, and the wire. Real citizens only — if nobody shows, the belt stays on the shelf.</div></div>
+      <div class="dist-chip">Closes ${t.state === 'open' ? fmtClock(t.closesAt - Date.now()) : '—'}</div></div>
+      ${trophy}
+      <div class="card"><div class="subhead">This week's card</div>
+        ${entry}
+        <div style="margin-top:12px">${entrants}</div>
+        <div class="kv" style="margin-top:10px"><span>Pot on the floor</span><b>$${(t.pool || 0).toLocaleString()}</b></div>
+      </div>
+      ${bracket}
+      ${lastWk ? `<div class="card"><div class="subhead">The record</div><div class="dimtext" style="font-size:12px">${lastWk}</div></div>` : ''}`;
+  }
+  async function renderPDA() {
+    const v = $('#view'); const me = G.me;
+    v.innerHTML = '<div class="skeleton"></div>';
+    let d;
+    try { d = await Net.get('/api/pda'); }
+    catch (e) { v.innerHTML = `<div class="card"><div class="subhead">Static</div><p class="dimtext">${esc(e.message)}</p></div>`; return; }
+    const bar = (ico, l, val, max) => `<div class="hbar ${l}" style="margin-bottom:7px"><div class="hfill ${l}" style="width:${U.pct(val, max)}%"></div><div class="htext"><span class="hicon">${ico}</span><span class="hval">${Math.round(val)}</span></div></div>`;
+    const itName = (id) => { const it = (G.meta && G.meta.items && G.meta.items[id]); return it ? it.name : (id || '—'); };
+    const quick = (d.items || []).map(it => `<button class="pda-use" data-act="pda_use" data-item="${it.id}"><span>${it.icon}</span><span>${esc(it.name)}</span><span class="pda-qty">×${it.qty}</span></button>`).join('')
+      || '<div class="kv"><span class="dimtext">Nothing usable in the pocket. The Market fixes that.</span></div>';
+    const w = d.warrant || {};
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">📟 The PDA</div><div class="vdesc">The pocket data assistant — every touch in one screen: vitals, cash, gear, warrant, and one-tap item use.</div></div>
+      <div class="dist-chip">${esc(d.district)}</div></div>
+      <div class="pda-shell">
+        <div class="card" style="margin:0"><div class="subhead">Vitals</div>
+          ${bar('❤', 'life', d.bars.life, d.bars.max_life)}${bar('⚡', 'energy', d.bars.energy, d.bars.max_energy)}${bar('🧠', 'nerve', d.bars.nerve, d.bars.max_nerve)}${bar('🙂', 'happy', d.bars.happy, d.bars.max_happy)}
+        </div>
+        <div class="card" style="margin:0"><div class="subhead">Pocket</div>
+          <div class="kv"><span>Cash</span><b>$${(d.money || 0).toLocaleString()}</b></div>
+          <div class="kv"><span>Branch</span><b>$${(d.bank || 0).toLocaleString()}</b></div>
+          <div class="kv"><span>Vault</span><b>$${(d.vault || 0).toLocaleString()}</b></div>
+          <div class="kv"><span>Weapon</span><b>${itName(d.equip.weapon)}</b></div>
+          <div class="kv"><span>Armour</span><b>${itName(d.equip.armour)}</b></div>
+          <div class="kv"><span>Wearing</span><b>${d.equip.wear} pieces</b></div>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn sm" data-act="pda_dep">⬆ Deposit</button>
+            <button class="btn sm" data-act="pda_wd">⬇ Withdraw</button>
+          </div>
+        </div>
+        <div class="card" style="margin:0"><div class="subhead">Quick use</div>${quick}
+          <div class="kv" style="margin-top:10px"><span>PDA uses</span><b>${d.pda_uses || 0}${(d.pda_uses || 0) >= 10 ? ' · One-Handed ✓' : ' / 10'}</b></div>
+        </div>
+        <div class="card" style="margin:0"><div class="subhead">Standing</div>
+          <div class="kv"><span>Warrant</span><b>${warrantChipHTML(w)}</b></div>
+          ${w.stars ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn sm gold" data-act="warrant_pay">🧾 Pay $${(w.fine || 0).toLocaleString()}</button>
+            <button class="btn sm" data-act="warrant_surrender">⛓ Walk it in</button>
+          </div>` : ''}
+          <div class="kv" style="margin-top:10px"><span>Level</span><b>${d.level}</b></div>
+          <div class="kv"><span>Reputation</span><b>${(d.rep || 0).toLocaleString()}</b></div>
+        </div>
+      </div>`;
+  }
+
   function reRenderCurrent(res) {
     const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf, travel: renderTravel, tourney: renderTourney, pda: renderPDA };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -1273,10 +1439,24 @@
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">⛓️ <span class="head">The Cells</span></div>
       <div class="vdesc">The custody roster, live. Friends, family and creative accountants open each other's doors here — paid to the state, never the citizen.</div></div>
-      <div id="jail-board" style="max-width:680px"><div class="skeleton"></div></div>`;
+      <div class="grid2"><div id="jail-board" style="max-width:680px"><div class="skeleton"></div></div>
+      <div class="card" id="wanted-wrap"><div class="subhead">🔎 The Wanted Board <span style="color:var(--dim);font-weight:400">— street heat the town keeps a file on</span></div><div class="skeleton"></div></div></div>`;
     try {
       const d = await Net.get('/api/jail');
       const el = document.getElementById('jail-board'); if (!el || G.view !== 'jail') return;
+      // the wanted board — the town's open files on hot names
+      const ww = document.getElementById('wanted-wrap');
+      if (ww) {
+        const rows = d.wanted || [];
+        ww.innerHTML = rows.length ? `<div class="subhead">🔎 The Wanted Board <span style="color:var(--dim);font-weight:400">— street heat the town keeps a file on</span></div>` +
+          rows.slice(0, 10).map(r => `<div class="wanted-row">
+            ${r.portrait ? AV.portraitFor(r, 46) : `<span class="ic">🔎</span>`}
+            <div style="flex:1;min-width:0"><b>${esc(r.name)}</b>${r.id === me.id ? ' <span style="color:var(--bad);font-size:10px">(that is you)</span>' : ''}
+            <small>Level ${r.level} · heat ${r.heat}</small></div>
+            <span class="warrant-chip w${r.stars}">${'★'.repeat(r.stars)}</span>
+            <span class="mono" style="color:var(--bad);font-weight:700">$${r.fine.toLocaleString()}</span>
+          </div>`).join('') : `<div class="subhead">🔎 The Wanted Board <span style="color:var(--dim);font-weight:400">— street heat the town keeps a file on</span></div><p style="color:var(--dim);font-size:12.5px">No open files. The town is satisfied with itself — for now.</p>`;
+      }
       const rows = (d.inmates || []);
       if (!rows.length) { el.innerHTML = `<div class="card" style="text-align:center"><p style="color:var(--dim);font-size:13px;margin:6px 0">The cells are quiet right now. Even the regulars are walking around outside.</p></div>`; return; }
       el.innerHTML = rows.map(r => {
@@ -1518,7 +1698,7 @@
           const d = gap <= 3 ? 'easy' : gap <= 12 ? 'med' : 'hard';
           const dl = gap <= 3 ? 'winnable' : gap <= 12 ? 'even fight' : 'dangerous';
           return `<button class="targetrow" data-act="attack" data-tid="${t.acc_id}">
-            <span style="width:44px;height:44px;flex-shrink:0">${AV.svgFor(t.avatar, 44)}</span>
+            <span style="width:44px;height:44px;flex-shrink:0">${t.portrait ? AV.portraitFor(t, 44) : AV.svgFor(t.avatar, 44)}</span>
             <div class="nm"><b>${esc(t.name)}${t.isBot ? '' : ' <span style="color:var(--cyn);font-size:9px;letter-spacing:1px">● ONLINE</span>'}</b>
             <span>lvl ${t.level} · ⭐${t.total} · ${t.wins} wins</span></div>
             <div class="cmeta" style="text-align:right"><div class="pay" style="color:var(--gold)">${t.isBot ? money(t.cash) + ' loot' : 'player'}</div>
@@ -1855,6 +2035,7 @@
         <div class="shop-head">
           <span class="shop-ico">${s.icon}</span>
           <div class="shop-title"><b>${esc(s.name)}</b><span class="shop-area">${esc(s.area)}</span></div>
+          ${s.deal ? `<span class="deal-badge" title="One item is 40% off today — look for the tag">🏷️ DAILY DEAL</span>` : ''}
         </div>
         <p class="shop-blurb">${esc(s.blurb)}</p>
         <div class="shop-stock">
@@ -1863,10 +2044,13 @@
             const afford = me.money >= r.price;
             const stockCls = soldOut ? 'out' : (r.left === 1 ? 'low' : 'plenty');
             const stockTxt = soldOut ? 'Sold out until midnight' : `${r.left} of ${r.max} left today`;
+            const trendCls = (r.trend || 'flat').startsWith('up') ? 'trend-up' : (r.trend || 'flat').startsWith('down') ? 'trend-down' : 'trend-flat';
             return `<div class="shop-item">
               <span class="shop-item-ic">${r.icon || '📦'}</span>
               <div class="shop-item-info"><b>${esc(r.name)}</b><small>${esc(r.desc || '')}</small><span class="shop-left ${stockCls}">${stockTxt}</span></div>
               <div class="shop-buy">
+                ${r.deal ? '<span class="deal-badge" title="Daily deal — 40% off until midnight">−40%</span>' : ''}
+                ${r.idx ? `<span class="trend-chip ${trendCls}" title="The market index moves this price ±10% a day">${r.idx.toFixed(3)}</span>` : ''}
                 <b class="mono shop-price">${money(r.price)}</b>
                 ${soldOut ? '<span class="shop-out">Gone</span>'
                   : `<button class="btn sm ok" data-act="shop_buy" data-shop="${s.id}" data-item="${r.item}" ${afford ? '' : 'disabled'} title="${afford ? 'Buy one — ' + stockTxt.toLowerCase() : 'Short — the counter wants ' + money(r.price)}">Buy</button>`}
@@ -2471,7 +2655,7 @@
       ${list.slice(0, 25).map(t => `
         <div class="lbrow ${t.isBot ? '' : 'real'} ${t.id === G.me.id ? 'me' : ''} top${t.rank}">
           <span class="rank">${t.rank}</span>
-          <span style="width:36px;height:36px;flex-shrink:0">${AV.svgFor(t.avatar, 36)}</span>
+          <span style="width:36px;height:36px;flex-shrink:0">${t.portrait ? AV.portraitFor(t, 36) : AV.svgFor(t.avatar, 36)}</span>
           <b style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}${!t.isBot ? ' <span style="color:var(--cyn);font-size:9px">●</span>' : ''}</b>
           ${kind === 'rep' ? `<span style="color:var(--gold);font-weight:700" class="mono">${t.rep.toLocaleString()}</span>` : ''}
           ${kind === 'level' ? `<span class="mono" style="color:var(--cyn);font-weight:700">lvl ${t.level}</span>` : ''}
@@ -2526,15 +2710,18 @@
         <span class="qtychip">${me.wins}W · ${me.losses}L</span>
         <span class="qtychip" style="color:var(--gold)">🏷️ ${titleFor(me.reputation || 0)}</span>
         <span class="qtychip" style="color:var(--cyn)">📸 ${(me.followers || 0).toLocaleString()} followers</span>
+        ${me.warrant ? warrantChipHTML(me.warrant) : ''}
+        ${me.streak > 1 ? `<span class="streak-chip" title="Consecutive days active">🔥 ${me.streak}-day streak</span>` : ''}
         ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">⚙️ Preferences</button>` : ''}
         ${me.respecOpen ? `<button class="btn gold sm" data-act="respec_open">📝 Identity rewrite ready</button>` : ''}
       </div></div>
       <div class="grid2 profile-grid">
         <div class="dollframe">
-          ${me.pic ? `<img src="${me.pic}" alt="profile picture" style="width:100%;display:block;border-radius:8px">`
-            : ((me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210))}
+          ${(me.portrait && AV.portraitSrc(me)) ? `<div class="av-photo" style="width:100%;height:210px;box-sizing:border-box">${AV.portraitSrc(me)}</div>`
+            : (me.pic ? `<img src="${me.pic}" alt="profile picture" style="width:100%;display:block;border-radius:8px">`
+            : ((me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210)))}
           <div class="dollname">${esc(me.name)}</div>
-          <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}</div>
+          <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}${me.profile_visits ? ` · 👁 ${(me.profile_visits || 0).toLocaleString()} visits` : ''}</div>
           <div class="dollbio">${esc(me.bio || '')}</div>
           <div class="statgrid" style="margin-top:10px">
             ${['st','de','sp','dx'].map(k => `<div class="statcell"><div class="snum">${Math.floor(me.stats[k])}</div><div class="slab">${F[k]}</div></div>`).join('')}
@@ -2782,23 +2969,36 @@
   // Torn's Preferences, not a creator: change your body, your tagline and your
   // picture. Clothes are changed by equipping things from your bag — never here.
   const GENDER_NAME = { m: 'Male', f: 'Female', e: 'Enby' };
-  const PREFS = { gender: 'm', pic: '' };
+  const PREFS = { gender: 'm', pic: '', portrait: '' };
   function picBoxHTML(pic) {
     return pic
       ? `<img src="${pic}" alt="your picture" style="width:120px;height:165px;object-fit:cover;border-radius:6px;box-shadow:0 0 0 1px rgba(255,255,255,.18)">`
       : `<div style="width:120px;height:165px;border-radius:6px;border:1px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;text-align:center;padding:6px;box-sizing:border-box">no picture — the citizen drawing is used</div>`;
   }
+  function prefPrevHTML() {
+    if (PREFS.portrait) {
+      const src = (G.meta.portraits || []).find(p => p.id === PREFS.portrait);
+      if (src) return `<div class="av-photo" style="width:120px;height:150px;box-sizing:border-box;margin:0 auto"><img src="/img/portraits/${src.file}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center 18%"></div>`;
+    }
+    if (PREFS.pic) return picBoxHTML(PREFS.pic);
+    return AV.doll(prefLookWith(PREFS.gender), 150);
+  }
+  let prefLook = (g) => g + '|';
+  function prefLookWith(g) { return prefLook(g); }
   function openPreferences() {
     const me = G.me;
     const root = $('#modal-root');
     PREFS.gender = me.gender || 'm';
     PREFS.pic = me.pic || '';
+    PREFS.portrait = me.portrait || '';
     // keep the equipped kit, swap only the body in the look string
     const lookWith = (g) => { const i = String(me.avatar || '').indexOf('|'); return g + (i >= 0 ? me.avatar.slice(i) : '|'); };
+    prefLook = lookWith;
+    const faces = G.meta.portraits || [];
     root.innerHTML = `<div class="modal"><div class="modal-card">
       <div class="modal-title">⚙️ <span class="head">Preferences</span></div>
       <div style="display:flex;gap:16px;margin:14px 0;flex-wrap:wrap">
-        <div style="width:150px;flex-shrink:0;text-align:center" id="pref-prev">${AV.doll(lookWith(PREFS.gender), 150)}</div>
+        <div style="width:150px;flex-shrink:0;text-align:center" id="pref-prev">${prefPrevHTML()}</div>
         <div style="flex:1;min-width:220px">
           <div class="subhead">🧍 Body</div>
           <div class="chiprow" id="pref-gender" style="margin-top:8px">
@@ -2809,8 +3009,21 @@
           <div class="field" style="margin-top:8px"><input id="pref-bio" maxlength="120" value="${esc(me.bio || '')}" placeholder="A line about you"></div>
         </div>
       </div>
-      <div class="subhead">📸 Your picture</div>
-      <p style="color:var(--dim);font-size:11.5px;margin:4px 0 8px">The citizen is drawn from what you wear. The picture is the separate thing a profile carries — any image you like, cut to 200×275 here before it is stored.</p>
+      <div class="subhead">🪞 The face on the door</div>
+      <p style="color:var(--dim);font-size:11.5px;margin:4px 0 8px">Pick a face from the catalog, or use your uploaded picture as the face. This is what the whole town sees on lists, boards and your file.</p>
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div class="portrait-grid" style="max-width:420px">
+          ${faces.map(f => `<div class="portrait-cell ${PREFS.portrait === f.id ? 'on' : ''}" data-act="pref-face" data-portrait="${f.id}" role="button" title="${esc(f.label || f.id)}">
+            <img src="/img/portraits/${f.file}" alt="" loading="lazy"><span class="pc-cap">${esc(f.label || '')}</span></div>`).join('')}
+          ${me.pic ? `<div class="portrait-cell ${PREFS.portrait === 'custom' ? 'on' : ''}" data-act="pref-face" data-portrait="custom" role="button" title="Your uploaded picture">
+            <img src="${me.pic}" alt="" loading="lazy"><span class="pc-cap">Your picture</span></div>` : ''}
+          <div class="portrait-cell" data-act="pref-face" data-portrait="" role="button" title="No face — the citizen drawing">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;background:#1c2027">🎭</div><span class="pc-cap">No face</span></div>
+        </div>
+        <button class="btn ghost sm" data-act="pref-reroll" style="margin-top:2px">🎲 Reroll</button>
+      </div>
+      <div class="subhead" style="margin-top:14px">📸 Your picture</div>
+      <p style="color:var(--dim);font-size:11.5px;margin:4px 0 8px">The citizen is drawn from what you wear. The picture is the separate thing a profile carries — any image you like, cut to 200×275 here before it is stored. Upload one and it becomes available as "Your picture" in the face picker.</p>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <span id="pref-picbox">${picBoxHTML(PREFS.pic)}</span>
         <div style="display:flex;flex-direction:column;gap:6px">
@@ -2832,9 +3045,25 @@
       cutPicture(f).then(data => {
         PREFS.pic = data;
         const box = $('#pref-picbox'); if (box) box.innerHTML = picBoxHTML(data);
+        // the new picture joins the face picker as "Your picture"
+        const grid = $('#modal-root .portrait-grid');
+        if (grid && !grid.querySelector('[data-portrait="custom"]')) {
+          grid.insertAdjacentHTML('beforeend', `<div class="portrait-cell ${PREFS.portrait === 'custom' ? 'on' : ''}" data-act="pref-face" data-portrait="custom" role="button" title="Your uploaded picture">
+            <img src="${data}" alt="" loading="lazy"><span class="pc-cap">Your picture</span></div>`);
+        }
         U.toast('Picture ready — save to keep it.', 'good');
       }).catch(() => U.toast('That file would not read as an image.', 'bad'));
     });
+    if (PREFS._faceH) { try { root.removeEventListener('click', PREFS._faceH); } catch (e2) {} }
+    PREFS._faceH = function prefFaceH(e) {
+      const b = e.target.closest('[data-act="pref-face"]');
+      if (b) {
+        PREFS.portrait = b.dataset.portrait;
+        $$('#modal-root [data-portrait]').forEach(c => c.classList.toggle('on', c === b));
+        const prev = $('#pref-prev'); if (prev) prev.innerHTML = prefPrevHTML();
+      }
+    };
+    root.addEventListener('click', PREFS._faceH);
   }
   // Cut any upload into Torn's profile-picture frame (200 × 275) in the browser,
   // so the server only ever stores a small JPEG data URL.
@@ -2864,7 +3093,8 @@
     const body = {
       gender: on ? on.dataset.gender : (me.gender || 'm'),
       bio: ($('#pref-bio') || {}).value || '',
-      pic: img ? img.getAttribute('src') : ''
+      pic: img ? img.getAttribute('src') : '',
+      portrait: PREFS.portrait
     };
     try {
       const r = await Net.post('/api/updateprofile', body);
@@ -3597,6 +3827,37 @@
         const amt = parseInt($('#bank-amt').value, 10) || 1000;
         act(actN, { amount: amt }); break;
       }
+      // 2026.5 — Torn season
+      case 'travel': { const r = await actCatch('travel', { to: btn.dataset.to }); if (r) { renderTravel(); renderRail(); } break; }
+      case 'tourney_enter': { const r = await actCatch('tourney_enter', {}); if (r) renderTourney(); break; }
+      case 'warrant_pay': { const r = await actCatch('warrant_pay', {}); if (r) { if (G.view === 'pda') renderPDA(); else if (G.view === 'jail') renderJail(); } break; }
+      case 'warrant_surrender': { const r = await actCatch('warrant_surrender', {}); if (r) { if (G.view === 'pda') renderPDA(); else if (G.view === 'jail') renderJail(); } break; }
+      case 'pda_use': { const r = await actCatch('pda_use', { itemId: btn.dataset.item }); if (r) renderPDA(); break; }
+      case 'pda_dep': { const amt = parseInt(prompt('Deposit how much into the branch?', '1000') || '0', 10); if (amt > 0) { const r = await actCatch('pda_deposit', { amount: amt }); if (r) renderPDA(); } break; }
+      case 'pda_wd': { const amt = parseInt(prompt('Withdraw how much from the branch?', '1000') || '0', 10); if (amt > 0) { const r = await actCatch('pda_withdraw', { amount: amt }); if (r) renderPDA(); } break; }
+      case 'portrait_select': {
+        CREATOR.portrait = btn.dataset.portrait;
+        document.querySelectorAll('.portrait-cell').forEach(c => c.classList.toggle('on', c.dataset.portrait === btn.dataset.portrait));
+        const prev = $('#cpv');
+        if (prev) {
+          const src = (G.meta.portraits || []).find(p => p.id === btn.dataset.portrait);
+          if (src) prev.innerHTML = `<div class="av-photo" style="width:150px;height:150px;box-sizing:border-box"><img src="/img/portraits/${src.file}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center 18%"></div>`;
+        }
+        break;
+      }
+      case 'portrait_reroll': {
+        const pool = G.meta.portraits || [];
+        if (pool.length) {
+          const picks = pool.filter(p => p.gender === (CREATOR.gender || 'm'));
+          const list = picks.length ? picks : pool;
+          const pick = list[Math.floor(Math.random() * list.length)];
+          document.querySelectorAll('.portrait-cell').forEach(c => c.classList.toggle('on', c.dataset.portrait === pick.id));
+          CREATOR.portrait = pick.id;
+          const prev = $('#cpv');
+          if (prev) prev.innerHTML = `<div class="av-photo" style="width:150px;height:150px;box-sizing:border-box"><img src="/img/portraits/${pick.file}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center 18%"></div>`;
+        }
+        break;
+      }
       case 'casino-game': clearRaceTimer(); CAS.game = btn.dataset.game; CAS.res = null; renderCasino(); break;
       case 'spin_wheel': spinGo(); break;
       case 'race_qb': { const bi = $('#race-bet'); if (bi) { bi.value = btn.dataset.v; bi.focus(); } break; }
@@ -3719,6 +3980,18 @@
       case 'sound': { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; break; }
       case 'logout': doLogout(); break;
       case 'editlook': openPreferences(); break;
+      case 'pref-reroll': {
+        const pool = (G.meta.portraits || []);
+        const picks = pool.filter(p => p.gender === PREFS.gender);
+        const list = picks.length ? picks : pool;
+        if (list.length) {
+          const pick = list[Math.floor(Math.random() * list.length)];
+          PREFS.portrait = pick.id;
+          $$('#modal-root [data-portrait]').forEach(c => c.classList.toggle('on', c.dataset.portrait === pick.id));
+          const prev = $('#pref-prev'); if (prev) prev.innerHTML = prefPrevHTML();
+        }
+        break;
+      }
       // ---------------- 2026 systems ----------------
       case 'mines_deal': { const bet = parseInt(($('#mines-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_mines', { op: 'start', bet }); if (r) { sysPanel(true).then(renderArcade); } break; }
       case 'mine_tile': { const r = await actCatch('arcade_mines', { op: 'pick', tile: +btn.dataset.tile }); if (r) { sysPanel(true).then(renderArcade); } break; }

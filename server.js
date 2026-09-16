@@ -15,11 +15,15 @@ const WEAR = require('./lib/game/wear.js');
 const boot = require('./lib/bootstrap.js');
 const E = require('./lib/game/engine.js');
 const S = require('./lib/systems.js');
+const T26 = require('./lib/game/t26.js');
 
 // First boot anywhere = playable world: seeds NPC citizens + gangs and creates the
 // founder account when the database is empty. Idempotent, so restarts are cheap.
 const world = boot.ensureWorld();   // BOTS env controls NPCs; default 0 = real players only
 S.attach(W);                        // wire the 2026 systems once the DB exists
+T26.attach(W, S, C);                // 2026.5 Torn-season systems
+T26.mergeFeats();                   // new feats join the ledger
+T26.mergeEvents();                  // new city events join the rotation
 console.log('World ready. Content:', C.CRIMES.length, 'crimes |', C.JOBS.length, 'jobs |', Object.keys(C.ITEMS).length, 'items |', C.CITY_CONTRACTS.length, 'City Contracts');
 console.log('Citizens:', world.citizens, '| gangs:', world.gangs, '| accounts:', world.accounts,
   world.bots ? '| NPC bots: ' + world.bots : '| NPC bots: off (real players only)',
@@ -32,6 +36,7 @@ if (world.purged && (world.purged.bots || world.purged.factions)) {
 
 // ---------------------------------------------------------------- SSE hub
 const sseClients = new Set();
+const sseIdentities = new Map();   // res -> { id, name } — the live presence roster
 function pushAll(event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) { try { res.write(msg); } catch (_) {} }
@@ -202,7 +207,11 @@ function metaPayload(){
       districts: S.OPS.DISTRICTS.length, grades: S.OPS.GRADES.length },
     events: (C.EVENTS || []).map(e => ({ id: e.id, name: e.name, icon: e.icon, dur: e.dur })),
     nightCatalog: { count: C.NIGHT_LEADS.length, rotationHours: 4, offersPerRotation: 3 },
-    favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 } };
+    favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 },
+    // 2026.5 — Torn season
+    portraits: T26.PORTRAITS,
+    travel: { cdMin: T26.TRIP_CD / 60000, energy: T26.TRIP_ENERGY, districtMods: T26.DISTRICT_MODS },
+    tourney: { fee: T26.TOURNY_FEE, minLevel: T26.TOURNY_MIN_LEVEL, poolPct: T26.TOURNY_POOL_PCT, belt: T26.TOURNY_BELT } };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -226,6 +235,9 @@ const routes = async (req, res, urlPath, q) => {
       const acc = A.createAccount(body.username, body.password, 'user', body.email);
       const form = body.profile || {};
       const pj = A.createPlayerForAccount(acc, form);
+      // 2026.5: the face picked in the creator is stamped onto the record
+      const pt = String(form.portrait || '');
+      if (pt && T26.portraitById(pt)) { pj.portrait = pt; try { W.save(acc.id, pj); } catch (e) {} }
       const token = A.signToken(acc.id);
       W.logNews('welcome', '\uD83C\uDF88', `${pj.name} just walked into Razor Town.`);
       pushAll('news', { n: 1 });
@@ -286,7 +298,7 @@ const routes = async (req, res, urlPath, q) => {
   }
 
   // -- me (200 + {me:null} when logged out, so the client can probe quietly)
-  if (urlPath === '/api/jail' && method === 'GET') return send(res, 200, { inmates: W.jailBoard() });
+  if (urlPath === '/api/jail' && method === 'GET') return send(res, 200, { inmates: W.jailBoard(), wanted: T26.wantedList() });
 
   if (urlPath === '/api/world/races' && method === 'GET') {
     const rid = authOf(req);
@@ -328,8 +340,35 @@ const routes = async (req, res, urlPath, q) => {
       else if (pic.length <= 400000 && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=\r\n]+$/.test(pic)) p.pic = pic;
       else return send(res, 400, { err: 'That picture is not a plain image, or it is too large.' });
     }
+    // 2026.5: the portrait on the door — a catalog face or your own upload
+    if (typeof body.portrait === 'string') {
+      const pt = String(body.portrait).slice(0, 12);
+      if (pt === '') p.portrait = '';
+      else if (pt === 'custom') {
+        if (!p.pic) return send(res, 400, { err: 'Upload a picture first — a custom face needs an image.' });
+        p.portrait = 'custom';
+      }
+      else if (T26.portraitById(pt)) p.portrait = pt;
+      else return send(res, 400, { err: 'No such face in the catalog.' });
+    }
     W.save(id, p);
     return send(res, 200, { p: withId(id, p) });
+  }
+
+  // -- 2026.5 — Torn season: travel, tournament, PDA
+  if (urlPath === '/api/travel' && method === 'GET') {
+    const id = guard(req, res); if (!id) return;
+    const p = W.ready(W.load(id));
+    return send(res, 200, T26.travelView(p));
+  }
+  if (urlPath === '/api/tourney' && method === 'GET') {
+    const id = guard(req, res); if (!id) return;
+    return send(res, 200, T26.tourneyView(id));
+  }
+  if (urlPath === '/api/pda' && method === 'GET') {
+    const id = guard(req, res); if (!id) return;
+    const p = W.ready(W.load(id));
+    return send(res, 200, T26.pdaView(p));
   }
 
   // ==================== founder dev tools ====================
@@ -524,6 +563,9 @@ const routes = async (req, res, urlPath, q) => {
         break;
       }
       case 'cool_heat': { try { S.coolHeat(p, 100); } catch (_) {} break; }
+      case 'heat_set': { p.sys = p.sys || {}; p.sys.heat = { n: Math.max(0, Math.min(100, parseInt(body.value, 10) || 0)), at: Date.now() }; break; }
+      case 'travel_warp': { p.travel_cd = 0; p.travel_visits = {}; for (const d of C.DISTRICTS) p.travel_visits[d.id] = true; p.total_trips = (p.total_trips || 0) + 1; break; }
+      case 'pda_count': { p.pda_uses = Math.max(0, Math.min(999, parseInt(body.value, 10) || 0)); break; }
       case 'op_cooldowns': { try { p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {}; p.sys.ops.cool = {}; } catch (_) {} break; }
       case 'op_rackets': {
         // every racket on the book, up and running, free of charge
@@ -599,6 +641,28 @@ const routes = async (req, res, urlPath, q) => {
     if (op === 'economy') {
       const dials = S.setDials({ payout: body.payout, danger: body.danger });
       return send(res, 200, { ok: true, dials });
+    }
+    if (op === 'tourney_settle') {
+      const win = T26.tourneyWindow();
+      const st = T26.tourneySettle(win.week, true);
+      return send(res, 200, { ok: true, week: win.week, entries: (st.entries || []).length, result: st.result || null });
+    }
+    if (op === 'tourney_clear') {
+      const win = T26.tourneyWindow();
+      db.prepare('DELETE FROM tourneys WHERE week=?').run(win.week);
+      return send(res, 200, { ok: true, week: win.week, cleared: true });
+    }
+    if (op === 'heat_set_target') {
+      const tid = parseInt(body.targetId || body.target, 10);
+      const value = Math.max(0, Math.min(100, parseInt(body.value, 10) || 0));
+      const row = db.prepare('SELECT json FROM players WHERE acc_id=?').get(tid);
+      if (!row) return send(res, 400, { err: 'No such citizen.' });
+      const q = JSON.parse(row.json);
+      q.sys = q.sys || {};
+      q.sys.heat = { n: value, at: Date.now() };
+      try { T26.checkWarrantFeat(q); } catch (e) {}
+      db.prepare('UPDATE players SET json=? WHERE acc_id=?').run(JSON.stringify(q), tid);
+      return send(res, 200, { ok: true, heat: value });
     }
     if (op === 'spawn_bot') {
       const n = Math.max(1, Math.min(10, parseInt(body.count, 10) || 1));
@@ -821,6 +885,14 @@ const routes = async (req, res, urlPath, q) => {
       bail_other: () => W.prisonBailOther(id, body.targetId ? parseInt(body.targetId, 10) : 0),
       daily: () => W.dailyClaim(id),
       wire: () => W.wireCash(id, body),
+      // 2026.5 — Torn season
+      travel: () => T26.travelDo(id, body.to),
+      tourney_enter: () => T26.tourneyEnter(id),
+      warrant_pay: () => T26.warrantPay(id),
+      warrant_surrender: () => T26.warrantSurrender(id),
+      pda_use: () => W.pdaUse(id, body.itemId),
+      pda_deposit: () => W.doDeposit(id, body.amount),
+      pda_withdraw: () => W.doWithdraw(id, body.amount),
       spin_wheel: () => W.wheelSpin(id),
       race_bet: () => W.raceBet(id, body),
       heist_walk: () => W.heistWalk(id, body.group),
@@ -1037,7 +1109,10 @@ const routes = async (req, res, urlPath, q) => {
   }
   if (urlPath === '/api/world/online') {
     // real live connections only — no invented players
-    return send(res, 200, { online: sseClients.size });
+    const names = [];
+    for (const v of sseIdentities.values()) names.push({ id: v.id, name: v.name });
+    names.sort((a, b) => a.name.localeCompare(b.name));
+    return send(res, 200, { online: sseClients.size, names: names.slice(0, 60), you: accId || null });
   }
   if (urlPath === '/api/attacks') {
     const id = guard(req, res); if (!id) return;
@@ -1054,9 +1129,24 @@ const routes = async (req, res, urlPath, q) => {
     const p = W.ready(JSON.parse(r.json));
     const isMe = accId === tid;
     const isBot = tid < 0;
+    // profile visits: a real citizen looking at a real citizen counts (throttled to 1 per 5 min per visitor)
+    if (!isMe && !isBot && accId > 0) {
+      p.visitors = p.visitors || {};
+      const lastV = p.visitors[accId] || 0;
+      if (Date.now() - lastV > 5 * 60000) {
+        p.visitors[accId] = Date.now();
+        p.visits = Math.min(99999, (p.visits || 0) + 1);
+        try { W.save(tid, p); } catch (e) {}
+      }
+    }
+    const online = [...sseIdentities.values()].some(v => v.id === tid);
     return send(res, 200, {
       profile: {
         id: tid, name: p.name, avatar: p.avatar, isBot, isMe,
+        portrait: p.portrait || '', pic: p.pic || '',
+        dist: { id: T26.districtOf(p).id, name: T26.districtOf(p).name, icon: T26.districtOf(p).icon },
+        warrant: T26.warrantOf(p), last_seen: p.last_seen || 0, online,
+        visits: p.visits || 0, tourney_wins: p.tourney_wins || 0,
         level: p.level, total: p.total, stats: isMe ? p.stats : { st: p.stats.st, de: p.stats.de, sp: p.stats.sp, dx: p.stats.dx },
         rep: p.reputation, crimes: p.total_crimes, wins: p.wins, losses: p.losses,
         life: isBot ? null : p.life, max: p.max_life,
@@ -1077,8 +1167,13 @@ const routes = async (req, res, urlPath, q) => {
     res.write(`retry: 5000\n\n`);
     res.write(`event: hello\ndata: {"ok":true}\n\n`);
     sseClients.add(res);
+    // 2026.5: the live presence roster — who is in the yard right now
+    try {
+      const prow = dbm.getDb().prepare('SELECT name FROM players WHERE acc_id=?').get(id);
+      sseIdentities.set(res, { id, name: prow ? prow.name : '' });
+    } catch (e) { sseIdentities.set(res, { id, name: '' }); }
     const keep = setInterval(() => { try { res.write(`: keep\n\n`); } catch (_) {} }, 25000);
-    req.on('close', () => { clearInterval(keep); sseClients.delete(res); });
+    req.on('close', () => { clearInterval(keep); sseClients.delete(res); sseIdentities.delete(res); });
     return;
   }
 
