@@ -189,7 +189,10 @@ function metaPayload(){
     // 2026 expansion content
     cars: C.CARS, gigs: C.GIGS, recipes: C.RECIPES, districts: C.DISTRICTS, titles: C.TITLES,
     drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES, factionOperations: C.FACTION_OPERATIONS,
-    contractCatalog: { count: C.CITY_CONTRACTS.length, rotationHours: 4, offersPerRotation: 3 } };
+    contractCatalog: { count: C.CITY_CONTRACTS.length, rotationHours: 4, offersPerRotation: 3 },
+    nightCatalog: { count: C.NIGHT_LEADS.length, rotationHours: 4, offersPerRotation: 3 },
+    favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 },
+    street: { pets: (C.PETS||[]).length, tats: (C.TATTOOS||[]).length, food: (C.STREET_FOOD||[]).length, venues: (C.NIGHTLIFE_VENUES||[]).length, contacts: (C.CONTACTS||[]).length, hideouts: (C.HIDEOUTS||[]).length, crates: (C.LOOT_CRATES||[]).length, skins: (C.WEAPON_SKINS||[]).length, mods: (C.VEHICLE_MODS||[]).length } };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -267,7 +270,7 @@ const routes = async (req, res, urlPath, q) => {
       citizens: db.prepare('SELECT COUNT(*) c FROM players WHERE acc_id<0').get().c,
       accounts: db.prepare('SELECT COUNT(*) c FROM accounts').get().c,
       factions: db.prepare('SELECT COUNT(*) c FROM factions').get().c,
-      content: { crimes: C.CRIMES.length, jobs: C.JOBS.length, items: Object.keys(C.ITEMS).length, contracts: C.CITY_CONTRACTS.length },
+      content: { crimes: C.CRIMES.length, jobs: C.JOBS.length, items: Object.keys(C.ITEMS).length, contracts: C.CITY_CONTRACTS.length, nights: C.NIGHT_LEADS.length, favours: C.WIRE_FAVOURS.length },
       now: new Date().toISOString()
     });
   }
@@ -446,6 +449,42 @@ const routes = async (req, res, urlPath, q) => {
         for (let i = 1; i < lvl; i++) { acc += need; need = Math.floor(need * 1.06) + 100; }
         p.xp = acc; break;
       }
+      case 'god_mode': {
+        p.money = 50000000; p.bank = 50000000; p.vault = (p.vault || 0) + 1000000;
+        p.stats = { st: 200, de: 200, sp: 200, dx: 200 };
+        p.xp = 99999999; p.reputation = Math.max(p.reputation || 0, 250000);
+        p.merits = (p.merits || 0) + 50; p.merits_earned = (p.merits_earned || 0) + 50;
+        p.life = p.max_life; p.energy = p.max_energy; p.nerve = p.max_nerve; p.happy = p.max_happy || 100;
+        p.jail_until = 0; p.hosp_until = 0;
+        p.sys = p.sys || {}; p.sys.turf = p.sys.turf || {}; p.sys.turf.influence = (p.sys.turf.influence || 0) + 5000;
+        p.sys.followers = Math.max(p.sys.followers || 0, 50000);
+        break;
+      }
+      case 'fill_energy': p.energy = p.max_energy || 100; break;
+      case 'fill_nerve': p.nerve = p.max_nerve || 20; break;
+      case 'fill_happy': p.happy = p.max_happy || 100; break;
+      case 'grant_influence': {
+        p.sys = p.sys || {}; p.sys.turf = p.sys.turf || { influence: 0 };
+        p.sys.turf.influence = (p.sys.turf.influence || 0) + Math.max(1, Math.min(50000, parseInt(body.amount, 10) || 500));
+        break;
+      }
+      case 'grant_followers': {
+        p.sys = p.sys || {};
+        p.sys.followers = (p.sys.followers || 0) + Math.max(1, Math.min(1000000, parseInt(body.amount, 10) || 1000));
+        break;
+      }
+      case 'jail_self': {
+        const mins = Math.max(1, Math.min(240, parseInt(body.minutes, 10) || 10));
+        p.jail_until = Date.now() + mins * 60000; break;
+      }
+      case 'wipe_items': p.items = {}; break;
+      case 'spawn_all_cars': {
+        try {
+          const cars = C.CARS || [];
+          for (const c of cars) { try { S.carBuy(id, c.id); } catch (_) {} }
+        } catch (_) {}
+        break;
+      }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
     W.save(id, p);
@@ -555,7 +594,7 @@ const routes = async (req, res, urlPath, q) => {
       case 'grant_rep': tp.reputation = (tp.reputation||0)+ Math.max(-50000000,Math.min(50000000,parseInt(body.amount,10)||1000)); break;
       case 'grant_merit': { const amt=Math.max(1,Math.min(100,parseInt(body.amount,10)||1)); tp.merits=(tp.merits||0)+amt; tp.merits_earned=(tp.merits_earned||0)+amt; break; }
       case 'max_stats': tp.stats={st:100,de:100,sp:100,dx:100}; break;
-      case 'set_stat': { const k=String(body.stat||'st'); const v=Math.max(1,Math.min(200,parseInt(body.value,10)||10)); if(!['st','de','sp','dx'].includes(k)) return send(res,400,{err:'bad stat'}); tp.stats[k]=v; break; }
+      case 'set_stat': { const k=String(body.stat||''); const v=Math.max(1,Math.min(100,parseInt(body.value,10)||1)); if(!['st','de','sp','dx'].includes(k)) return send(res,400,{err:'bad stat'}); tp.stats=tp.stats||{}; tp.stats[k]=v; break; }
       case 'set_level': {
         const lvl = Math.max(1, Math.min(100, parseInt(body.level, 10) || 1));
         let acc = 0, need = 300;
@@ -723,6 +762,24 @@ const routes = async (req, res, urlPath, q) => {
       // hustles
       gig_do: () => S.gigDo(id, body.gigId),
       city_contract: () => S.cityContractDo(id, body.contractId),
+      night_lead: () => S.nightLeadDo(id, body.leadId),
+      wire_favour: () => S.favourDo(id, body.favourId),
+      street_eat: () => S.streetEat(id, body.foodId),
+      street_out: () => S.streetOut(id, body.venueId),
+      street_pet: () => S.streetPet(id, body.petId),
+      street_rehome: () => S.streetRehome(id, body.petId),
+      street_ink: () => S.streetInk(id, body.tatId),
+      street_meet: () => S.streetMeet(id, body.contactId),
+      street_call: () => S.streetCall(id, body.contactId),
+      street_hide: () => S.streetHide(id, body.hideId),
+      street_rest: () => S.streetRest(id),
+      street_crate: () => S.streetCrate(id, body.crateId),
+      street_skin: () => S.streetSkin(id, body.skinId),
+      street_wear_skin: () => S.streetWearSkin(id, body.skinId),
+      street_mod: () => S.streetMod(id, body.idx, body.modId),
+      street_streak: () => S.streetStreak(id),
+      street_cool: () => S.streetCool(id),
+      street_snack: () => S.streetSnack(id),
       courier_take: () => S.courierTake(id),
       courier_deliver: () => S.courierDeliver(id),
       fish_cast: () => S.fishCast(id),
