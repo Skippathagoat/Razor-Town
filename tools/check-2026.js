@@ -49,11 +49,11 @@ const uniq = Date.now().toString(36);
 
   const panel = async (tok) => (await req('/api/sys/panel', { token: tok })).j;
 
-  // ---- avatar clamping (new catalog + 6 parts) ----
-  const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9' } });
-  ok(pr.code === 200 && pr.j.p.avatar === '8|21|24|13|7|1', 'avatar clamp to new catalog');
+  // ---- avatar clamping (Rainlight catalog + 8 parts) ----
+  const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9|99|99' } });
+  ok(pr.code === 200 && pr.j.p.avatar === '15|35|56|38|15|7|11|23', 'avatar clamp to new catalog');
   const pr5 = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '1|2|3|4|5' } });
-  ok(pr5.j.p.avatar === '1|2|3|4|5|0', 'legacy 5-part spec keeps body 0');
+  ok(pr5.j.p.avatar === '1|2|3|4|5|0|0|0', 'legacy 5-part spec fills eyes + facial with 0');
 
   // ---- dev: fund both testers
   for (const t of [A, B]) {
@@ -114,7 +114,7 @@ const uniq = Date.now().toString(36);
     await new Promise(s => setTimeout(s, 4 * 350 + 200));
     r = await act(A.tok, 'arcade_safe', { op: 'echo', seq: d2.j.res.seq });
   }
-  ok(r.code === 200 && (r.j.res.op === 'cracked' || r.j.res.op === 'fail'), 'safe echo resolves');
+  ok(r.code === 200 && (r.j.res.op === 'cracked' || r.j.res.op === 'fail'), 'safe echo resolves', detail(r.j));
   // scratch needs cards — founder grants
   await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 0 } });
   const grantItem = async (target, item, qty) => req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'grant_item', item, qty, target } });
@@ -261,6 +261,15 @@ const uniq = Date.now().toString(36);
   r = await act(A.tok, 'block_remove', { target: B.name });
   ok(r.code === 200, 'block remove');
 
+  // ================= FOUNDER CONSOLE: THE LONG GAME =================
+  for (const op of ['op_rackets', 'op_papers', 'op_vault', 'op_cooldowns', 'op_clear']) {
+    const d = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op } });
+    ok(d.code === 200, 'founder tool ' + op, detail(d.j && d.j.err));
+  }
+  {
+    const d = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'op_wipe_target', target: accOf[A.name] } });
+    ok(d.code === 200, 'founder tool op_wipe_target', detail(d.j && d.j.err));
+  }
   // ================= INSURANCE + RESPEC =================
   r = await act(A.tok, 'buy', { itemId: 'insurance_pol', qty: 1 });
   ok(r.code === 200, 'buy policy');
@@ -273,16 +282,184 @@ const uniq = Date.now().toString(36);
   const meA = await req('/api/me', { token: A.tok });
   const tot = ['st', 'de', 'sp', 'dx'].reduce((a, k) => a + Math.floor(meA.j.me.stats[k]), 0);
   r = await act(A.tok, 'respec_apply', { stats: { st: tot - 15, de: 5, sp: 5, dx: 5 } });
-  ok(r.code === 200, 'respec apply');
+  ok(r.code === 200, 'respec apply', detail(r.j));
   r = await act(A.tok, 'respec_apply', { stats: { st: 5, de: 5, sp: 5, dx: 5 } });
   ok(r.code === 400, 'respec one-shot enforced');
+
+  // ================= INFORMANT NETWORK =================
+  {
+    // the meta payload advertises the 1,000-lead catalog
+    const m2 = await req('/api/meta');
+    ok(m2.j.informants && m2.j.informants.count === 1000 && m2.j.informants.perRotation === 6, 'meta: 1,000-informant network');
+
+    // fund the tester so the board is affordable, then read the board
+    await req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'grant_cash', amount: 5000000 } });
+    let pn = await panel(A.tok);
+    ok(pn.informants && pn.informants.leads.length === 6 && pn.informants.total === 1000, 'panel: six leads ride the board');
+    const lead = pn.informants.leads.slice().sort((a, b) => a.price - b.price)[0];
+    ok(lead && lead.price > 0 && lead.reliability >= 0.4 && lead.strength > 0, 'panel: a lead carries a price, a reliability and a payout');
+
+    // forged + duplicate guards
+    r = await act(A.tok, 'informant_hire', { informantId: 'inf_not_a_real_lead' });
+    ok(r.code === 400, 'a forged informant id is refused');
+    const offBoard = (pn.informants.leads.some(l => l.id === 'inf_coppers_lock_cut_bribe')) ? 'inf_dockers_lamp_row_edge' : 'inf_coppers_lock_cut_bribe';
+    r = await act(A.tok, 'informant_hire', { informantId: offBoard });
+    ok(r.code === 400, 'a lead that is not on the board is refused');
+
+    // buy the cheapest lead, then buy it again
+    const moneyBefore = (await req('/api/me', { token: A.tok })).j.me.money;
+    r = await act(A.tok, 'informant_hire', { informantId: lead.id });
+    ok(r.code === 200 && r.j.res && typeof r.j.res.landed === 'boolean' && r.j.p.money === moneyBefore - lead.price, 'buying a lead charges the price and reports the outcome');
+    const spent = moneyBefore - r.j.p.money;
+    ok(spent === r.j.res.price, 'the reported price is what left the purse');
+    const dup = await act(A.tok, 'informant_hire', { informantId: lead.id });
+    ok(dup.code === 400, 'the same lead cannot be bought twice in a rotation');
+  }
+
+  // ================= FOUNDER CONSOLE =================
+  {
+    // new self tools
+    for (const op of ['make_whole', 'random_look', 'give_all_tips', 'comp_leads', 'cool_heat']) {
+      const rr = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op } });
+      ok(rr.code === 200, 'founder self tool: ' + op);
+    }
+    const whole = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'make_whole' } });
+    ok(whole.j.me.stats.st === 500 && whole.j.me.level === 100, 'make-me-whole raises stats and level');
+
+    // world dials
+    let w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'weather', kind: 'fog' } });
+    ok(w.code === 200 && w.j.weather === 'fog', 'the founder can force the weather');
+    w = await panel(A.tok);
+    ok(w.weather.id === 'fog' && w.weather.forced, 'the forced weather shows up in the panel');
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'economy', payout: 150, danger: 50 } });
+    ok(w.code === 200 && w.j.dials.payout === 150 && w.j.dials.danger === 50, 'the founder can move the economy dials');
+    const mt = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'metrics' } });
+    ok(mt.code === 200 && mt.j.metrics && mt.j.metrics.informants === 1000 && mt.j.metrics.contracts === 1000, 'the live metrics board reports the catalogs');
+    const evId = ((await req('/api/meta')).j.events[0] || {}).id;
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'event', event: evId, minutes: 20 } });
+    ok(w.code === 200 && w.j.event === evId, 'the founder can trigger a city event');
+
+    // bot spawning + per-target tools, then clean up
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'spawn_bot', count: 2 } });
+    ok(w.code === 200 && w.j.made.length === 2, 'the founder can spawn NPC citizens');
+    const botId = w.j.made[0].id;
+    for (const [op, body] of [['set_look', {}], ['give_tip', { kind: 'payoff' }], ['set_level_target', { value: 12 }], ['heal_target', {}], ['cool_heat_target', {}]]) {
+      const rr = await req('/api/dev/world', { method: 'POST', token: ftok, body: Object.assign({ op, target: botId }, body) });
+      ok(rr.code === 200, 'founder world tool: ' + op);
+    }
+    const botRow = (await req('/api/dev/panel', { token: ftok })).j.players;
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'purge_bots' } });
+    ok(w.code === 200 && w.j.purged >= 2, 'the founder can purge every NPC');
+
+    // dials back to neutral so later assertions see a normal world
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'economy', payout: 100, danger: 100 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'weather', kind: 'auto' } });
+    ok(Array.isArray(botRow), 'the dev panel still serves its player list');
+  }
+
+  // ================= THE LONG GAME — 10,000 UNDERWORLD OPERATIONS =================
+  {
+    const m3 = await req('/api/meta');
+    ok(m3.j.ops && m3.j.ops.total === 10000 && m3.j.ops.perFamily === 1000, 'meta: 10,000-operation catalogue');
+    ok(m3.j.ops.families.length === 10 && m3.j.ops.districts === 10 && m3.j.ops.grades === 10, 'meta: ten families, ten districts, ten grades');
+    ok(m3.j.ops.families.every(f => f.count === 1000 && f.ico && f.blurb), 'meta: every family carries its own hook');
+
+    let board = await act(A.tok, 'ops', { fam: 'rackets' });
+    ok(board.code === 200 && board.j.res.total === 10000 && board.j.res.perFamily === 1000, 'ops board: catalogue totals', detail(board.j));
+    const firstOp = (board.j.res.list || [])[0];
+    ok(!!firstOp && !!firstOp.id && firstOp.chance > 0 && firstOp.energy > 0 && !!firstOp.blurb && !!firstOp.flavour,
+      'ops board: a listing is a complete job card', detail(firstOp));
+    ok(board.j.res.list.length === 24 && board.j.res.matched === 1000, 'ops board: one family, paged twenty-four at a time');
+
+    const filtered = await act(A.tok, 'ops', { fam: 'heists', district: 'lock_cut', grade: '9' });
+    ok(filtered.j.res.matched === 10 && filtered.j.res.list.every(o => o.district === 'lock_cut' && o.grade === 9), 'ops board: district + grade filters');
+    const searched = await act(A.tok, 'ops', { fam: 'heists', q: 'museum' });
+    ok(searched.j.res.matched === 100 && searched.j.res.list.every(o => o.cat === 'museum'), 'ops board: full-text search over the family');
+    const page1 = await act(A.tok, 'ops', { fam: 'runs', offset: 0, limit: 24 });
+    const page2 = await act(A.tok, 'ops', { fam: 'runs', offset: 24, limit: 24 });
+    ok(page2.j.res.list.length === 24 && page1.j.res.list[0].id !== page2.j.res.list[0].id, 'ops board: paging moves the window');
+
+    // ---- guards
+    r = await act(A.tok, 'op_do', { id: 'ops_not_a_real_job' });
+    ok(r.code === 400, 'a forged operation id is refused');
+    r = await act(A.tok, 'op_do', { id: 'heists_bank_lock_cut_9' });
+    ok(r.code === 400, 'a mythic-grade job is locked far above a fresh citizen');
+    r = await act(A.tok, 'op_do', { id: 'heists_bank_lamp_row_0' });
+    ok(r.code === 400, 'a heist without a crew behind you is refused');
+    r = await act(A.tok, 'op_sell', { idx: 0 });
+    ok(r.code === 400, 'selling from an empty vault is refused');
+    r = await act(A.tok, 'doc_use', { id: 'prints_ids_lamp_row_0' });
+    ok(r.code === 400, 'using a document you never printed is refused');
+    r = await act(A.tok, 'op_collect');
+    ok(r.code === 400, 'collecting when nothing is running is refused');
+
+    // ---- a real racket, funded and collected
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 100000 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 100000 } });
+    const m0 = (await req('/api/me', { token: A.tok })).j.me.money;
+    r = await act(A.tok, 'op_do', { id: 'rackets_protection_lamp_row_0' });
+    ok(r.code === 200 && r.j.res.kind === 'racket' && r.j.p.money === m0 - 4500, 'setting up a racket charges the sticker price', detail(r.j.res));
+    board = await act(A.tok, 'ops', { fam: 'rackets' });
+    ok(board.j.res.rackets.length === 1 && board.j.res.list.some(o => o.id === 'rackets_protection_lamp_row_0' && o.owned), 'a standing racket shows as running on the board');
+    r = await act(A.tok, 'op_collect');
+    ok(r.code === 200 && Array.isArray(r.j.res.lines) && r.j.res.lines.length === 1, 'collecting a racket that has not banked yet is handled');
+    const run0 = board.j.res.rackets[0];
+    ok(run0 && ['ico', 'name', 'value', 'full', 'nextIn', 'rate', 'hours'].every(k => k in run0),
+      'a running racket carries every field the tab prints', detail(run0));
+    const card0 = board.j.res.list.find(o => o.id === 'rackets_protection_lamp_row_0');
+    ok(card0 && card0.owned === true && Number.isFinite(card0.rate) && card0.rate > 0, 'an owned card carries its banking rate', detail(card0));
+
+    // ---- a one-shot job, its cooldown and its heat
+    const heatBefore = (await panel(A.tok)).street.heat;
+    r = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
+    ok(r.code === 200 && typeof r.j.res.win === 'boolean' && !!r.j.res.text, 'a smuggling run resolves with a real outcome', detail(r.j.res));
+    const dup = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
+    ok(dup.code === 400, 'a job that is still settling cannot be run twice');
+    ok((await panel(A.tok)).street.heat > heatBefore, 'a night on the road leaves heat behind');
+
+    // ---- forgery → a document you can actually burn
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'clear_status', target: accOf[A.name] } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'refill', target: accOf[A.name] } });
+    let printed = await act(A.tok, 'op_do', { id: 'prints_ids_lamp_row_0' });
+    ok(printed.code === 200 && printed.j.res.kind === 'forgery', 'forgery resolves with a printing outcome', detail(printed.j.res));
+    if (!printed.j.res.win) printed = await act(A.tok, 'op_do', { id: 'prints_plates_lamp_row_0' });   // a second press, so the papers check always runs
+    board = await act(A.tok, 'ops', { fam: 'prints' });
+    ok(Array.isArray(board.j.res.docs) && board.j.res.docs.length > 0, 'the board reports the papers you are holding', detail(board.j.res.docs));
+    const held = (board.j.res.docs || [])[0];
+    ok(!held || ['id', 'ico', 'catName', 'n', 'cat'].every(k => k in held), 'a held document carries every field the tab prints', detail(held));
+    if (held) {
+      const used = await act(A.tok, 'doc_use', { id: held.id });
+      ok(used.code === 200 && !!used.j.res.text, 'a printed document can be burned for its effect', detail(used.j));
+    }
+
+    // ---- the clinic, the vault and the panel summary
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'refill', target: accOf[A.name] } });
+    const injured = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'hospital', target: accOf[A.name] } });
+    ok(injured.code === 200, 'dev: the tester is put in a ward');
+    const healed = await act(A.tok, 'op_do', { id: 'clinic_stitch_lamp_row_0' });
+    ok(healed.code === 200 && healed.j.res.kind === 'clinic', 'the back-alley clinic treats real injuries', detail(healed.j.res));
+    ok((await req('/api/me', { token: A.tok })).j.me.life > 1, 'the clinic puts life back on the clock');
+
+    const pn2 = await panel(A.tok);
+    ok(pn2.ops && pn2.ops.total === 10000 && pn2.ops.perFamily === 1000 && pn2.ops.finished >= 3 && pn2.ops.spent > 0,
+      'panel: the long game summary counts jobs, spending and takings', detail(pn2.ops));
+
+    // ---- a levelled citizen can reach the deep end of the book
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_xp', target: accOf[A.name], amount: 3000000 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'reset_cooldowns', target: accOf[A.name] } });
+    const deepBoard = await act(A.tok, 'ops', { fam: 'runs', district: 'lock_cut', grade: '9' });
+    const deepOp = (deepBoard.j.res.list || []).find(o => !o.locked);
+    ok(!!deepOp, 'after a grant of experience the deep end of the book unlocks', detail(deepBoard.j.res.list[0]));
+    r = await act(A.tok, 'op_do', { id: 'runs_weapons_lock_cut_9' });
+    ok(r.code === 200 && (r.j.res.win === true || r.j.res.win === false), 'a mythic-grade smuggling run resolves end to end', detail(r.j.res));
+  }
 
   // ================= WARDROBE =================
   r = await act(A.tok, 'wardrobe_save', { slot: 0 });
   ok(r.code === 200, 'wardrobe save');
-  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '2|3|4|5|6|1' } });
+  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '2|3|4|5|6|1|2|3' } });
   r = await act(A.tok, 'wardrobe_load', { slot: 0 });
-  ok(r.code === 200 && r.j.p.avatar === '1|2|3|4|5|0', 'wardrobe load restores look');
+  ok(r.code === 200 && r.j.p.avatar === '1|2|3|4|5|0|0|0', 'wardrobe load restores look');
 
   // ================= CHALLENGES =================
   p = await panel(A.tok);

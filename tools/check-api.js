@@ -62,7 +62,22 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
   if (!alive) { console.log('  \u2717 the server never came up\n' + log.slice(-2000)); process.exit(1); }
   ok('the server boots and answers /api/health');
 
-  const db = new (require(path.join(ROOT, 'node_modules', 'better-sqlite3')))(DB);
+  // open the test DB with whichever sqlite driver this box has (better-sqlite3 or node:sqlite)
+  const openTestDb = (file) => {
+    try { const B = require(path.join(ROOT, 'node_modules', 'better-sqlite3')); return new B(file); }
+    catch (e) {
+      const { DatabaseSync } = require('node:sqlite');
+      const raw = new DatabaseSync(file);
+      return {
+        prepare: (sql) => {
+          const st = raw.prepare(sql);
+          return { run: (...a) => st.run(...a), get: (...a) => st.get(...a), all: (...a) => st.all(...a) };
+        },
+        exec: (sql) => raw.exec(sql), close: () => raw.close()
+      };
+    }
+  };
+  const db = openTestDb(DB);
   const setJson = (acc, expr) => db.prepare(`UPDATE players SET json = json_set(json, ${expr}) WHERE acc_id=?`).run(acc);
   const founderId = () => db.prepare("SELECT id FROM accounts WHERE username='ghost'").get().id;
 
@@ -182,8 +197,8 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
 
   console.log('\n-- bazaar --');
   setJson(aId, "'$.items.volt_cola', 5");
-  (await call('/api/action', 'POST', { name: 'bazaar_list', itemId: 'volt_cola', qty: 2, each: 100, anon: false }, A)).status === 200
-    ? ok('listing a lot on the bazaar works') : bad('bazaar list');
+  const bzList = await call('/api/action', 'POST', { name: 'bazaar_list', itemId: 'volt_cola', qty: 2, each: 100, anon: false }, A);
+  (bzList.status === 200) ? ok('listing a lot on the bazaar works') : bad('bazaar list', bzList);
   const bz = await call('/api/world/bazaar', 'GET', null, A);
   (bz.status === 200 && bz.json.listings.some(l => l.seller === 'Alfie Riggs')) ? ok('the bazaar shows the listing') : bad('bazaar view', bz);
   const bzBuy = await call('/api/action', 'POST', { name: 'bazaar_buy', listingId: bz.json.listings[0].id }, founder);

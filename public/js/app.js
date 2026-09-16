@@ -30,6 +30,8 @@
     { id: 'life', label: 'Street Life', ico: '🌃', key: '6' },
     { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
+    { id: 'informants', label: 'Informants', ico: '🕵️', key: '1' },
+    { id: 'ops', label: 'Operations', ico: '📋', key: '2' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
@@ -235,14 +237,14 @@
   }
 
   // ------- character creator
-  const CREATOR = { skin: 1, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, origin: 'street', name: '' };
+  const CREATOR = { skin: 3, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, eyes: 3, facial: 0, origin: 'street', name: '' };
   function openCreator(creds) {
     CREATOR.name = creds.username;
     G.creds = creds;
     screen('creator');
     renderCreator();
   }
-  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body].join('|'); }
+  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body, CREATOR.eyes, CREATOR.facial].join('|'); }
   function wearList(str) {
     return `<div class="weargrid" style="margin-top:10px;text-align:left">${AV.wear(str).map(w =>
       `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}</div>`;
@@ -276,6 +278,8 @@
             ${chips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), 'hair')}
             ${swatches('shirt', 'Top', AV.SHIRTS, 'shirt')}
             ${swatches('accent', 'Trinket', AV.ACCENTS, 'accent')}
+            ${chips('eyes', 'Eyes', (AV.EYE_NAMES || []), 'eyes')}
+            ${chips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), 'facial')}
           </div>
           <div class="creator-panel"><h3>🌱 Origin story</h3><div class="chiprow" id="originrow">
             ${o.map(orig => `<button class="chip origin-card ${CREATOR.origin === orig.id ? 'on' : ''}" data-origin="${orig.id}"><b>${orig.icon} ${orig.name}</b><span>${esc(orig.trait)}</span><span class="tag">starts with +${orig.bonus} ${FINGER[orig.stat]}</span></button>`).join('')}
@@ -541,6 +545,7 @@
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
     { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf'] },
+    { id: 'under', name: 'The Long Game', ico: '🕶️', tabs: ['informants', 'ops'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -602,7 +607,7 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -1084,6 +1089,21 @@
           <button class="btn sm bad" data-act="dev_self" data-op="jail_self">Jail me 10m</button>
           <button class="btn sm bad" data-act="dev_self" data-op="wipe_items">Empty bag</button>
         </div>
+        <div class="subhead" style="color:var(--cyn);margin-top:12px">🧪 Rainlight & network tools</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm gold" data-act="dev_self" data-op="make_whole">🧬 Make me whole (stats · level 100 · bars · courses · feats)</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="random_look">🎲 Roll me a random look</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="give_all_tips">🕵️ Give me every tip</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="clear_tips">Clear my tips</button>
+          <button class="btn sm" data-act="dev_self" data-op="comp_leads">Comp every lead on my board</button>
+          <button class="btn sm" data-act="dev_self" data-op="cool_heat">Cool my street heat</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_rackets">📋 Open every racket (grade I)</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_papers">🖨️ Fill my coat with papers</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_vault">🖼️ Fill the vault (a day old)</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="op_cooldowns">Clear my job cooldowns</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="op_clear">Wipe my whole book</button>
+          <button class="btn sm" data-act="dev_self" data-op="set_happy">Set happy =</button>
+        </div>
         <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <span style="color:var(--bad);font-size:11px;font-weight:800;letter-spacing:.08em">DANGER:</span>
@@ -1114,6 +1134,7 @@
           <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_courses">Unlock courses</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_achievements">Unlock feats</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="give_vault">+Vault 100k</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="set_level_target">Set level</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="grant_sub">Give 7-day pass</button>
           <button class="btn sm gold" data-act="dev_world" data-op="founder_sub">Give founder ∞</button>
           <button class="btn sm bad" data-act="dev_world" data-op="revoke_sub">Revoke pass</button>
@@ -1153,6 +1174,40 @@
             </div>
           </div>`;
         }).join('')}
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--cyn)">🌍 World dials & live ops</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="in" id="dev-weather" style="width:150px">
+            <option value="auto">Weather: automatic</option>
+            <option value="clear">Clear skies</option><option value="rain">Rain</option><option value="fog">Fog</option>
+            <option value="wind">High wind</option><option value="storm">Storm</option><option value="heat">Heatwave</option>
+          </select>
+          <button class="btn sm" data-act="dev_world" data-op="weather">Force weather</button>
+          <select class="in" id="dev-event" style="width:190px">${(G.meta.events || []).map(e => `<option value="${e.id}">${esc(e.name || e.id)}</option>`).join('')}</select>
+          <button class="btn sm" data-act="dev_world" data-op="event">Trigger city event</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <span style="font-size:11px;color:var(--dim)">Economy dials (crime payout % · danger %)</span>
+          <input class="in" id="dev-dial-payout" style="width:80px" type="number" min="10" max="400" value="100">
+          <input class="in" id="dev-dial-danger" style="width:80px" type="number" min="10" max="400" value="100">
+          <button class="btn sm gold" data-act="dev_world" data-op="economy">Apply dials</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <input class="in" id="dev-bots" style="width:70px" type="number" min="1" max="10" value="3">
+          <button class="btn sm cyan" data-act="dev_world" data-op="spawn_bot">Spawn NPC citizens</button>
+          <button class="btn sm bad" data-act="dev_world" data-op="purge_bots">Purge every NPC</button>
+          <button class="btn sm" data-act="dev_world" data-op="metrics">📊 Live metrics</button>
+        </div>
+        <div id="dev-metrics" style="margin-top:10px"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <select class="in" id="dev-tipkind" style="width:170px">${['edge','payoff','fence','bail','muscle','crew','heat','patch','market','bribe'].map(k => `<option value="${k}">${k}</option>`).join('')}</select>
+          <button class="btn sm cyan" data-act="dev_world" data-op="give_tip">Give that tip</button>
+          <button class="btn sm ghost" data-act="dev_world" data-op="wipe_tips">Wipe their tips</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="set_look">Re-roll their look</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="heal_target">Heal them</button>
+          <button class="btn sm" data-act="dev_world" data-op="cool_heat_target">Cool their heat</button>
         </div>
       </div>
 
@@ -2562,6 +2617,170 @@
         <p style="color:var(--dim);font-size:11px;margin-top:10px">Razor Town is an original work — styled after classic crime-city browser games, with 100% our own names, jobs and fiction.</p></div>`;
   }
 
+  // ================================================================ INFORMANT NETWORK
+  function renderInformants() {
+    const v = $('#view');
+    v.innerHTML = U.spinner('Finding the people who know…');
+    refreshInformants(v);
+  }
+  async function refreshInformants(v) {
+    let b;
+    try { b = await Net.get('/api/sys/panel'); G.sysPanel = b; } catch (e) { v.innerHTML = `<div class="card"><p style="color:var(--bad)">${esc(e.message)}</p></div>`; return; }
+    const inf = (b && b.informants) || { leads: [], tips: [], stats: {} };
+    const tips = inf.tips || [];
+    const money = (G.me && G.me.money) || 0;
+    const mins = Math.max(0, Math.round(((inf.ends || 0) - Date.now()) / 60000));
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🕵️ <span class="head">The Informant Network</span></div>
+      <div class="vdesc">Ten circles, ten districts, ten trades — <b>${(inf.total || 1000).toLocaleString()}</b> people who know something.
+      Six ride your board each rotation; the rest are other people's problems. Buy a lead, live with what it turns out to be.</div></div>
+      <div class="pill"><span>Rotation ends in <b style="color:var(--cyn)">${mins}m</b></span> <b style="color:var(--gold)">${tips.length} tip${tips.length === 1 ? '' : 's'} live</b></div></div>
+
+      <div class="card"><div class="subhead">🎧 Live tips</div>
+        ${tips.length ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${tips.map(t => `
+          <div class="slot" style="padding:8px"><span class="s-ico">⚡</span><span><span class="s-slot">${esc(t.label)}</span>
+          <span class="s-val">+${t.strength}${t.kind === 'market' ? '' : '%'} · ${U.fmtDur(Math.max(0, t.until - Date.now()))} left · ${esc(t.from || '')}</span></span></div>`).join('')}</div>`
+        : '<p style="color:var(--dim);font-size:12px">No tips running. Buy a lead below — a good one pays for itself on the next job.</p>'}
+      </div>
+
+      <div class="card"><div class="subhead">📋 This rotation's board <span style="color:var(--dim);font-weight:400">— ${inf.stats && inf.stats.hires || 0} bought, ${inf.stats && inf.stats.rate || 0}% landed, $${((inf.stats && inf.stats.spent) || 0).toLocaleString()} spent</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${(inf.leads || []).map(l => `
+          <div class="card" style="margin:0;border-color:${l.hired ? 'rgba(90,220,160,0.35)' : l.blown ? 'rgba(255,90,90,0.3)' : 'var(--line)'}">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+              <div><div style="font-weight:800">${l.icon} ${esc(l.name)}</div>
+                <div style="font-size:11px;color:var(--dim);letter-spacing:0.4px">${l.circleIcon} ${esc(l.circle)} · ${esc(l.district)} · lead #${l.serial}</div></div>
+              <div style="text-align:right;font-size:11px;color:var(--dim)">$${l.price.toLocaleString()}<br><b style="color:var(--cyn)">${Math.round(l.reliability * 100)}% solid</b></div>
+            </div>
+            <p style="font-size:12px;color:var(--mut);margin:8px 0 4px">${esc(l.blurb)}</p>
+            <div style="font-size:11px;color:var(--gold);margin-bottom:8px">Pays out: <b>${esc(l.trade)}</b> · +${l.strength}${l.dur ? ' for ' + l.dur + 'm' : ' — instant'}</div>
+            ${l.hired ? '<span class="tag ok">bought this rotation</span>'
+              : l.blown ? '<span class="tag bad">burned — cold for a day</span>'
+              : `<button class="btn sm ${money >= l.price ? 'cyan' : 'ghost'}" data-act="informant_hire" data-id="${l.id}">Hire for $${l.price.toLocaleString()}</button>`}
+          </div>`).join('')}</div>
+      </div>` ;
+  }
+
+  // ================================================================ THE LONG GAME — 10,000 operations
+  function renderOps() {
+    const v = $('#view');
+    v.innerHTML = U.spinner('Opening the book on ten families of work…');
+    refreshOps(v);
+  }
+  async function refreshOps(v, keepScroll) {
+    const q = G.opsQ = Object.assign({ fam: 'rackets', q: '', district: '', grade: '', offset: 0 }, G.opsQ || {});
+    const st = v.scrollTop;
+    let b;
+    try { b = await Net.post('/api/action', { name: 'ops', fam: q.fam, q: q.q, district: q.district, grade: q.grade, offset: q.offset, limit: q.limit || 24 }); }
+    catch (e) { v.innerHTML = `<div class="card"><p style="color:var(--bad)">${esc(e.message)}</p></div>`; return; }
+    const d = (b && b.res) || {};
+    if (b && b.p) applyMe(b.p, null);
+    const money = (G.me && G.me.money) || 0;
+    const fam = (d.families || []).find(f => f.id === q.fam) || {};
+    const res = G.opsResult;
+    const shownTo = Math.min(q.offset + (d.list || []).length, d.matched || 0);
+    const rackets = d.rackets || [], art = d.art || [], docs = d.docs || [], chains = d.chains || [];
+    const docLabel = (id) => ({ paper: 'passing paper', bail: 'court brief', shield: 'screen from the law' })[id] || '';
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">📋 <span class="head">The Long Game</span></div>
+      <div class="vdesc">Ten families of underworld work — <b>${(d.total || 10000).toLocaleString()}</b> named operations across
+      ten districts and ten grades. Every one of them is a real job: its own price, its own odds, its own consequence.
+      ${fam.blurb ? '<br>' + esc(fam.blurb) : ''}</div></div>
+      <div class="pill"><span>Worked <b style="color:var(--cyn)">${(d.stats && d.stats.total) || 0}</b></span>
+      <b style="color:var(--gold)">${((d.stats && d.stats.earned) || 0).toLocaleString()} earned</b>
+      ${chains.length ? `<b style="color:var(--bad)">${chains.length} live job${chains.length === 1 ? '' : 's'}</b>` : ''}</div></div>
+
+      ${res ? `<div class="card" style="border-color:${res.win ? 'rgba(90,220,160,0.4)' : 'rgba(255,90,90,0.35)'}">
+        <div class="subhead">${res.win ? '✅' : '⚠️'} ${esc(res.op ? res.op.name : 'Result')}</div>
+        <p style="font-size:13px;color:var(--mut);margin:6px 0">${esc(res.text || '')}</p></div>` : ''}
+
+      ${rackets.length ? `<div class="card"><div class="subhead">🏦 Standing rackets <span style="color:var(--dim);font-weight:400">— ${rackets.length} running, $${(d.racketIncome || 0).toLocaleString()} in the envelopes</span>
+        <button class="btn sm cyan" style="float:right" data-act="op_collect" ${d.readyRackets ? '' : 'disabled'}>Collect all</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${rackets.map(r => `
+          <div class="slot" style="padding:8px"><span class="s-ico">${r.ico}</span><span>
+          <span class="s-slot">${esc(r.name)}</span>
+          <span class="s-val">$${r.value.toLocaleString()} banked · ${r.full ? '<b style="color:var(--bad)">full</b>' : 'next in ' + fmtDur(r.nextIn)}</span></span></div>`).join('')}</div></div>` : ''}
+
+      ${(art.length || docs.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card"><div class="subhead">🖼️ The vault <span style="color:var(--dim);font-weight:400">— ${art.length}/${d.artCap} pieces, $${(d.artValue || 0).toLocaleString()} on the wall</span></div>
+          ${art.length ? art.map(a => `<div class="slot" style="padding:8px;margin-top:6px"><span class="s-ico">${a.ico || '🖼️'}</span><span>
+            <span class="s-slot">${esc(a.name || '')}</span>
+            <span class="s-val">paid $${a.paid.toLocaleString()} · now <b style="color:var(--gold)">$${a.value.toLocaleString()}</b></span></span>
+            <button class="btn sm ghost" data-act="op_sell" data-idx="${a.idx}">Sell</button></div>`).join('') : '<p style="color:var(--dim);font-size:12px">Nothing in the vault. Art grades get more valuable the longer they sit.</p>'}
+        </div>
+        <div class="card"><div class="subhead">🖨️ Papers in your coat <span style="color:var(--dim);font-weight:400">— ${docs.reduce((a, x) => a + x.n, 0)} held</span></div>
+          ${docs.length ? docs.map(x => `<div class="slot" style="padding:8px;margin-top:6px"><span class="s-ico">${x.ico}</span><span>
+            <span class="s-slot">${esc(x.catName)} ×${x.n}</span><span class="s-val">one-shot ${docLabel(x.cat)}</span></span>
+            <button class="btn sm ghost" data-act="doc_use" data-id="${x.id}">Use</button></div>`).join('') : '<p style="color:var(--dim);font-size:12px">No documents. Forgery work earns its keep later.</p>'}
+        </div></div>` : ''}
+
+      <div class="card"><div class="subhead">📋 Browse the book</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${(d.families || []).map(f => `
+          <button class="btn sm ${f.id === q.fam ? 'cyan' : 'ghost'}" data-act="ops-fam" data-fam="${f.id}" title="${esc(f.blurb)}">${f.ico} ${esc(f.name)} <span style="color:var(--dim)">${f.count}</span></button>`).join('')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="ops-q" placeholder="Search ${esc(fam.name || '')} — name, pitch, grade…" value="${esc(q.q)}" style="flex:1;min-width:200px">
+          <select id="ops-district"><option value="">All districts</option>${(d.districts || []).map(x => `<option value="${x.id}" ${q.district === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+          <select id="ops-grade"><option value="">All grades</option>${(d.grades || []).map(g => `<option value="${g.i}" ${String(q.grade) === String(g.i) ? 'selected' : ''}>${g.roman} — ${esc(g.name)}</option>`).join('')}</select>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px">${(d.matched || 0).toLocaleString()} operations match · showing ${q.offset + 1}–${shownTo}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${(d.list || []).map(op => {
+        const lock = op.locked, cool = op.cool > 0;
+        const verb = (fam.verb || 'Work').replace(/^\w/, c => c.toUpperCase());
+        const button = lock ? `<span class="tag bad">${esc(lock)}</span>`
+          : cool ? `<span class="tag">settling · ${Math.ceil(op.cool / 60000)}m</span>`
+          : `<button class="btn sm ${op.canAfford ? 'cyan' : 'ghost'}" data-act="op_do" data-id="${op.id}">${op.special === 'chain' && op.stage ? `Stage ${op.stage + 1}` : verb}${op.cash ? ` · $${op.cash.toLocaleString()}` : ''}</button>`;
+        return `<div class="card" style="margin:0">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div><div style="font-weight:800">${op.ico} ${esc(op.name)}</div>
+              <div style="font-size:11px;color:var(--dim);letter-spacing:0.4px">${esc(op.tag)} · ${esc(op.districtName)} · #${op.serial}</div></div>
+            <div style="text-align:right;font-size:11px;color:var(--dim)">${Math.round(op.live)}% solid<br>
+              <span style="color:var(--gold)">${op.min ? '$' + op.min.toLocaleString() + (op.max !== op.min ? '–' + op.max.toLocaleString() : '') : 'no cash payout'}</span></div>
+          </div>
+          <p style="font-size:12px;color:var(--mut);margin:8px 0 4px">${esc(op.blurb)}</p>
+          <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${esc(op.flavour)}</div>
+          <div style="font-size:11px;color:var(--cyn);margin-bottom:8px">Lv ${op.level}${op.crew ? ` · crew ${op.crew}` : ''} · ⚡${op.energy}${op.nerve ? ` · 🎲${op.nerve}` : ''} · 🔥${op.heat} heat${op.carMin ? ` · car ${op.carMin}+` : ''}${op.special === 'chain' && op.stage ? ` · stage ${op.stage}/3 (${esc(op.stageName || '')})` : ''}</div>
+          ${op.owned ? `<span class="tag ok">running · banks $${op.rate.toLocaleString()} every ${op.hours}h</span>` : button}
+        </div>`;
+      }).join('')}</div>
+
+      ${shownTo < (d.matched || 0) ? `<div style="text-align:center;margin:14px 0"><button class="btn ghost" data-act="ops-more">Show 24 more</button></div>` : ''}
+
+      <div class="card" style="margin-top:12px"><div class="subhead">📈 The book so far</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px;font-size:12px;text-align:center">
+          <div><b style="color:var(--cyn)">${(d.stats && d.stats.total) || 0}</b><br><span style="color:var(--dim)">jobs worked</span></div>
+          <div><b style="color:var(--good)">${(d.stats && d.stats.wins) || 0}</b><br><span style="color:var(--dim)">clean</span></div>
+          <div><b style="color:var(--bad)">${(d.stats && d.stats.fails) || 0}</b><br><span style="color:var(--dim)">blown</span></div>
+          <div><b style="color:var(--gold)">$${(((d.stats && d.stats.earned) || 0) / 1000).toFixed(0)}k</b><br><span style="color:var(--dim)">taken</span></div>
+          <div><b style="color:var(--mut)">$${(((d.stats && d.stats.spent) || 0) / 1000).toFixed(0)}k</b><br><span style="color:var(--dim)">laid out</span></div>
+        </div></div>`;
+    const input = $('#ops-q');
+    if (input) {
+      input.addEventListener('input', () => {
+        clearTimeout(G.opsT); G.opsT = setTimeout(() => { G.opsQ.q = input.value; G.opsQ.offset = 0; refreshOps(v); }, 320);
+      });
+    }
+    const ds = $('#ops-district'); if (ds) ds.addEventListener('change', () => { G.opsQ.district = ds.value; G.opsQ.offset = 0; refreshOps(v); });
+    const gs = $('#ops-grade'); if (gs) gs.addEventListener('change', () => { G.opsQ.grade = gs.value; G.opsQ.offset = 0; refreshOps(v); });
+    if (keepScroll) v.scrollTop = st;
+  }
+  async function opRun(name, payload) {
+    if (G.busy.has(name)) return;
+    G.busy.add(name);
+    try {
+      const r = await Net.post('/api/action', Object.assign({}, payload || {}, { name }));
+      if (r.p) applyMe(r.p, r.res);
+      G.opsResult = r.res || null;
+      if (r.res && r.res.lines) G.opsResult = Object.assign({}, r.res, { text: r.res.lines.join(' ') });
+      U.toast(r.res && r.res.win === false ? '⚠️ ' + esc(r.res.text || 'That went wrong.') : '✅ ' + esc((r.res && r.res.text) || 'Done.'), r.res && r.res.win === false ? 'bad' : 'good', 4200);
+    } catch (e) {
+      U.toast('<span style="color:var(--bad)">⚠️</span> ' + esc(e.message), 'bad');
+    } finally {
+      G.busy.delete(name);
+      if (G.view === 'ops') refreshOps($('#view'));
+    }
+  }
+
   // ================================================================ EDIT LOOK (modal)
   function openEditLook() {
     const me = G.me;
@@ -2578,6 +2797,8 @@
       ${editChips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), parts.hair)}
       ${editChips('shirt', 'Top', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
       ${editChips('accent', 'Trinket', AV.ACCENTS.map((_, i) => i + ''), parts.accent, true)}
+      ${editChips('eyes', 'Eyes', (AV.EYE_NAMES || []), parts.eyes || 0)}
+      ${editChips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), parts.facial || 0)}
       <div class="subhead" style="margin-top:14px">🧥 Wardrobe presets</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px" id="el-ward">
         ${[0,1,2].map(i => `<button class="btn ghost sm" data-ward-slot="${i}" data-act="wardrobe_slot">Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">—</span></button>`).join('')}
@@ -2585,9 +2806,9 @@
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" data-act="close-modal">Cancel</button>
         <button class="btn cyan" data-act="save-look">Save look</button></div></div></div>`;
-    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0 };
+    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0, eyes: parts.eyes || 0, facial: parts.facial || 0 };
     const cur = { ...els };
-    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body].join('|');
+    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body, cur.eyes, cur.facial].join('|');
     // hydrate wardrobe slots from the panel cache if present
     const fillWard = (slots) => {
       $$('#el-ward [data-ward-slot]').forEach(b => {
@@ -3151,7 +3372,7 @@
     const root = $('#modal-root');
     const cur = {};
     $$('[data-el-opt]', root).forEach(b => { if (b.classList.contains('on')) cur[b.dataset.elOpt] = +b.dataset.v; });
-    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0].join('|');
+    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0, cur.eyes ?? parts.eyes ?? 0, cur.facial ?? parts.facial ?? 0].join('|');
     try {
       const r = await Net.post('/api/updateprofile', { avatar: str });
       G.me = r.p; root.innerHTML = ''; renderHUD(); reRenderCurrent();
@@ -3190,6 +3411,13 @@
         act('attack', { targetId: +tid }, 'attack');
         break;
       }
+      case 'informant_hire': { act('informant_hire', { informantId: btn.dataset.id }).then(() => { if (G.view === 'informants') refreshInformants($('#view')); }); break; }
+      case 'ops-fam': { G.opsQ = Object.assign({}, G.opsQ, { fam: btn.dataset.fam, offset: 0 }); refreshOps($('#view'), true); break; }
+      case 'ops-more': { G.opsQ = Object.assign({}, G.opsQ, { offset: (G.opsQ.offset || 0) + 24 }); refreshOps($('#view'), true); break; }
+      case 'op_do': opRun('op_do', { id: btn.dataset.id }); break;
+      case 'op_collect': opRun('op_collect', {}); break;
+      case 'op_sell': opRun('op_sell', { idx: +btn.dataset.idx }); break;
+      case 'doc_use': opRun('doc_use', { id: btn.dataset.id }); break;
       case 'train': act('train', { stat: btn.dataset.stat, gymId: btn.dataset.gym || 'abandoned_gym' }); break;
       case 'job_apply': act('job_apply', { jobId: btn.dataset.job }); break;
       case 'job_quit': act('job_quit', {}); break;
@@ -3323,6 +3551,28 @@
   async function devWorld(btn) {
     const op = btn.dataset.op;
     const payload = { op };
+    // world dials & live ops that do not need a target player
+    if (op === 'weather') { payload.kind = ($('#dev-weather') || { value: 'auto' }).value; }
+    else if (op === 'event') { payload.event = ($('#dev-event') || { value: '' }).value; payload.minutes = 20; }
+    else if (op === 'economy') {
+      payload.payout = parseInt(($('#dev-dial-payout') || { value: '100' }).value, 10) || 100;
+      payload.danger = parseInt(($('#dev-dial-danger') || { value: '100' }).value, 10) || 100;
+    }
+    else if (op === 'spawn_bot') { payload.count = parseInt(($('#dev-bots') || { value: '3' }).value, 10) || 3; }
+    else if (['purge_bots', 'metrics'].includes(op)) { /* targetless */ }
+    else if (op === 'give_tip') { payload.kind = ($('#dev-tipkind') || { value: 'edge' }).value; }
+    if (['weather', 'event', 'economy', 'spawn_bot', 'purge_bots', 'metrics'].includes(op)) {
+      try {
+        const r = await Net.post('/api/dev/world', payload);
+        if (op === 'metrics' && r.metrics) {
+          const m = r.metrics;
+          $('#dev-metrics').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;font-size:12px">
+            ${Object.entries(m).map(([k, v]) => `<div><small class="dimtext">${esc(k)}</small><br><b style="color:var(--cyn)">${esc(typeof v === 'object' ? JSON.stringify(v) : String(v))}</b></div>`).join('')}</div>`;
+        } else U.toast('Dev: ' + op + ' → ' + JSON.stringify(r).slice(0, 80), 'good');
+        if (op === 'spawn_bot' || op === 'purge_bots') renderDev();
+      } catch (e) { U.toast(e.message, 'bad'); }
+      return;
+    }
     if (op === 'announce') {
       payload.message = ($('#dev-msg') && $('#dev-msg').value.trim()) || '';
       if (!payload.message) { U.toast('Write a message first.', 'bad'); return; }
@@ -3333,6 +3583,7 @@
       if (op === 'set_money') payload.amount = parseInt(($('#dev-wamt')||{value:''}).value,10)||0;
       if (op === 'grant_item') { const inv = Object.keys(G.meta.items); payload.item = inv[Math.floor(Math.random()*inv.length)]; payload.qty=1; }
       if (op === 'set_stat') { payload.stat='st'; payload.value=100; }
+      if (op === 'set_level_target') payload.value = parseInt(($('#dev-wamt') || { value: '10' }).value, 10) || 10;
       if (op === 'hospital') payload.minutes=30;
       if (op === 'ban') {
         payload.reason = (prompt('Reason for the ban (shown to nobody but founders, kept in the ledger):') || '').trim();

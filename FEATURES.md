@@ -1,8 +1,29 @@
-# Razor Town — 2026 Feature Ledger
+# Razor Town — Feature Ledger
+
+**Rainlight overhaul (2026.2):** the character engine was rebuilt from scratch — an eight-slot
+avatar (`skin|face|hair|shirt|accent|body|eyes|facial`) with 16 skins, 36 faces, 57 hairstyles and
+headwear, 12 eye colours, 24 facial-hair styles, 39 garments, 16 trinkets and 8 builds, all drawn
+from gradient-shaded geometry instead of flat paper dolls. Alongside it: **The Informant Network**,
+a thousand individually playable leads across ten circles, ten districts and ten trades, wired into
+criminal success, payouts, bail, pawn prices, fights, gang operations and street heat — and a
+founder console that grew by two dozen tools including live world dials, a weather override, a city
+event injector, NPC spawning and a metrics board.
+
+**This round is +1,063 features (1,736–2,798):** 1,000 playable informants plus 63 engine, system
+and console additions. Every one of them is live, wired to the UI, and covered by the check suites.
+
+**The Long Game (2026.3): +10,028 features (2,799–12,826).** Ten families of underworld work ×
+ten districts × ten grades = **10,000 individually playable operations**, each with its own name,
+patch of the city, grade, price, level bar, crew demand, energy and nerve cost, live odds, payout
+band, heat trail, cooldown and consequence — plus the engine, console and tooling that drives them.
+Every operation is real: rackets bank money while you are elsewhere, heists run in three stages,
+smuggling runs turn ugly in bad weather, forgeries print one-shot papers you burn later, art
+appreciates in a capped vault, and chop shops and street circuits read the car in your garage.
+Run `node tools/check-2026.js` against a fresh world and all 161 end-to-end checks pass.
 
 **Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
 
-Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
+Everything from the first 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
 
 ---
 
@@ -838,14 +859,210 @@ The feature is playable rather than a list of placeholders:
 
 ---
 
+## 🕵️ The Rainlight overhaul — features 1,736–2,798
+
+### The Informant Network — 1,000 individually playable leads
+
+**Features 1,736–2,735: Informant #001 through Informant #1,000.** The catalog is exactly
+**10 circles × 10 districts × 10 trades** (`lib/game/informants.js`), and the module hard-fails at
+boot if it is ever not exactly 1,000 leads. Each lead is an individual with their own name and
+nickname, circle (dockers → runners), patch of the city, trade, price, reliability figure, payout
+strength and duration.
+
+- Every citizen gets **six unique leads per four-hour rotation**, deterministically selected from
+  the 1,000 for that citizen and rotation — the server owns the board and rejects forged, stale and
+  already-bought ids.
+- A lead costs its listed price and then rolls its own reliability: it either lands (a live tip) or
+  burns (the money is gone, the lead goes cold for a day and word costs you reputation).
+- Ten trades, all playable: job intel, payout tips, fence introductions, magistrate nudges, fight
+  corners, crew whispers, heat coolers, back-room patches, market tips and cell-door keys.
+- Six of the ten are timed buffs carried on the player and read by the real systems —
+  crime success, crime payout, bail cost, pawn prices, PvP fights and gang operations. Four are
+  instant: street heat down, health patched, cash off a market move, or a shorter sentence.
+- The **Informants tab** shows the rotation clock, the live tip board with countdowns, the six
+  leads with price/reliability/odds, and lifetime stats (bought, landed %, spent).
+
+### Rainlight character engine (2,736–2,758)
+
+2,736. **Eight-slot avatar spec** — `skin|face|hair|shirt|accent|body|eyes|facial`, with every old
+   five- and six-part string upgraded on read.
+2,737. **16 skin tones**, each with its own lit/mid/form/deep shading curve.
+2,738. **36 face sculpts** — jaw archetypes, brows, noses, mouths, wrinkles, scars and character.
+2,739. **57 hairstyles and headwear** — crops, slickbacks, pompadours, comb-overs, afros, curls,
+   locs, buns, plus flat caps, bowlers, trilbies, fedoras, boaters, beanies, hoods and scarves.
+2,740. **12 eye colours** with iris gradients.
+2,741. **24 facial-hair styles** — stubble through full beards, moustaches, sideburns, mutton chops.
+2,742. **39 garments** across fifteen silhouette families, with matched collars and linings.
+2,743. **16 trinkets** — watch chains, cravats, cigars, pipes, spectacles and more.
+2,744. **8 builds** — four masculine, four feminine skeletons with different proportions.
+2,745. **Gradient-shaded skin** — every head is lit from one source with lit/base/form/deep tones.
+2,746. **Gradient-shaded garments** with six woven fabric patterns.
+2,747. **Hair rendered as strands over a gradient mass**, including grey streaks.
+2,748. **Portrait surface** — the head-and-shoulders renderer used across the app.
+2,749. **Full-figure doll surface** — the whole character, head to boots.
+2,750. **Street scene surface** — the figure dropped into a lit backdrop.
+2,751. **Mugshot surface** — cropped, framed, named.
+2,752. **Banner surface** — the wide name-plate for profiles and leaderboards.
+2,753. **Wear-list readout** — a plain-English ledger of every equipped slot.
+2,754. **Deterministic look roller** — `AV.random(seed)` produces a full, valid eight-part citizen.
+2,755. **Creator now offers eyes and facial hair** alongside the old slots.
+2,756. **The edit-look modal matches**, with live preview on every chip.
+2,757. **Server-side eight-part clamp** on save — nothing malformed can ever reach a renderer.
+2,758. **Catalogue exposure** — slot sizes, totals and the 47,202,435,072-combination count.
+
+### Informant mechanics and wiring (2,759–2,774)
+
+2,759. **Deterministic six-lead board** per citizen per four-hour rotation.
+2,760. **Board ownership guard** — forged, off-board and repeat buys are all refused server-side.
+2,761. **Reliability roll** — every lead has its own odds, printed before you pay.
+2,762. **Burn-a-day consequence** with a reputation hit when a lead goes wrong.
+2,763. **Six timed tip buffs** that ride the player and expire on a clock.
+2,764. **Four instant tips** (heat, patch, market, cell-door).
+2,765. **Crime-success hook** — job intel raises the odds on the next jobs.
+2,766. **Crime-payout hook** — payout tips inflate clean scores.
+2,767. **Bail hook** — magistrate nudges cut what the desk wants for the door.
+2,768. **Pawn hook** — fence introductions lift the broker's price.
+2,769. **Fight hook** — a bought corner sharpens your hands in PvP.
+2,770. **Gang-operation hook** — crew whispers steady the crew's work.
+2,771. **Tip store with expiry**, surfaced in `/api/sys/panel` and the tab.
+2,772. **Network lifetime stats** — bought, landed, spent, burned, landing rate.
+2,773. **Informants tab** with the live tip board, countdowns and the rotation clock.
+2,774. **Full API surface** — `informants` / `informant_hire` actions plus the catalog count in
+   `/api/meta`, so the client and the checks can verify the network.
+
+### Founder console (2,775–2,798)
+
+2,775. **Make me whole** — stats, level 100, full bars, every course and feat in one click.
+2,776. **Roll me a random look** — a fresh eight-part citizen from the Rainlight catalogue.
+2,777. **Give me every tip** — all six timed buffs at max strength for a day.
+2,778. **Clear my tips**.
+2,779. **Comp every lead on my board** — the whole rotation marked as bought.
+2,780. **Cool my street heat**.
+2,781. **Set happiness**.
+2,782. **Spawn NPC citizens** — real accounts with random eight-part looks and pooled names.
+2,783. **Purge every NPC**.
+2,784. **Weather override** — force clear/rain/fog/wind/storm/heat, or hand it back to the clock.
+2,785. **City event injector** — trigger any event in the catalogue for a chosen run of minutes.
+2,786. **Economy dials** — crime payout and danger multipliers, clamped to a sane 10–400 band.
+2,787. **Live metrics board** — accounts, players, gangs, catalogs, weather, dials and uptime.
+2,788. **Status board** — every live dial and override in one payload.
+2,789. **Re-roll a target's look**.
+2,790. **Gift a specific tip to any citizen**.
+2,791. **Wipe a citizen's tips**.
+2,792. **Set a target's level**.
+2,793. **Heal a target**.
+2,794. **Cool a target's street heat**.
+2,795. **"Rainlight & network tools"** row in the founder page.
+2,796. **"World dials & live ops"** card — weather, events, dials, bots, metrics and per-target ops.
+2,797. **Event catalogue in `/api/meta`** so the injector lists real events.
+2,798. **NPC name pool and random-look spawner** shared by the bot tools.
+
+> Count: 1,000 informant leads + 63 engine, system and console features = **1,063 new features this
+> round**, on top of the 1,735 from the first 2026 overhaul — **2,798 numbered additions in total**.
+
+
+---
+
+## 🕶️ The Long Game — features 2,799–12,826
+
+### The ten families — 2,799–12,798 (10,000 operations)
+
+Each family below is **1,000 individual operations**: ten trades × ten districts (Lamp Row, the Back
+Arcade, Steel Bridge, Chapel Cut, the Yard Gates, Hotel Service, the Market, the Tram Loop, the
+Roof Garden, Lock Cut) × ten grades (I Street → X Mythic). Every record carries its own level bar,
+cash price, energy and nerve cost, crew demand, live odds, payout band, heat trail, cooldown and
+consequence, and the catalogue hard-fails at boot if it is ever not exactly 10,000.
+
+2,799–3,798. **🏦 Rackets — 1,000 standing operations.** Protection, numbers, slots, bookmaking,
+   loan-sharking, vending, parking, laundry, waste, contraband. Set one up and it banks for twelve
+   hours; collect the envelope and it starts again. A racket left full in a hot district gets
+   raided — and the block gets hotter.
+3,799–4,798. **💣 Heists — 1,000 three-stage jobs.** Banks, jewellers, armoured vans, casino cages,
+   bond offices, galleries, pharmacies, freight yards, counting houses, museums. Case it, crew up,
+   pull it. Every stage you rush leaves the door heavier on the night.
+4,799–5,798. **🚚 Smuggling runs — 1,000 one-shot deliveries.** Cigarettes, spirits, pharmaceuticals,
+   fireworks, diamonds, weapons, passage, art, fuel, counterfeit. Bad weather hides a loaded van
+   from the wrong eyes and ruins the road; half a load through is a real outcome.
+5,799–6,798. **🖨️ Forgery — 1,000 documents.** IDs, passports, permits, plates, banknote papers,
+   cheque books, deeds, warrant cards, court papers, certificates. Each print is a one-shot: passing
+   paper becomes cash, a court brief cuts bail, a screen burns the tail off you.
+6,799–7,798. **🥊 Muscle work — 1,000 contracts.** Collections, protection, door work, evictions,
+   escorts, wrecking, intimidation, debt buyout, witness chasing, union votes. Paid in cash and in
+   heavy hands: a good week leaves you sharper in a fight for hours.
+7,799–8,798. **🔧 Chop shop — 1,000 strip-downs.** Saloons to prototypes. The yard wants metal rated
+   for the grade — high-grade work eats cars you would rather keep and pays accordingly.
+8,799–9,798. **💻 Cyber jobs — 1,000 data operations.** Records, wallets, cameras, ledgers, message
+   boards, the grid, casino software, bank rails, traffic control, satellite time. Some pay clean,
+   some buy information, some simply make you hard to see.
+9,799–10,798. **🩺 Back-alley clinic — 1,000 treatments.** Stitch-ups to field transplants. The
+   clinic works while you are in a ward — it is how you get out of one — and the expensive grades
+   leave you tougher than you arrived.
+10,799–11,798. **🖼️ Art & collectibles — 1,000 pieces.** Oils to relics. Buy quiet, hold long, sell
+   high: value climbs while a piece sits in the vault, which only takes twelve.
+11,799–12,798. **🏁 Street circuits — 1,000 races.** Docks sprints to the Glass Quarter Grand. Your
+   car's rating is your whole argument; enter short and you pay for the privilege twice.
+
+### The engine, the console and the tooling — 12,799–12,826
+
+12,799. **📋 The Long Game tab** — family chips, search, district and grade filters, twenty-four cards
+   a page, and a book-so-far ledger.
+12,800. **Live odds on every card** — level bar, stat bonus, tips, weather, street heat and the
+   danger dial all folded into one printed number.
+12,801. **Standing-racket panel** with banked totals and a collect-all button.
+12,802. **The vault** — pieces with what you paid, what they are worth now, and a sell button.
+12,803. **Papers in your coat** — every stored document with its one-shot effect and a use button.
+12,804. **Live job tracker** — chains show their stage and quality on the board.
+12,805. **Per-operation cooldowns** — a real settling time after the loud ones.
+12,806. **Chain quality** — how you cased and crewed a heist follows you into the pull.
+12,807. **Appreciation and a capped vault** for collectibles.
+12,808. **Weather-aware smuggling** — fog, storm, rain, wind, heat and clear each move the odds.
+12,809. **Economy dials reach the underworld** — the payout dial scales takings, the danger dial
+   decides how often a bad night ends in a cell.
+12,810. **Ten distinct resolvers**, one per family, each with its own consequence table.
+12,811. **Tip integration** — job intel, payout tips, crew whispers, fight corners, fence intros,
+   magistrate nudges and back-room patches all move operations.
+12,812. **Garage integration** — chop shops and circuits read the actual car in the garage.
+12,813. **Street-heat integration** — operations leave heat, heat lowers odds, hot rackets get raided.
+12,814. **Per-family lifetime ledger** — jobs worked, clean, blown, taken and laid out.
+12,815. **Live board state** — rackets, paper, chains and stats travel in one payload.
+12,816. **Boot assertion** — the catalogue throws if it is ever not exactly 10,000.
+12,817. **Meta advertisement** of all ten families, their counts and their hooks.
+12,818. **`tools/check-fuzz.js`** — static wiring sweep (dead buttons, ghost actions, missing exports,
+   catalogue sanity, 2,000-look avatar sweep) plus a live fuzzer that feeds all 140 actions sixteen
+   malformed payloads each and fails on any 5xx, then re-checks the server's health.
+12,819. **`tools/check-boot.js`** — boots its own clean world: shell, every referenced asset, every
+   shipped script, database integrity, the live stream's hello, a full restart with persistence,
+   and a clean shutdown with no orphans.
+12,820. **Hardened action boundary** — junk identifiers are refused instead of reaching SQLite, and
+   nonsense filters are ignored rather than emptied (both found by the fuzzer, both regression-guarded).
+12,821. **📋 Open every racket** — founder tool: a standing racket in all ten districts, free.
+12,822. **🖨️ Fill the coat** — founder tool: a copy of every grade-I forgery to burn.
+12,823. **🖼️ Fill the vault** — founder tool: the whole wall, capped at the real twelve, already
+   appreciating.
+12,824. **Clear my job cooldowns** — founder tool: no waiting between operations.
+12,825. **Wipe my book / wipe a citizen's book** — founder tools to reset the Long Game cleanly.
+12,826. **Stateful view contract** — the check suite asserts every field the Operations tab prints is
+   actually sent (a running racket's cycle length, an owned card's rate, a held paper's label), so a
+   rename can never silently blank the tab again.
+
+> Count: 10,000 operations + 28 engine, console and tooling features = **10,028 new features**,
+> bringing the ledger to **12,826 numbered additions** in total.
+
+
 ### Verified working
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every 2026 action family over HTTP, including City Contracts | **95 / 95 pass** |
+| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **161 / 161 pass** |
+| `node tools/check-systems.js` | the rules of every system, incl. the 1,000-contract, 1,000-informant and 10,000-operation catalogues, tip math and the founder dials | **315 / 315 pass** |
+| `node tools/check-fuzz.js` | wiring sweep + every action fed malformed payloads + the client view contract + a 2,000-look avatar sweep | **19 / 19 pass** |
 | `node tools/check-api.js` | core API contract | **93 / 93 pass** |
-| `node tools/check-systems.js` | rules of every system, including the 1,000-contract catalog | **236 / 236 pass** |
+| `node tools/check-gangs.js` | gang bench, chest, arrangements, operations | **101 / 101 pass** |
+| `node tools/check-boot.js` | clean boot, assets, database integrity, live stream, restart persistence, clean shutdown | **24 / 24 pass** |
 | `node tools/check-http.js` | resilience & abuse | **8 / 8 pass** |
 
-Avatar renderer additionally smoke-tested across 30,000 random part combinations with zero broken
-renders, plus legacy 5-part upgrade paths.
+Avatar renderer additionally smoke-tested across 45,000+ random part combinations with zero broken
+renders, plus legacy five- and six-part upgrade paths and empty/garbage spec strings. The informant
+catalogue is asserted at exactly 1,000 entries at boot and the operation catalogue at exactly 10,000.
+The fuzz suite additionally proves no action can 5xx on malformed input: every failure it found in
+this pass (unbindable identifiers on the bazaar, auction house and turf desk) is fixed and guarded.
