@@ -33,7 +33,7 @@ const uniq = Date.now().toString(36);
   const mk = async (name) => {
     const r = await req('/api/register', { method: 'POST', body: {
       username: name, password: 'TestPass99!', email: name + '@test.local',
-      profile: { name, origin: 'street', avatar: '1|2|3|4|5|1', bio: 'qa' } } });
+      profile: { name, origin: 'street', gender: 'm', bio: 'qa' } } });
     ok(r.code === 200, 'register ' + name);
     return { tok: r.j.token, name };
   };
@@ -49,11 +49,16 @@ const uniq = Date.now().toString(36);
 
   const panel = async (tok) => (await req('/api/sys/panel', { token: tok })).j;
 
-  // ---- avatar clamping (Rainlight catalog + 8 parts) ----
-  const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9|99|99' } });
-  ok(pr.code === 200 && pr.j.p.avatar === '15|35|56|38|15|7|11|23', 'avatar clamp to new catalog');
-  const pr5 = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '1|2|3|4|5' } });
-  ok(pr5.j.p.avatar === '1|2|3|4|5|0|0|0', 'legacy 5-part spec fills eyes + facial with 0');
+  // ---- Torn-style: a citizen is a body plus the kit they have equipped, and a
+  // profile picture that is validated rather than stored blindly
+  ok(/^m\|/.test((await req('/api/me', { token: A.tok })).j.me.avatar), 'a fresh citizen renders from their equipped kit');
+  const pg = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { gender: 'f' } });
+  ok(pg.code === 200 && pg.j.p.gender === 'f' && /^f\|/.test(pg.j.p.avatar), 'the body can be switched from Preferences');
+  const pb = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { pic: 'data:image/jpeg;base64,AAAA' } });
+  ok(pb.code === 200 && pb.j.p.pic === 'data:image/jpeg;base64,AAAA', 'a profile picture is kept');
+  const pbad = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { pic: 'http://example.com/not-an-image.png' } });
+  ok(pbad.code === 400, 'anything that is not a plain image data URL is refused');
+  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { pic: '', gender: 'm' } });
 
   // ---- dev: fund both testers
   for (const t of [A, B]) {
@@ -410,12 +415,12 @@ const uniq = Date.now().toString(36);
     ok(card0 && card0.owned === true && Number.isFinite(card0.rate) && card0.rate > 0, 'an owned card carries its banking rate', detail(card0));
 
     // ---- a one-shot job, its cooldown and its heat
-    const heatBefore = (await panel(A.tok)).street.heat;
+    const heatBefore = (await act(A.tok, 'ops', { fam: 'runs' })).j.res.heat || 0;
     r = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
     ok(r.code === 200 && typeof r.j.res.win === 'boolean' && !!r.j.res.text, 'a smuggling run resolves with a real outcome', detail(r.j.res));
     const dup = await act(A.tok, 'op_do', { id: 'runs_cigs_lamp_row_0' });
     ok(dup.code === 400, 'a job that is still settling cannot be run twice');
-    ok((await panel(A.tok)).street.heat > heatBefore, 'a night on the road leaves heat behind');
+    ok(((await act(A.tok, 'ops', { fam: 'runs' })).j.res.heat || 0) > heatBefore, 'a night on the road leaves heat behind');
 
     // ---- forgery → a document you can actually burn
     await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'clear_status', target: accOf[A.name] } });
@@ -454,12 +459,19 @@ const uniq = Date.now().toString(36);
     ok(r.code === 200 && (r.j.res.win === true || r.j.res.win === false), 'a mythic-grade smuggling run resolves end to end', detail(r.j.res));
   }
 
-  // ================= WARDROBE =================
-  r = await act(A.tok, 'wardrobe_save', { slot: 0 });
-  ok(r.code === 200, 'wardrobe save');
-  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '2|3|4|5|6|1|2|3' } });
-  r = await act(A.tok, 'wardrobe_load', { slot: 0 });
-  ok(r.code === 200 && r.j.p.avatar === '1|2|3|4|5|0|0|0', 'wardrobe load restores look');
+  // ================= CLOTHING =================
+  {
+    // buy a shirt off the rail, wear it, and check it lands in the look and on the sheet
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'grant_cash', target: accOf[A.name], amount: 100000 } });
+    r = await act(A.tok, 'shop_buy', { shopId: 'therail', itemId: 'hoodie_grey' });
+    ok(r.code === 200 && (r.j.p.items.hoodie_grey || 0) >= 1, 'the clothes rail sells you a hoodie', detail(r.j));
+    r = await act(A.tok, 'equip', { itemId: 'hoodie_grey' });
+    ok(r.code === 200 && r.j.p.equip.wear.includes('hoodie_grey') && /torso:hoodie:/.test(r.j.p.avatar),
+      'wearing it puts it on the citizen', detail(r.j.p && r.j.p.avatar));
+    r = await act(A.tok, 'unequip', { slot: 'wear', itemId: 'hoodie_grey' });
+    ok(r.code === 200 && !r.j.p.equip.wear.includes('hoodie_grey') && (r.j.p.items.hoodie_grey || 0) >= 1 && !/torso:hoodie:/.test(r.j.p.avatar),
+      'taking it off puts it back in the bag and off the character');
+  }
 
   // ================= CHALLENGES =================
   p = await panel(A.tok);

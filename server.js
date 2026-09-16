@@ -11,6 +11,7 @@ const dbm = require('./lib/db.js');
 const A = require('./lib/accounts.js');
 const W = require('./lib/world.js');
 const C = require('./lib/game/content.js');
+const WEAR = require('./lib/game/wear.js');
 const boot = require('./lib/bootstrap.js');
 const E = require('./lib/game/engine.js');
 const S = require('./lib/systems.js');
@@ -154,9 +155,9 @@ function guard(req, res) {
 // ---------------------------------------------------------------- founder dev tools + payments
 const DEV_USERS = (process.env.DEV_ACCOUNTS || 'ghost,killa1979').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
 const _devCache = new Map();
-const AV_MAX = () => (A.AVATAR_MAX || { skin: 15, face: 35, hair: 56, shirt: 38, accent: 15, body: 7, eyes: 11, facial: 23 });
-const rndPart = (n) => Math.floor(Math.random() * (n + 1));
-const randomLook = () => { const m = AV_MAX(); return ['skin','face','hair','shirt','accent','body','eyes','facial'].map(k => rndPart(m[k])).join('|'); };
+const randomLook = () => WEAR.randomLook();                       // a body + a rolled outfit
+const randomOutfit = () => WEAR.randomOutfit();                   // just the clothes
+const randomGender = () => WEAR.GENDERS[Math.floor(Math.random() * WEAR.GENDERS.length)];
 const BOT_NAMES = ['Nobby','Sid','Gladys','Percy','Doris','Ron','Elsie','Albert','Mabel','Frank','Ivy','Stan'];
 
 function isDevAcc(accId) {
@@ -201,8 +202,7 @@ function metaPayload(){
       districts: S.OPS.DISTRICTS.length, grades: S.OPS.GRADES.length },
     events: (C.EVENTS || []).map(e => ({ id: e.id, name: e.name, icon: e.icon, dur: e.dur })),
     nightCatalog: { count: C.NIGHT_LEADS.length, rotationHours: 4, offersPerRotation: 3 },
-    favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 },
-    street: { pets: (C.PETS||[]).length, tats: (C.TATTOOS||[]).length, food: (C.STREET_FOOD||[]).length, venues: (C.NIGHTLIFE_VENUES||[]).length, contacts: (C.CONTACTS||[]).length, hideouts: (C.HIDEOUTS||[]).length, crates: (C.LOOT_CRATES||[]).length, skins: (C.WEAPON_SKINS||[]).length, mods: (C.VEHICLE_MODS||[]).length } };
+    favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 } };
 }
 // load a player for a non-combat action, normalised (courses/perks/housing defaults)
 function me(accId) { return W.normalize(W.load(accId)); }
@@ -314,16 +314,20 @@ const routes = async (req, res, urlPath, q) => {
   if (urlPath === '/api/updateprofile' && method === 'POST') {
     const id = guard(req, res); if (!id) return;
     const p = W.load(id);
-    if (typeof body.avatar === 'string') {
-      // clamp every part against the live catalog, exactly like the creator does
-      const parts = String(body.avatar).split('|').map(x => parseInt(x, 10));
-      const slots = A.AVATAR_SLOTS || ['skin', 'face', 'hair', 'shirt', 'accent', 'body'];
-      p.avatar = slots.map((k, i) => {
-        const v = parts[i];
-        return Number.isFinite(v) ? Math.max(0, Math.min(A.AVATAR_MAX[k], v)) : 0;
-      }).join('|');
-    }
+    // Torn keeps appearance in the closet, not in a creator: the only things a
+    // citizen can change here are their tagline and their body (Preferences).
     if (typeof body.bio === 'string') p.bio = String(body.bio).replace(/[<>&]/g, '').slice(0, 120);
+    if (typeof body.gender === 'string') {
+      const g = String(body.gender).toLowerCase();
+      if (WEAR.GENDERS.includes(g)) p.gender = g;
+    }
+    // the profile picture: a small JPEG/PNG data URL cut to 200x275 in the browser
+    if (typeof body.pic === 'string') {
+      const pic = body.pic.trim();
+      if (pic === '') p.pic = '';
+      else if (pic.length <= 400000 && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=\r\n]+$/.test(pic)) p.pic = pic;
+      else return send(res, 400, { err: 'That picture is not a plain image, or it is too large.' });
+    }
     W.save(id, p);
     return send(res, 200, { p: withId(id, p) });
   }
@@ -360,7 +364,7 @@ const routes = async (req, res, urlPath, q) => {
       // step out of any gang first so the roster never holds a ghost seat
       if (cur.faction) { try { W.leaveFaction(id); } catch (_) {} }
       try { W.factionClearPending(id); } catch (_) {}
-      const fresh = A.defaultPlayerJson({ name: cur.name, origin: cur.origin || 'street', avatar: cur.avatar, bio: cur.bio });
+      const fresh = A.defaultPlayerJson({ name: cur.name, origin: cur.origin || 'street', gender: cur.gender, bio: cur.bio });
       fresh._acc = id;
       fresh.sub_founder = cur.sub_founder;      // founder tier survives a wipe, by design
       fresh.sub_until = cur.sub_until;
@@ -499,7 +503,7 @@ const routes = async (req, res, urlPath, q) => {
         p.course = null; p.course_ends = null; p.jail_until = 0; p.hosp_until = 0;
         break;
       }
-      case 'random_look': p.avatar = randomLook(); break;
+      case 'random_look': p.equip.wear = randomOutfit(); break;
       case 'give_all_tips': {
         const kinds = { edge: 60, payoff: 80, fence: 80, bail: 60, muscle: 40, crew: 40 };
         try {
@@ -519,7 +523,7 @@ const routes = async (req, res, urlPath, q) => {
         } catch (_) {}
         break;
       }
-      case 'cool_heat': { try { if (p.sys && p.sys.life) { p.sys.life.heat = 0; p.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
+      case 'cool_heat': { try { S.coolHeat(p, 100); } catch (_) {} break; }
       case 'op_cooldowns': { try { p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {}; p.sys.ops.cool = {}; } catch (_) {} break; }
       case 'op_rackets': {
         // every racket on the book, up and running, free of charge
@@ -604,7 +608,7 @@ const routes = async (req, res, urlPath, q) => {
         const nm = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + ' ' + BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
         try {
           const acc = A.createAccount(uname, 'npc' + Math.random().toString(36).slice(2, 10), 'bot');
-          const pj = A.createPlayerForAccount(acc, { name: nm, origin: 'street', avatar: randomLook(), bio: 'Put here by the founder.' });
+          const pj = A.createPlayerForAccount(acc, { name: nm, origin: 'street', gender: randomGender(), bio: 'Put here by the founder.' });
           made.push({ id: acc.id, name: pj.name });
         } catch (_) {}
       }
@@ -751,7 +755,7 @@ const routes = async (req, res, urlPath, q) => {
       case 'unlock_all_achievements': {
         tp.achievements=tp.achievements||{}; for(const k of Object.keys(C.ACHIEVEMENTS)) tp.achievements[k]=Date.now(); break;
       }
-      case 'set_look': tp.avatar = randomLook(); break;
+      case 'set_look': tp.gender = randomGender(); tp.equip.wear = randomOutfit(); break;
       case 'give_tip': {
         const kind = String(body.kind || 'edge');
         if (!S.TIP_LABEL[kind]) return send(res, 400, { err: 'Unknown tip kind.' });
@@ -767,7 +771,7 @@ const routes = async (req, res, urlPath, q) => {
       case 'set_level_target': tp.level = Math.max(1, Math.min(100, parseInt(body.value, 10) || 1)); tp.xp = Math.max(tp.xp || 0, tp.level * 100); break;
       case 'heal_target': tp.life = tp.max_life; tp.hosp_until = 0; break;
       case 'op_wipe_target': { try { if (tp.sys) tp.sys.ops = null; } catch (_) {} break; }
-      case 'cool_heat_target': { try { if (tp.sys && tp.sys.life) { tp.sys.life.heat = 0; tp.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
+      case 'cool_heat_target': { try { S.coolHeat(tp, 100); } catch (_) {} break; }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
     W.save(target, tp);
@@ -835,7 +839,7 @@ const routes = async (req, res, urlPath, q) => {
       auction_bid: () => W.auctionBid(id, body.auctionId, body.amount),
       auction_cancel: () => W.auctionCancel(id, body.auctionId),
       equip: () => W.equipItem(id, body.itemId),
-      unequip: () => W.unequipItem(id, body.slot),
+      unequip: () => W.unequipItem(id, body.slot, body.itemId),
       stock_buy: () => W.stockBuy(id, body.sym, body.qty),
       stock_sell: () => W.stockSell(id, body.sym, body.qty),
       crypto_buy: () => W.cryptoBuy(id, body.sym, body.amount),
@@ -900,22 +904,6 @@ const routes = async (req, res, urlPath, q) => {
       city_contract: () => S.cityContractDo(id, body.contractId),
       night_lead: () => S.nightLeadDo(id, body.leadId),
       wire_favour: () => S.favourDo(id, body.favourId),
-      street_eat: () => S.streetEat(id, body.foodId),
-      street_out: () => S.streetOut(id, body.venueId),
-      street_pet: () => S.streetPet(id, body.petId),
-      street_rehome: () => S.streetRehome(id, body.petId),
-      street_ink: () => S.streetInk(id, body.tatId),
-      street_meet: () => S.streetMeet(id, body.contactId),
-      street_call: () => S.streetCall(id, body.contactId),
-      street_hide: () => S.streetHide(id, body.hideId),
-      street_rest: () => S.streetRest(id),
-      street_crate: () => S.streetCrate(id, body.crateId),
-      street_skin: () => S.streetSkin(id, body.skinId),
-      street_wear_skin: () => S.streetWearSkin(id, body.skinId),
-      street_mod: () => S.streetMod(id, body.idx, body.modId),
-      street_streak: () => S.streetStreak(id),
-      street_cool: () => S.streetCool(id),
-      street_snack: () => S.streetSnack(id),
       courier_take: () => S.courierTake(id),
       courier_deliver: () => S.courierDeliver(id),
       fish_cast: () => S.fishCast(id),
@@ -949,11 +937,9 @@ const routes = async (req, res, urlPath, q) => {
       unstake_ngt: () => S.unstakeNgt(id, body.amount),
       term_deposit: () => S.termDeposit(id, body.amount, body.hours),
       term_collect: () => S.termCollect(id),
-      // craft / collect / wardrobe / challenges
+      // craft / collect / challenges
       craft: () => S.craft(id, body.recipeId),
       card_open: () => S.cardOpen(id),
-      wardrobe_save: () => S.wardrobeSave(id, body.slot),
-      wardrobe_load: () => S.wardrobeLoad(id, body.slot),
       challenge_claim: () => S.challengeClaim(id, body.cid),
       respec_apply: () => S.respecApply(id, body),
       // the informant network (1,000 leads)

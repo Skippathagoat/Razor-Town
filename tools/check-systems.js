@@ -747,7 +747,10 @@ head('Corner shops');
   const sa = A.createAccount('shopA', 'pw123456', 'user'); A.createPlayerForAccount(sa, { name: 'Shop A', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
   let q = load(sa.id); q.money = 50000; W.save(sa.id, q);
   const view = W.shopsView(sa.id);
-  ok('three counters open their shutters', view.shops.length === 3);
+  ok('every counter opens its shutters', view.shops.length === 6);
+  const rail = view.shops.find(x => x.id === 'therail');
+  ok('the clothes rail stocks wearables with prices', !!rail && rail.stock.length >= 8
+    && rail.stock.every(r => CT.ITEMS[r.item].type === 'wear' && r.price > 0), rail && rail.stock.slice(0, 3));
   const syrup = view.shops[0].stock.find(r => r.item === 'neon_syrup');
   ok('the all-night stocks the favours', !!syrup && syrup.left === syrup.max, syrup && syrup.left);
   const r = W.shopBuy(sa.id, 'allnight', 'neon_syrup');
@@ -929,7 +932,8 @@ head('The Long Game — 10,000 underworld operations across ten families');
     return q;
   };
   const opsOf = (q) => q.sys.ops;
-  const heatAfter = (a) => { const q = load(a); return (q.sys && q.sys.life && q.sys.life.heat) || 0; };
+  // heat lives on the citizen sheet (S.heatOf reads it and lets it cool down)
+  const heatAfter = (a) => S.heatOf(load(a));
 
   ok('the catalog holds exactly 10,000 unique stable IDs', O.TOTAL === 10000 && new Set(O.OPS.map(o => o.id)).size === 10000);
   ok('all ten families hold exactly 1,000 operations each', O.FAMILIES.length === 10 && O.FAMILIES.every(f => O.byFamily(f.id).length === 1000));
@@ -1009,11 +1013,11 @@ head('The Long Game — 10,000 underworld operations across ten families');
   arm();
   {
     const op = O.byId('runs_cigs_lamp_row_0');
-    const heat0 = S.opsView(load(oid), {}).total === 10000 ? (load(oid).sys.life.heat || 0) : 0;
+    const heat0 = S.heatOf(load(oid));
     const m0 = load(oid).money;
     const win = withRandom([0.01], () => S.opDo(oid, op.id));
     const after = load(oid);
-    ok('a clean run pays out and leaves heat behind', !!win.ok && win.res.win && after.money > m0 && (after.sys.life.heat || 0) > heat0, win.err || win.res);
+    ok('a clean run pays out and leaves heat behind', !!win.ok && win.res.win && after.money > m0 && S.heatOf(after) > heat0, win.err || win.res);
     // a hard run (mythic grade, low odds) is where a load actually gets seized
     const hard = O.byId('runs_weapons_lock_cut_9');
     const q = load(oid); q.sys.ops.cool = {}; q.money = 5000000; q.energy = q.max_energy; q.nerve = q.max_nerve; W.save(oid, q);
@@ -1028,11 +1032,11 @@ head('The Long Game — 10,000 underworld operations across ten families');
     const op = O.byId('prints_ids_lamp_row_0');
     const made = withRandom([0.01], () => S.opDo(oid, op.id));
     ok('a forged document goes into your coat', !!made.ok && made.res.win && opsOf(load(oid)).docs[op.id] === 1, made.err || made.res);
-    const q = load(oid); q.sys.life = q.sys.life || {}; q.sys.life.heat = 40; q.sys.life.heatAt = Date.now(); W.save(oid, q);
+    const q = load(oid); q.sys.heat = { n: 40, at: Date.now() }; W.save(oid, q);
     const used = S.docUse(oid, op.id);
     const afterUse = load(oid);
     ok('using a forgery burns it and cools the tail on you',
-      !!used.ok && !opsOf(afterUse).docs[op.id] && (afterUse.sys.life.heat || 0) < 40, used.err || used.res);
+      !!used.ok && !opsOf(afterUse).docs[op.id] && S.heatOf(afterUse) < 40, used.err || used.res);
     ok('an empty pocket has no document to use', !!S.docUse(oid, op.id).err);
   }
 
@@ -1068,11 +1072,11 @@ head('The Long Game — 10,000 underworld operations across ten families');
   arm();
   {
     const op = O.byId('cyber_records_lamp_row_0');
-    const q = load(oid); q.sys.life = q.sys.life || {}; q.sys.life.heat = 30; q.sys.life.heatAt = Date.now(); W.save(oid, q);
+    const q = load(oid); q.sys.heat = { n: 30, at: Date.now() }; W.save(oid, q);
     const m0 = load(oid).money;
     const r = withRandom([0.01], () => S.opDo(oid, op.id));
     const after = load(oid);
-    ok('a records job pays and shortens the trail', !!r.ok && r.res.win && after.money > m0 && (after.sys.life.heat || 0) < 30, r.err || r.res);
+    ok('a records job pays and shortens the trail', !!r.ok && r.res.win && after.money > m0 && S.heatOf(after) < 30, r.err || r.res);
     const q2 = load(oid); q2.sys.ops.cool = {}; q2.money = 5000000; q2.energy = q2.max_energy; q2.nerve = q2.max_nerve; W.save(oid, q2);
     const bad = withRandom([0.99], () => S.opDo(oid, op.id));
     ok('a honeypot costs you a clean-up bill', !!bad.ok && bad.res.win === false && load(oid).money < 5000000, bad.err || bad.res);

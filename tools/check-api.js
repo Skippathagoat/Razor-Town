@@ -87,12 +87,14 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
   const founderBad = await call('/api/login', 'POST', { username: 'ghost', password: 'wrongpass1' });
   founderBad.status === 401 ? ok('a wrong password is refused') : bad('wrong password refused', founderBad);
 
-  const regA = await call('/api/register', 'POST', { username: 'alfie', password: 'password1', email: 'alfie@test.io', profile: { name: 'Alfie Riggs', origin: 'street', avatar: '1|2|3|4|1', bio: 'A lad' } });
-  (regA.status === 200 && regA.json && regA.json.ok && regA.json.me && regA.json.me.name === 'Alfie Riggs')
-    ? ok('citizen A registers (name, origin, avatar)') : bad('citizen A registration', regA);
+  const regA = await call('/api/register', 'POST', { username: 'alfie', password: 'password1', email: 'alfie@test.io', profile: { name: 'Alfie Riggs', origin: 'street', gender: 'm', bio: 'A lad' } });
+  (regA.status === 200 && regA.json && regA.json.ok && regA.json.me && regA.json.me.name === 'Alfie Riggs'
+    && regA.json.me.gender === 'm' && /^m\|/.test(regA.json.me.avatar)
+    && Array.isArray(regA.json.me.equip.wear) && regA.json.me.equip.wear.length >= 3)
+    ? ok('citizen A registers (name, origin, body) and starts dressed') : bad('citizen A registration', regA);
   const A = session(regA);
-  const regB = await call('/api/register', 'POST', { username: 'bessie', password: 'password1', email: 'bessie@test.io', profile: { name: 'Bessie Vale', origin: 'bruiser', avatar: '0|0|0|0|0' } });
-  (regB.status === 200 && regB.json && regB.json.ok) ? ok('citizen B registers') : bad('citizen B registration', regB);
+  const regB = await call('/api/register', 'POST', { username: 'bessie', password: 'password1', email: 'bessie@test.io', profile: { name: 'Bessie Vale', origin: 'bruiser', gender: 'f' } });
+  (regB.status === 200 && regB.json && regB.json.ok && regB.json.me.gender === 'f') ? ok('citizen B registers') : bad('citizen B registration', regB);
   const B = session(regB);
   const aId = regA.json.me.id, bId = regB.json.me.id;
   (Number.isInteger(aId) && Number.isInteger(bId) && aId !== bId) ? ok('register returns distinct account ids') : bad('account ids', { aId, bId });
@@ -265,7 +267,8 @@ const session = (resp) => (resp.cookie || '').split(';')[0];
 
   console.log('\n-- shops / loan / pawn / gear / market --');
   const shops = await call('/api/shops', 'GET', null, A);
-  (shops.status === 200 && shops.json.shops && shops.json.shops.length === 3) ? ok('the corner shops serve stock') : bad('shops', shops);
+  (shops.status === 200 && shops.json.shops && shops.json.shops.length === 6
+    && shops.json.shops.some(s => s.stock.some(r => r.item === 'tee_white'))) ? ok('the corner shops serve stock, clothes included') : bad('shops', shops);
   (await call('/api/action', 'POST', { name: 'shop_buy', shopId: 'allnight', itemId: 'volt_cola' }, A)).status === 200
     ? ok('buying from a corner shop works') : bad('shop buy');
   const loan = await call('/api/action', 'POST', { name: 'loan_take', amount: 100000 }, founder);

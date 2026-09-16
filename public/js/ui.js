@@ -35,7 +35,7 @@
   }
 
   function avatar(me, size, cls) {
-    const s = me && me.avatar ? me.avatar : '0|0|0|0|0';
+    const s = me && me.avatar ? me.avatar : 'm|';
     return `<span class="avatarbox ${cls || ''}" style="width:${size}px;height:${size}px">${AV.svgFor(s, size)}</span>`;
   }
   function avatarSmall(s, size) { return AV.svgFor(s, size); }
