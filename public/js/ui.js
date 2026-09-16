@@ -35,6 +35,8 @@
   }
 
   function avatar(me, size, cls) {
+    // 2026.5: the town sees a face — a portrait photo with the visible kit on top
+    if (me && me.portrait) return AV.portraitFor(me, size, { cls });
     const s = me && me.avatar ? me.avatar : 'm|';
     return `<span class="avatarbox ${cls || ''}" style="width:${size}px;height:${size}px">${AV.svgFor(s, size)}</span>`;
   }

@@ -502,9 +502,119 @@
     return g + '|' + toks.join(',');
   }
 
-  const SURFACES = ['doll', 'svgFor', 'duel', 'scene', 'mugshot', 'banner', 'wear', 'parts', 'random', 'parse', 'figure', 'styleOf', 'svgDataUri', 'portraitDataUri'];
+  // ================================================================ PORTRAITS (2026.5)
+  // The face on the door. A citizen's public image is a photo-style portrait —
+  // either a catalog face (/img/portraits/…) or their own upload (data URL) —
+  // with the head/eyes/mouth/neck pieces of their equipped kit drawn on top as
+  // a filter-style overlay. torso/legs/feet still live on the full-body model.
+  const OX = {
+    // overlay space: 100x100 box over a square-cropped chest-up photo.
+    // Head centre ≈ (50, 34); face width ≈ 34; shoulders from y ≈ 78.
+    headCy: 26, headR: 19, faceCy: 36, eyeY: 34, chinY: 49, neckY: 58
+  };
+  function overlayPiece(part, style, c) {
+    const H = OX;
+    const sh = (col, a) => shade(col, a);
+    switch (part + ':' + style) {
+      case 'head:cap':
+      case 'head:snapback':
+        return `<path d="M ${50 - 17} ${H.headCy + 2} C ${50 - 18} ${H.headCy - 24} ${50 + 18} ${H.headCy - 24} ${50 + 17} ${H.headCy + 2} Z" fill="${c}" stroke="rgba(0,0,0,.4)" stroke-width=".6"/>`
+          + `<path d="M ${50 + 15} ${H.headCy + 1} q 15 2 16 6.5 q -10 2 -16 1 Z" fill="${sh(c, -.28)}"/>`
+          + `<path d="M ${50 - 15} ${H.headCy + 1} q -15 2 -16 6.5 q 10 2 16 1 Z" fill="${sh(c, -.28)}"/>`;
+      case 'head:beanie':
+        return `<path d="M ${50 - 16.5} ${H.headCy + 4} C ${50 - 17.5} ${H.headCy - 22} ${50 + 17.5} ${H.headCy - 22} ${50 + 16.5} ${H.headCy + 4} Z" fill="${c}"/>`
+          + `<rect x="${50 - 17}" y="${H.headCy - 1}" width="34" height="7.5" rx="3.6" fill="${sh(c, -.2)}"/>`
+          + [0, 1, 2, 3, 4].map(i => `<path d="M ${50 - 12 + i * 6} ${H.headCy - 14} v 9" stroke="${sh(c, -.1)}" stroke-width="1" opacity=".7"/>`).join('');
+      case 'head:bucket':
+        return `<path d="M ${50 - 15} ${H.headCy + 2} C ${50 - 16} ${H.headCy - 20} ${50 + 16} ${H.headCy - 20} ${50 + 15} ${H.headCy + 2} Z" fill="${c}"/>`
+          + `<path d="M ${50 - 27} ${H.headCy + 3} q 27 -7 54 0 q -7 5.5 -27 5.5 q -20 0 -27 -5.5 Z" fill="${sh(c, -.14)}"/>`;
+      case 'head:durag':
+        return `<path d="M ${50 - 16.5} ${H.headCy + 5} C ${50 - 17} ${H.headCy - 22} ${50 + 17} ${H.headCy - 22} ${50 + 16.5} ${H.headCy + 5} Z" fill="${c}"/>`
+          + `<path d="M ${50 + 15} ${H.headCy - 6} q 13 8 9 20 q -7 -2.5 -10.5 -11 Z" fill="${sh(c, -.16)}"/>`
+          + `<path d="M ${50 - 15} ${H.headCy - 6} q -13 8 -9 20 q 7 -2.5 10.5 -11 Z" fill="${sh(c, -.16)}"/>`;
+      case 'eyes:shades':
+        return `<rect x="${50 - 16}" y="${H.eyeY - 4}" width="32" height="8.6" rx="3" fill="${c}" stroke="rgba(0,0,0,.5)" stroke-width=".7"/>`
+          + `<rect x="${50 - 14}" y="${H.eyeY - 2}" width="11" height="2.6" rx="1.2" fill="rgba(255,255,255,.3)"/>`
+          + `<rect x="${50 + 3}" y="${H.eyeY - 2}" width="11" height="2.6" rx="1.2" fill="rgba(255,255,255,.3)"/>`;
+      case 'eyes:specs':
+        return `<circle cx="${50 - 7.5}" cy="${H.eyeY}" r="5.4" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
+          + `<circle cx="${50 + 7.5}" cy="${H.eyeY}" r="5.4" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
+          + `<path d="M ${50 - 2.2} ${H.eyeY - .4} h 4.4" stroke="${c}" stroke-width="1.4"/>`
+          + `<path d="M ${50 - 12.9} ${H.eyeY - 1} l -4.4 -1.6 M ${50 + 12.9} ${H.eyeY - 1} l 4.4 -1.6" stroke="${c}" stroke-width="1.1"/>`;
+      case 'mouth:bandana':
+        return `<path d="M ${50 - 16.5} ${H.faceCy + 8} q 16.5 -3.6 33 0 v 8.4 q -16.5 4 -33 0 Z" fill="${c}"/>`
+          + `<path d="M ${50 - 16.5} ${H.faceCy + 12} q 16.5 3.6 33 0" stroke="${sh(c, .2)}" stroke-width="1" fill="none" opacity=".7"/>`;
+      case 'mouth:balaclava':
+        return `<path d="M ${50 - 18} ${H.headCy - 4} C ${50 - 19} ${H.headCy - 26} ${50 + 19} ${H.headCy - 26} ${50 + 18} ${H.headCy - 4} C ${50 + 19} ${H.chinY + 8} ${50 - 19} ${H.chinY + 8} ${50 - 18} ${H.headCy - 4} Z" fill="${c}"/>`
+          + `<rect x="${50 - 11}" y="${H.eyeY - 3.4}" width="22" height="7" rx="3.4" fill="#14161a"/>`
+          + `<path d="M ${50 - 11} ${H.eyeY - .8} h 22" stroke="${sh(c, .35)}" stroke-width=".8" opacity=".6"/>`;
+      case 'mouth:resp':
+        return `<path d="M ${50 - 13.5} ${H.faceCy + 6} q 13.5 -3.4 27 0 q 2 10.6 -13.5 12.8 q -15.5 -2.2 -13.5 -12.8 Z" fill="${c}"/>`
+          + `<circle cx="${50 - 8.4}" cy="${H.faceCy + 12}" r="3.4" fill="${sh(c, -.3)}"/>`
+          + `<circle cx="${50 + 8.4}" cy="${H.faceCy + 12}" r="3.4" fill="${sh(c, -.3)}"/>`;
+      case 'neck:chain':
+        return `<path d="M ${50 - 10} ${H.neckY - 4} q 10 8.5 20 0" stroke="${c}" stroke-width="2.4" fill="none"/>`
+          + `<circle cx="50" cy="${H.neckY + 6.4}" r="3.4" fill="${c}" stroke="${sh(c, -.35)}" stroke-width=".8"/>`
+          + `<circle cx="49.2" cy="${H.neckY + 5.4}" r="1.1" fill="${sh(c, .45)}" opacity=".85"/>`;
+      case 'neck:scarf':
+        return `<path d="M ${50 - 11.5} ${H.neckY - 6} q 11.5 9 23 0 q 1.2 6.6 -0.7 9.8 q -10.3 6 -20.6 0 q -1.9 -3.2 -0.7 -9.8 Z" fill="${c}"/>`
+          + `<path d="M ${50 + 6} ${H.neckY + 2} l 5 21 l -6.4 1.2 l -3 -20 Z" fill="${sh(c, -.14)}"/>`
+          + `<path d="M ${50 - 11.5} ${H.neckY + 1.4} q 11.5 4.6 23 0" stroke="${sh(c, .24)}" stroke-width="1.5" fill="none" opacity=".8"/>`;
+      default:
+        return '';
+    }
+  }
+  // Accessory overlay for a look string: only the parts a chest-up photo shows.
+  function portraitOverlay(look) {
+    const r = parse(look);
+    const usable = ['head', 'eyes', 'mouth', 'neck'];
+    const bits = r.pieces.filter(p => usable.includes(p.part))
+      .sort((a, b) => (a.part === 'mouth' ? 0 : 1) - (b.part === 'mouth' ? 0 : 1));
+    let inner = '';
+    for (const p of bits) { try { inner += overlayPiece(p.part, p.style, p.col) || ''; } catch (e) {} }
+    if (!inner) return '';
+    return `<svg viewBox="0 0 100 100" class="av-overlay" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
+  }
+  // The Torn-style avatar: a photo-style face with the kit's visible pieces on top.
+  // p: { avatar (look string), portrait (catalog id | 'custom'), pic, name, online, wanted }
+  function portraitFor(p, size, opts) {
+    size = size || 64;
+    opts = opts || {};
+    const look = (p && typeof p.avatar === 'string') ? p.avatar : (typeof p === 'string' ? p : 'm|');
+    const face = (p && p.portrait) ? p.portrait : '';
+    let src = '';
+    if (face === 'custom' && p.pic) src = p.pic;
+    else if (face && face !== 'custom') src = PORTRAIT_FILES[face];
+    const badge = [];
+    if (opts.online) badge.push('<span class="av-online" title="online now"></span>');
+    if (opts.wanted > 0) badge.push('<span class="av-wanted" title="' + opts.wanted + '-star warrant">' + '★'.repeat(opts.wanted) + '</span>');
+    if (src) {
+      return `<span class="av-photo ${opts.cls || ''}" style="width:${size}px;height:${size}px" title="${S(p && p.name || 'citizen').replace(/"/g, '&quot;')}">`
+        + `<img src="${src}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;display:block">`
+        + portraitOverlay(look)
+        + badge.join('')
+        + '</span>';
+    }
+    // no portrait data (dense lists for uploaders, legacy junk): the town model
+    return `<span class="av-fallback ${opts.cls || ''}" style="width:${size}px;height:${size}px;display:inline-block">${svgFor(look, size)}</span>`;
+  }
+  // catalog map id → /img/portraits/file (kept in sync by tools/check-t26.js)
+  const PORTRAIT_FILES = {
+    p01: '/img/portraits/p01.jpg', p02: '/img/portraits/p02.jpg', p03: '/img/portraits/p03.jpg',
+    p04: '/img/portraits/p04.jpg', p05: '/img/portraits/p05.jpg', p06: '/img/portraits/p06.jpg',
+    p07: '/img/portraits/p07.jpg', p08: '/img/portraits/p08.jpg', p09: '/img/portraits/p09.jpg',
+    p10: '/img/portraits/p10.jpg'
+  };
+
+  const SURFACES = ['doll', 'svgFor', 'duel', 'scene', 'mugshot', 'banner', 'wear', 'parts', 'random', 'parse', 'figure', 'styleOf', 'svgDataUri', 'portraitDataUri', 'portraitFor', 'portraitOverlay', 'portraitSrc'];
   ROOT.AV = {
     doll, svgFor, duel, scene, mugshot, banner, wear, parts, random, parse, figure,
+    portraitFor, portraitOverlay,
+    portraitSrc: (p) => {
+      if (!p) return '';
+      if (p.portrait === 'custom' && p.pic) return p.pic;
+      return PORTRAIT_FILES[p.portrait] || '';
+    },
     PARTS, PART_LABEL, BODIES, STYLES: P,
     styleOf: (look) => parse(look).pieces.map(p => p.style),
     svgDataUri: (s, size) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(doll(s, size)),
