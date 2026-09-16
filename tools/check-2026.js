@@ -394,6 +394,11 @@ const uniq = Date.now().toString(36);
     ok(board.j.res.rackets.length === 1 && board.j.res.list.some(o => o.id === 'rackets_protection_lamp_row_0' && o.owned), 'a standing racket shows as running on the board');
     r = await act(A.tok, 'op_collect');
     ok(r.code === 200 && Array.isArray(r.j.res.lines) && r.j.res.lines.length === 1, 'collecting a racket that has not banked yet is handled');
+    const run0 = board.j.res.rackets[0];
+    ok(run0 && ['ico', 'name', 'value', 'full', 'nextIn', 'rate', 'hours'].every(k => k in run0),
+      'a running racket carries every field the tab prints', detail(run0));
+    const card0 = board.j.res.list.find(o => o.id === 'rackets_protection_lamp_row_0');
+    ok(card0 && card0.owned === true && Number.isFinite(card0.rate) && card0.rate > 0, 'an owned card carries its banking rate', detail(card0));
 
     // ---- a one-shot job, its cooldown and its heat
     const heatBefore = (await panel(A.tok)).street.heat;
@@ -412,6 +417,7 @@ const uniq = Date.now().toString(36);
     board = await act(A.tok, 'ops', { fam: 'prints' });
     ok(Array.isArray(board.j.res.docs) && board.j.res.docs.length > 0, 'the board reports the papers you are holding', detail(board.j.res.docs));
     const held = (board.j.res.docs || [])[0];
+    ok(!held || ['id', 'ico', 'catName', 'n', 'cat'].every(k => k in held), 'a held document carries every field the tab prints', detail(held));
     if (held) {
       const used = await act(A.tok, 'doc_use', { id: held.id });
       ok(used.code === 200 && !!used.j.res.text, 'a printed document can be burned for its effect', detail(used.j));

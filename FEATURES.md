@@ -19,7 +19,7 @@ band, heat trail, cooldown and consequence — plus the engine, console and tool
 Every operation is real: rackets bank money while you are elsewhere, heists run in three stages,
 smuggling runs turn ugly in bad weather, forgeries print one-shot papers you burn later, art
 appreciates in a capped vault, and chop shops and street circuits read the car in your garage.
-Run `node tools/check-2026.js` against a fresh world and all 152 end-to-end checks pass.
+Run `node tools/check-2026.js` against a fresh world and all 155 end-to-end checks pass.
 
 **Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
 
@@ -1044,7 +1044,7 @@ consequence, and the catalogue hard-fails at boot if it is ever not exactly 10,0
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **152 / 152 pass** |
+| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **155 / 155 pass** |
 | `node tools/check-systems.js` | the rules of every system, incl. the 1,000-contract, 1,000-informant and 10,000-operation catalogues, tip math and the founder dials | **315 / 315 pass** |
 | `node tools/check-fuzz.js` | wiring sweep + every action fed malformed payloads + the client view contract + a 2,000-look avatar sweep | **18 / 18 pass** |
 | `node tools/check-api.js` | core API contract | **93 / 93 pass** |
