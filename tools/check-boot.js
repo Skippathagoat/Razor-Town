@@ -93,7 +93,7 @@ const post = (p, body, token) => fetch(`http://127.0.0.1:${PORT}${p}`, {
   // ---- register, play a little, then restart
   const uniq = Date.now().toString(36).slice(-5);
   const reg = await post('/api/register', { username: 'boot_' + uniq, password: 'BootPass99!', email: `boot_${uniq}@test.local`,
-    profile: { name: 'Boot ' + uniq, origin: 'street', avatar: '3|4|5|6|7|1|2|3', bio: 'survives restarts' } });
+    profile: { name: 'Boot ' + uniq, origin: 'street', gender: 'f', bio: 'survives restarts' } });
   ok(reg.status === 200, 'a citizen can register on an empty world');
   const rj = await reg.json();
   const tok = rj.token;
@@ -139,7 +139,8 @@ const post = (p, body, token) => fetch(`http://127.0.0.1:${PORT}${p}`, {
   const again = await post('/api/login', { username: 'boot_' + uniq, password: 'BootPass99!' });
   const aj = await again.json();
   ok(again.status === 200 && aj.me && aj.me.name === 'Boot ' + uniq, 'the citizen survives the restart', JSON.stringify(aj).slice(0, 140));
-  ok(aj.me && aj.me.avatar === '3|4|5|6|7|1|2|3', 'the eight-part look survives the restart', aj.me && aj.me.avatar);
+  ok(aj.me && aj.me.gender === 'f' && /^f\|/.test(aj.me.avatar) && aj.me.equip && aj.me.equip.wear.length >= 3,
+    'the body, the kit and the look survive the restart', aj.me && aj.me.avatar);
   const panel = await get('/api/sys/panel', { headers: { Cookie: 'nsc_t=' + aj.token } });
   ok(panel.code === 200, 'the systems panel answers straight after a restart');
   const pj = JSON.parse(panel.text);

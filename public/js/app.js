@@ -27,7 +27,6 @@
     { id: 'casino', label: 'Betting', ico: '🎰', key: 'g' },
     { id: 'arcade', label: 'Arcade', ico: '🎮', key: '7' },
     { id: 'hustle', label: 'Side Hustles', ico: '📦', key: '8' },
-    { id: 'life', label: 'Street Life', ico: '🌃', key: '6' },
     { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
     { id: 'informants', label: 'Informants', ico: '🕵️', key: '1' },
@@ -237,31 +236,34 @@
   }
 
   // ------- character creator
-  const CREATOR = { skin: 3, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, eyes: 3, facial: 0, origin: 'street', name: '' };
-  function openCreator(creds) {
-    CREATOR.name = creds.username;
-    G.creds = creds;
-    screen('creator');
-    renderCreator();
-  }
-  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body, CREATOR.eyes, CREATOR.facial].join('|'); }
-  function wearList(str) {
-    return `<div class="weargrid" style="margin-top:10px;text-align:left">${AV.wear(str).map(w =>
-      `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}</div>`;
+  // ---- CHARACTER CREATION — Torn-style: you are a body and a name. Nobody
+  // sculpts a face here; what the town sees later is whatever you have equipped.
+  const CREATOR = { gender: 'm', origin: 'street', name: '' };
+  const GENDERS = [['m', 'Male'], ['f', 'Female'], ['e', 'Enby']];
+  const PART_LABEL = { legs: 'Legs', feet: 'Feet', torso: 'Torso', hands: 'Hands', neck: 'Neck', head: 'Head', eyes: 'Eyes', mouth: 'Face' };
+  const previewLook = (g) => (g || 'm') + '|';
+  // The wardrobe ledger: every piece currently equipped, with its body part.
+  function wornList(worn, m) {
+    const ids = (worn || []).filter(id => m.items[id]);
+    if (!ids.length) return '<p style="color:var(--dim);font-size:12px;margin-top:10px">Nothing equipped. Clothes live in <b>Items</b> — buy them at the Market or the corner shops, then wear them from your bag.</p>';
+    return `<div class="weargrid" style="margin-top:10px;text-align:left">${ids.map(id => {
+      const it = m.items[id];
+      return `<div class="slot"><span class="s-ico">${it.icon}</span><span><span class="s-slot">${PART_LABEL[it.wear.part] || it.wear.part}</span><span class="s-val">${esc(it.name)}</span></span></div>`;
+    }).join('')}</div>`;
   }
   function renderCreator() {
     const w = $('#creator-wrap');
     const o = G.meta.origins;
     w.innerHTML = `
       <div class="creator-title">🎩 Make Your Name</div>
-      <div class="creator-sub">Account <b style="color:var(--cyn)">@${esc(G.creds.username)}</b> — now give yourself a face and a start in the town.</div>
+      <div class="creator-sub">Account <b style="color:var(--cyn)">@${esc(G.creds.username)}</b> — pick a body and a start. The town sees what you wear, not what you once designed.</div>
       <div class="creator-grid">
         <div class="creator-preview">
-          <div style="margin:0 auto;width:150px" id="cpv">${AV.doll(avatarStr(), 150)}</div>
+          <div style="margin:0 auto;width:150px" id="cpv">${AV.doll(previewLook(CREATOR.gender), 150)}</div>
           <div class="preview-name" id="cpname">${esc(CREATOR.name || 'Name')}</div>
           <div class="preview-origin" id="cporigin">—</div>
-          <div id="cpwear">${wearList(avatarStr())}</div>
-          <p style="color:var(--dim);font-size:11px;margin-top:10px">This is how the town will see you — hat, coat and all.</p>
+          <div id="cpwear"><p style="color:var(--dim);font-size:12px;margin-top:10px">Starting kit: plain tee, jeans, trainers. Everything after that is bought, stolen or won — and worn.</p></div>
+          <p style="color:var(--dim);font-size:11px;margin-top:10px">Equipped clothing and armour are what the city sees. You can change your body later in Preferences.</p>
         </div>
         <div class="creator-steps">
           <div class="creator-panel">
@@ -269,17 +271,11 @@
             <div class="field"><input id="cname" maxlength="20" value="${esc(CREATOR.name)}" placeholder="What should the city call you?"></div>
             <div class="err" id="cname-err"></div>
           </div>
-          <div class="creator-panel"><h3>🎨 Look</h3>
-            <h3 style="margin-top:14px">Body</h3><div class="chiprow" style="margin-top:8px">
-              ${(AV.BODIES || []).map((b, i) => `<button type="button" class="chip ${CREATOR.body === i ? 'on' : ''}" data-opt="body" data-v="${i}">${typeof b === 'string' ? b : b.n}</button>`).join('')}
+          <div class="creator-panel"><h3>🧍 Body</h3>
+            <div class="chiprow" id="genderrow" style="margin-top:8px">
+              ${GENDERS.map(([id, n]) => `<button type="button" class="chip ${CREATOR.gender === id ? 'on' : ''}" data-gender="${id}">${n}</button>`).join('')}
             </div>
-            ${swatches('skin', 'Skin', AV.SKINS, 'skin')}
-            ${chips('face', 'Face / style', AV.FACE_FEAT.map(x => x.n), 'face')}
-            ${chips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), 'hair')}
-            ${swatches('shirt', 'Top', AV.SHIRTS, 'shirt')}
-            ${swatches('accent', 'Trinket', AV.ACCENTS, 'accent')}
-            ${chips('eyes', 'Eyes', (AV.EYE_NAMES || []), 'eyes')}
-            ${chips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), 'facial')}
+            <p style="color:var(--dim);font-size:11.5px;margin-top:8px">Male, female or enby — changeable at any time from Preferences.</p>
           </div>
           <div class="creator-panel"><h3>🌱 Origin story</h3><div class="chiprow" id="originrow">
             ${o.map(orig => `<button class="chip origin-card ${CREATOR.origin === orig.id ? 'on' : ''}" data-origin="${orig.id}"><b>${orig.icon} ${orig.name}</b><span>${esc(orig.trait)}</span><span class="tag">starts with +${orig.bonus} ${FINGER[orig.stat]}</span></button>`).join('')}
@@ -296,31 +292,22 @@
     $('#cname').addEventListener('input', e => { CREATOR.name = e.target.value.trim(); $('#cpname').textContent = CREATOR.name || 'Name'; });
     $('#cgo').addEventListener('click', go);
     $('#cback').addEventListener('click', () => showAuth());
+    $('#genderrow').addEventListener('click', e => {
+      const b = e.target.closest('[data-gender]'); if (!b) return;
+      CREATOR.gender = b.dataset.gender;
+      $$('#genderrow .chip').forEach(x => x.classList.toggle('on', x === b));
+      $('#cpv').innerHTML = AV.doll(previewLook(CREATOR.gender), 150);
+    });
     $('#originrow').addEventListener('click', e => {
       const b = e.target.closest('[data-origin]'); if (!b) return;
       CREATOR.origin = b.dataset.origin;
       $$('#originrow .chip').forEach(x => x.classList.toggle('on', x === b));
       const or = o.find(x => x.id === CREATOR.origin);
       $('#cporigin').textContent = or.name + ' — +' + or.bonus + ' ' + FINGER[or.stat];
-      $('#cpv').innerHTML = AV.doll(avatarStr(), 150);
-      if ($('#cpwear')) $('#cpwear').innerHTML = wearList(avatarStr());
     });
-    $$('[data-opt]', w).forEach(b => b.addEventListener('click', () => {
-      const f = b.dataset.opt, v = +b.dataset.v;
-      CREATOR[f] = v;
-      $$(`[data-opt="${f}"]`, w).forEach(x => x.classList.toggle('on', +x.dataset.v === v));
-      $('#cpv').innerHTML = AV.doll(avatarStr(), 150);
-      if ($('#cpwear')) $('#cpwear').innerHTML = wearList(avatarStr());
-    }));
     const or = o.find(x => x.id === CREATOR.origin);
     $('#cporigin').textContent = or.name + ' — +' + or.bonus + ' ' + FINGER[or.stat];
     $('#cbio').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
-  }
-  function chips(kind, label, items, f) {
-    return `<h3 style="margin-top:14px">${label}</h3><div class="chiprow" style="margin-top:8px">${items.map((it, i) => `<button type="button" class="chip ${CREATOR[f] === i ? 'on' : ''}" data-opt="${f}" data-v="${i}">${it}</button>`).join('')}</div>`;
-  }
-  function swatches(kind, label, colors, f) {
-    return `<h3 style="margin-top:14px">${label}</h3><div class="chiprow" style="margin-top:8px">${colors.map((c, i) => `<button type="button" class="chip swatch ${CREATOR[f] === i ? 'on' : ''}" data-opt="${f}" data-v="${i}" style="background:${c}"><span style="opacity:0">x</span></button>`).join('')}</div>`;
   }
   async function submitCreator() {
     const go = $('#cgo'); const err = $('#cerr'); const nerr = $('#cname-err');
@@ -332,7 +319,7 @@
       await Net.post('/api/validate', { profile: { name: CREATOR.name } });
       const r = await Net.post('/api/register', {
         username: G.creds.username, password: G.creds.password, email: G.creds.email,
-        profile: { name: CREATOR.name, origin: CREATOR.origin, avatar: avatarStr(), bio: $('#cbio').value }
+        profile: { name: CREATOR.name, origin: CREATOR.origin, gender: CREATOR.gender, bio: $('#cbio').value }
       });
       enterGame(r.me);
     } catch (e) { err.textContent = e.message; go.disabled = false; go.textContent = '🎩 Walk into Razor Town'; }
@@ -430,7 +417,6 @@
         <span class="cash mono" id="cash-val">${money(me.money)}</span>
         <span class="banked mono" id="bank-val">🏦 ${money(me.bank)}</span>
       </div>
-      <button class="iconbtn" data-act="street_snack" title="Grab the cheapest street food">🌯</button>
       <button class="iconbtn" data-act="transfer" title="Money transfer — wire cash to a citizen, or move money in and out of the branch">💸</button>
       <div class="hud-meta">
         <span class="hstat" title="Level"><span class="hl">LV</span><span class="hv">${me.level}</span></span>
@@ -544,7 +530,7 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
-    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'garage', 'turf'] },
     { id: 'under', name: 'The Long Game', ico: '🕶️', tabs: ['informants', 'ops'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
@@ -607,7 +593,7 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps };
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf, informants: renderInformants, ops: renderOps };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -890,7 +876,7 @@
 
   function reRenderCurrent(res) {
     const keeps = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, profile: renderProfile, jail: renderJail, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, garage: renderGarage, turf: renderTurf };
     const fn = keeps[G.view];
     const v = $('#view');
     const top = v.scrollTop;
@@ -992,8 +978,10 @@
     if (res.win) { SND.win(); FX.cashSprinkle(); }
     else { SND.lose(); shakeAmp($('#game-body'), 6); }
     const gain = r._gain || 0;
+    const lookA = res.looks && res.looks.me, lookB = res.looks && res.looks.them;
     root.innerHTML = `<div class="modal scene active"><div class="scene-card ${res.win ? 'win' : 'lose'}">
       <div class="scene-title">${res.win ? 'YOU WIN' : 'WALLOPED'}</div>
+      ${lookA && lookB ? `<div style="margin:8px auto 4px;max-width:340px;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.1)">${AV.duel(lookA, lookB, 340)}</div>` : ''}
       <div class="scene-sub">${esc(res.msg)}</div>
       ${res.win && gain > 0 ? `<div class="scene-cash mono">+${money(gain)}</div>` : ''}
       <p style="color:var(--dim);font-size:12.5px">A ${res.rounds}-round scrap under the gas lamps.</p>
@@ -1710,13 +1698,15 @@
       <div class="card" style="background:none;border:none;padding:0">
       ${grouped.map(([id, q]) => {
         const it = m.items[id];
-        const canUse = it.type !== 'loot' && it.type !== 'gear';
+        const wearable = it.type === 'wear' && it.wear;
+        const canUse = it.type !== 'loot' && it.type !== 'gear' && !wearable;
         return `<div class="itemrow"><span class="ic">${it.icon}</span>
-        <div class="nm"><b>${esc(it.name)}</b>${it.equip ? ` <small style="color:var(--cyn)">${it.equip.slot === 'weapon' ? '+' + it.equip.atk + '% attack' : '+' + it.equip.def + '% defense'}</small>` : ''}<small>${esc(it.desc)}</small></div>
+        <div class="nm"><b>${esc(it.name)}</b>${it.equip ? ` <small style="color:var(--cyn)">${it.equip.slot === 'weapon' ? '+' + it.equip.atk + '% attack' : '+' + it.equip.def + '% defense'}</small>` : (wearable ? ` <small style="color:var(--cyn)">${PART_LABEL[it.wear.part] || it.wear.part} · layer ${it.wear.layer}</small>` : '')}<small>${esc(it.desc)}</small></div>
         <div class="acts">
         <span class="qtychip">×${q}</span>
         ${typeof it.sell === 'number' ? `<span class="qtychip" style="color:var(--gold)">${money(it.sell * q)}</span>` : ''}
         ${it.equip ? `<button class="btn sm ok" data-act="equip" data-item="${id}">${it.equip.slot === 'weapon' ? 'Carry' : 'Wear'}</button>` : ''}
+        ${wearable ? `<button class="btn sm ok" data-act="equip" data-item="${id}">Wear</button>` : ''}
         ${canUse ? `<button class="btn sm" data-act="use" data-item="${id}">Use</button>` : ''}
         ${typeof it.sell === 'number' ? `<button class="btn sm ghost" data-act="sell" data-item="${id}">Sell</button>` : ''}
         </div></div>`;
@@ -1757,13 +1747,20 @@
 
   function renderGearPanel(me) {
     const eq = (me.equip) || {};
+    const m = G.meta.items;
     const slotRow = (slot, icon, label) => {
       const curId = eq[slot];
-      const cur = curId && (G.meta.items[curId] || {}).name ? (G.meta.items[curId].icon + ' ' + G.meta.items[curId].name) : null;
+      const cur = curId && m[curId] && m[curId].name ? (m[curId].icon + ' ' + m[curId].name) : null;
       return `<div class="kv"><span class="k">${icon} ${label}</span><span class="v" style="display:flex;gap:6px;align-items:center">${cur ? `<b style="color:var(--ink)">${cur}</b><button class="btn sm ghost" data-act="unequip" data-slot="${slot}">Strip</button>` : '<span style="color:var(--dim)">— nothing</span>'}</span></div>`;
     };
-    return `<div class="card" style="margin-bottom:10px"><div class="subhead" style="color:var(--gold)">Iron & plate</div>
-      ${slotRow('weapon', '🔫', 'Weapon')}${slotRow('armour', '🦺', 'Armour')}</div>`;
+    const worn = (eq.wear || []).filter(id => m[id]);
+    return `<div class="card" style="margin-bottom:10px"><div class="subhead" style="color:var(--gold)">🧍 What you have on</div>
+      ${slotRow('weapon', '🔫', 'Weapon')}${slotRow('armour', '🦺', 'Armour')}
+      ${worn.length ? worn.map(id => {
+        const it = m[id];
+        return `<div class="kv"><span class="k">${it.icon} ${PART_LABEL[it.wear.part] || it.wear.part}</span><span class="v" style="display:flex;gap:6px;align-items:center"><b style="color:var(--ink)">${esc(it.name)}</b><button class="btn sm ghost" data-act="unequip" data-slot="wear" data-item="${id}">Take off</button></span></div>`;
+      }).join('') : `<p style="color:var(--dim);font-size:12px;margin:6px 0 0">Clothes you wear show up on your citizen everywhere. Buy some from the Market or the corner shops.</p>`}
+    </div>`;
   }
 
   // ---- BANK
@@ -2521,7 +2518,6 @@
     const v = $('#view');
     const inJail = me.jail_until && me.jail_until > Date.now();
     const inHosp = me.hosp_until && me.hosp_until > Date.now();
-    const worn = AV.wear(me.avatar);
     const F = k => FINGER[k];
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">🧑‍🎤 <span class="head">Your File</span></div>
@@ -2530,12 +2526,13 @@
         <span class="qtychip">${me.wins}W · ${me.losses}L</span>
         <span class="qtychip" style="color:var(--gold)">🏷️ ${titleFor(me.reputation || 0)}</span>
         <span class="qtychip" style="color:var(--cyn)">📸 ${(me.followers || 0).toLocaleString()} followers</span>
-        ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">✏️ Change your look</button>` : ''}
+        ${!inJail && !inHosp ? `<button class="btn ghost sm" data-act="editlook">⚙️ Preferences</button>` : ''}
         ${me.respecOpen ? `<button class="btn gold sm" data-act="respec_open">📝 Identity rewrite ready</button>` : ''}
       </div></div>
       <div class="grid2 profile-grid">
         <div class="dollframe">
-          ${(me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210)}
+          ${me.pic ? `<img src="${me.pic}" alt="profile picture" style="width:100%;display:block;border-radius:8px">`
+            : ((me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210))}
           <div class="dollname">${esc(me.name)}</div>
           <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}</div>
           <div class="dollbio">${esc(me.bio || '')}</div>
@@ -2545,12 +2542,11 @@
         </div>
         <div>
           <div class="card"><div class="subhead">🎩 What you're wearing</div>
-            <div class="weargrid">
-              ${worn.map(w => `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}
-            </div>
-            ${!inJail && !inHosp ? `<div style="margin-top:10px"><button class="btn ghost sm" data-act="editlook">Change it in the character editor</button></div>` : ''}
+            ${wornList(me.equip && me.equip.wear, m)}
+            ${!inJail && !inHosp ? `<div style="margin-top:10px"><button class="btn ghost sm" data-act="editlook">Wear something else — open Items</button></div>` : ''}
           </div>
           <div class="card"><div class="subhead">📊 Standing</div>
+            <div class="kv"><span class="k">Body</span><span class="v">${GENDER_NAME[me.gender] || 'Male'}</span></div>
             <div class="kv"><span class="k">Battle rating</span><span class="v" style="color:var(--cyn)">⭐ ${Math.floor(me.total)}</span></div>
             <div class="kv"><span class="k">Health</span><span class="v">${Math.floor(me.life)} / ${me.max_life}</span></div>
             <div class="kv"><span class="k">Energy</span><span class="v">${Math.round(me.energy)} / ${me.max_energy}</span></div>
@@ -2687,7 +2683,8 @@
       ${fam.blurb ? '<br>' + esc(fam.blurb) : ''}</div></div>
       <div class="pill"><span>Worked <b style="color:var(--cyn)">${(d.stats && d.stats.total) || 0}</b></span>
       <b style="color:var(--gold)">${((d.stats && d.stats.earned) || 0).toLocaleString()} earned</b>
-      ${chains.length ? `<b style="color:var(--bad)">${chains.length} live job${chains.length === 1 ? '' : 's'}</b>` : ''}</div></div>
+      ${chains.length ? `<b style="color:var(--bad)">${chains.length} live job${chains.length === 1 ? '' : 's'}</b>` : ''}
+      <b style="color:${(d.heat || 0) > 70 ? 'var(--bad)' : (d.heat || 0) > 35 ? 'var(--gold)' : 'var(--ok)'}" title="Heat drags on every operation. Let it cool, or pay an informant to make officers look elsewhere.">🔥 ${d.heat || 0}/100</b></div></div>
 
       ${res ? `<div class="card" style="border-color:${res.win ? 'rgba(90,220,160,0.4)' : 'rgba(255,90,90,0.35)'}">
         <div class="subhead">${res.win ? '✅' : '⚠️'} ${esc(res.op ? res.op.name : 'Result')}</div>
@@ -2781,63 +2778,100 @@
     }
   }
 
-  // ================================================================ EDIT LOOK (modal)
-  function openEditLook() {
+  // ================================================================ PREFERENCES (modal)
+  // Torn's Preferences, not a creator: change your body, your tagline and your
+  // picture. Clothes are changed by equipping things from your bag — never here.
+  const GENDER_NAME = { m: 'Male', f: 'Female', e: 'Enby' };
+  const PREFS = { gender: 'm', pic: '' };
+  function picBoxHTML(pic) {
+    return pic
+      ? `<img src="${pic}" alt="your picture" style="width:120px;height:165px;object-fit:cover;border-radius:6px;box-shadow:0 0 0 1px rgba(255,255,255,.18)">`
+      : `<div style="width:120px;height:165px;border-radius:6px;border:1px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;text-align:center;padding:6px;box-sizing:border-box">no picture — the citizen drawing is used</div>`;
+  }
+  function openPreferences() {
     const me = G.me;
-    const parts = AV.parts(me.avatar);
     const root = $('#modal-root');
+    PREFS.gender = me.gender || 'm';
+    PREFS.pic = me.pic || '';
+    // keep the equipped kit, swap only the body in the look string
+    const lookWith = (g) => { const i = String(me.avatar || '').indexOf('|'); return g + (i >= 0 ? me.avatar.slice(i) : '|'); };
     root.innerHTML = `<div class="modal"><div class="modal-card">
-      <div class="modal-title">✏️ <span class="head">Edit your look</span></div>
-      <div style="display:flex;gap:14px;align-items:center;margin:14px 0">
-        <div style="width:120px;flex-shrink:0;text-align:center" id="el-prev">${AV.doll(me.avatar, 120)}</div>
-        <div style="flex:1">${editChips('skin', 'Skin', AV.SKINS.map((_, i) => i + ''), parts.skin, true)}</div>
+      <div class="modal-title">⚙️ <span class="head">Preferences</span></div>
+      <div style="display:flex;gap:16px;margin:14px 0;flex-wrap:wrap">
+        <div style="width:150px;flex-shrink:0;text-align:center" id="pref-prev">${AV.doll(lookWith(PREFS.gender), 150)}</div>
+        <div style="flex:1;min-width:220px">
+          <div class="subhead">🧍 Body</div>
+          <div class="chiprow" id="pref-gender" style="margin-top:8px">
+            ${GENDERS.map(([id, n]) => `<button type="button" class="chip ${PREFS.gender === id ? 'on' : ''}" data-gender="${id}">${n}</button>`).join('')}
+          </div>
+          <p style="color:var(--dim);font-size:11.5px;margin-top:6px">Changeable at any time — the same switch Torn keeps in Preferences.</p>
+          <div class="subhead" style="margin-top:14px">📝 Tagline</div>
+          <div class="field" style="margin-top:8px"><input id="pref-bio" maxlength="120" value="${esc(me.bio || '')}" placeholder="A line about you"></div>
+        </div>
       </div>
-      ${editChips('body', 'Build', (AV.BODIES || []).map(b => typeof b === 'string' ? b : b.n), parts.body || 0)}
-      ${editChips('face', 'Face', AV.FACE_FEAT.map(x => x.n), parts.face)}
-      ${editChips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), parts.hair)}
-      ${editChips('shirt', 'Top', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
-      ${editChips('accent', 'Trinket', AV.ACCENTS.map((_, i) => i + ''), parts.accent, true)}
-      ${editChips('eyes', 'Eyes', (AV.EYE_NAMES || []), parts.eyes || 0)}
-      ${editChips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), parts.facial || 0)}
-      <div class="subhead" style="margin-top:14px">🧥 Wardrobe presets</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px" id="el-ward">
-        ${[0,1,2].map(i => `<button class="btn ghost sm" data-ward-slot="${i}" data-act="wardrobe_slot">Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">—</span></button>`).join('')}
+      <div class="subhead">📸 Your picture</div>
+      <p style="color:var(--dim);font-size:11.5px;margin:4px 0 8px">The citizen is drawn from what you wear. The picture is the separate thing a profile carries — any image you like, cut to 200×275 here before it is stored.</p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span id="pref-picbox">${picBoxHTML(PREFS.pic)}</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <input type="file" id="pref-pic-file" accept="image/*" class="in" style="padding:5px">
+          <button class="btn ghost sm" data-act="pref-pic-clear">Remove picture</button>
+        </div>
       </div>
-      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" data-act="close-modal">Cancel</button>
-        <button class="btn cyan" data-act="save-look">Save look</button></div></div></div>`;
-    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0, eyes: parts.eyes || 0, facial: parts.facial || 0 };
-    const cur = { ...els };
-    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body, cur.eyes, cur.facial].join('|');
-    // hydrate wardrobe slots from the panel cache if present
-    const fillWard = (slots) => {
-      $$('#el-ward [data-ward-slot]').forEach(b => {
-        const i = +b.dataset.wardSlot, av = slots && slots[i];
-        b.innerHTML = av ? `Slot ${i+1}<br><span style="font-size:10px">worn — click to load</span>` : `Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">empty — click to save</span>`;
-        b.dataset.empty = av ? '' : '1';
-      });
+        <button class="btn cyan" data-act="save-prefs">Save preferences</button></div></div></div>`;
+    $('#pref-gender').addEventListener('click', e => {
+      const b = e.target.closest('[data-gender]'); if (!b) return;
+      PREFS.gender = b.dataset.gender;
+      $$('#pref-gender .chip').forEach(x => x.classList.toggle('on', x === b));
+      $('#pref-prev').innerHTML = AV.doll(lookWith(PREFS.gender), 150);
+    });
+    $('#pref-pic-file').addEventListener('change', e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      cutPicture(f).then(data => {
+        PREFS.pic = data;
+        const box = $('#pref-picbox'); if (box) box.innerHTML = picBoxHTML(data);
+        U.toast('Picture ready — save to keep it.', 'good');
+      }).catch(() => U.toast('That file would not read as an image.', 'bad'));
+    });
+  }
+  // Cut any upload into Torn's profile-picture frame (200 × 275) in the browser,
+  // so the server only ever stores a small JPEG data URL.
+  function cutPicture(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const W = 200, H = 275;
+          const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+          const ctx = cv.getContext('2d');
+          const s = Math.max(W / img.width, H / img.height);
+          const w = img.width * s, h = img.height * s;
+          ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+          resolve(cv.toDataURL('image/jpeg', 0.78));
+        } catch (err) { reject(err); } finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+      img.src = url;
+    });
+  }
+  async function savePreferences() {
+    const me = G.me, root = $('#modal-root');
+    const on = $('#pref-gender .chip.on');
+    const img = $('#pref-picbox img');
+    const body = {
+      gender: on ? on.dataset.gender : (me.gender || 'm'),
+      bio: ($('#pref-bio') || {}).value || '',
+      pic: img ? img.getAttribute('src') : ''
     };
-    if (G.sysPanel) fillWard(G.sysPanel.wardrobe);
-    else Net.get('/api/sys/panel').then(d => { G.sysPanel = d; fillWard(d.wardrobe); }).catch(() => {});
-    $$('#el-ward [data-ward-slot]').forEach(b => b.addEventListener('click', async () => {
-      const i = +b.dataset.wardSlot;
-      if (b.dataset.empty) { await act('wardrobe_save', { slot: i }); G.sysPanel = null; Net.get('/api/sys/panel').then(d => { G.sysPanel = d; fillWard(d.wardrobe); }).catch(() => {}); U.toast('Look saved to slot ' + (i+1)); }
-      else { await act('wardrobe_load', { slot: i }); U.toast('Wardrobe loaded'); setTimeout(() => { document.dispatchEvent(new CustomEvent('rt-refresh-me')); }, 300); }
-    }));
-    $$('[data-el-opt]', root).forEach(b => b.addEventListener('click', () => {
-      const f = b.dataset.elOpt, val = +b.dataset.v;
-      cur[f] = val;
-      $('#el-prev').innerHTML = AV.doll(strOf(), 120);
-      $$(`[data-el-opt="${f}"]`, root).forEach(x => x.classList.toggle('on', +x.dataset.v === val));
-    }));
+    try {
+      const r = await Net.post('/api/updateprofile', body);
+      G.me = r.p; root.innerHTML = ''; renderHUD(); reRenderCurrent();
+      U.toast('Preferences saved.', 'good');
+    } catch (e) { U.toast(esc(e.message), 'bad'); }
   }
-  function editChips(field, label, values, active, swatch) {
-    const items = values.map((v, i) => swatch
-      ? `<button class="chip swatch ${active === i ? 'on' : ''}" data-el-opt="${field}" data-v="${i}" style="background:${field === 'skin' ? AV.SKINS[i] : field === 'shirt' ? AV.SHIRTS[i] : field === 'accent' ? AV.ACCENTS[i] : '#333'}"></button>`
-      : `<button class="chip ${active === i ? 'on' : ''}" data-el-opt="${field}" data-v="${i}">${v}</button>`).join('');
-    return `<div style="margin-top:10px"><div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px">${label}</div><div class="chiprow">${items}</div></div>`;
-  }
-
   // ================================================================ 2026 SYSTEMS
   // Arcade · Side Hustles · Garage · Turf · Finance extras · Social · Challenges
   async function sysPanel(force) {
@@ -2982,71 +3016,6 @@
         AR.safeLen = 0; sysPanel(true).then(() => renderArcade());
       }
     }));
-  }
-
-  // ---------------- STREET LIFE ----------------
-  async function renderStreet() {
-    const v = $('#view'); const me = G.me;
-    const sp = await sysPanel(true);
-    if (!sp) { v.innerHTML = '<div class="card"><p style="color:var(--dim)">The street is quiet.</p></div>'; return; }
-    const st = sp.street || { catalogs: {}, pets: [], ink: [], contacts: [], heat: 0, streak: { n: 0 } };
-    const cat = st.catalogs || {};
-    const heat = st.heat || 0;
-    const heatCol = heat > 70 ? 'var(--bad)' : heat > 35 ? 'var(--gold)' : 'var(--ok)';
-    const ownedPet = new Set((st.pets || []).map(x => x.id));
-    const ownedInk = new Set((st.ink || []).map(x => x.id));
-    const known = new Set((st.contacts || []).map(x => x.id));
-    const ownedSkin = new Set(st.skins || []);
-    v.innerHTML = `
-      <div class="vhead"><div><div class="vtitle">🌃 <span class="head">Street Life</span></div>
-      <div class="vdesc">Eat, go out, keep animals, get inked, call in favours, crash at a hide. Heat rises when you work the street.</div></div>
-      <div class="pill" style="color:${heatCol}">HEAT ${heat}/100</div></div>
-      <div class="grid2">
-        <div class="card"><div class="subhead">📅 Daily drop — streak ${st.streak.n || 0}</div>
-          <p style="color:var(--mut);font-size:12px">${st.streak.claimed ? 'Claimed today. Come back tomorrow.' : ((st.streak.next && st.streak.next.desc) || 'A thin envelope is waiting.')}</p>
-          <button class="btn gold" data-act="street_streak" ${st.streak.claimed ? 'disabled' : ''}>Claim daily</button>
-          <button class="btn ghost xs" data-act="street_cool" style="margin-left:6px">Quiet the heat ($$)</button>
-        </div>
-        <div class="card"><div class="subhead">🏠 Hide ${st.hideout ? '· ' + esc(st.hideout.name) : ''}</div>
-          ${st.hideout ? `<p style="color:var(--mut);font-size:12px">${esc(st.hideout.desc)}</p>
-            <button class="btn cyan" data-act="street_rest" ${st.restReady ? '' : 'disabled'}>Crash here (+energy, −heat)</button>` : '<p style="color:var(--dim);font-size:12px">Buy a hide to rest off heat.</p>'}
-          ${(cat.hideouts || []).map(h => `<div class="kv"><span class="k">${esc(h.name)} <span style="color:var(--dim);font-size:11px">${esc(h.desc)}</span></span>
-            <span class="v">${money(h.price)} <button class="btn xs ${st.hideout && st.hideout.id===h.id ? 'ghost' : 'gold'}" data-act="street_hide" data-hide="${h.id}" ${st.hideout && st.hideout.id===h.id ? 'disabled' : ''}>${st.hideout && st.hideout.id===h.id ? 'Yours' : 'Take'}</button></span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">🌯 Street food ${st.foodReady ? '' : '· digesting'}</div>
-          ${(cat.food || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${money(f.price)} <button class="btn cyan xs" data-act="street_eat" data-food="${f.id}" ${st.foodReady && me.money>=f.price ? '' : 'disabled'}>Eat</button></span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">🍸 Nightlife ${st.nightReady ? '' : '· still ringing'}</div>
-          ${(cat.venues || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · cover ${money(f.cover)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v"><button class="btn gold xs" data-act="street_out" data-venue="${f.id}" ${st.nightReady && me.money>=f.cover && me.energy>=4 ? '' : 'disabled'}>Go out</button></span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">🐾 Pets ${st.pets.length}/4</div>
-          ${(cat.pets || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${ownedPet.has(f.id) ? `<button class="btn ghost xs" data-act="street_rehome" data-pet="${f.id}">Rehome</button>` : `${money(f.price)} <button class="btn cyan xs" data-act="street_pet" data-pet="${f.id}" ${me.money>=f.price && st.pets.length<4 ? '' : 'disabled'}>Keep</button>`}</span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">✒️ Ink ${st.ink.length} pieces</div>
-          ${(cat.tats || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · ${esc(f.slot)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${ownedInk.has(f.id) ? '<span class="pill">on you</span>' : `${money(f.price)} <button class="btn gold xs" data-act="street_ink" data-tat="${f.id}" ${me.money>=f.price ? '' : 'disabled'}>Sit</button>`}</span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">📡 Contacts</div>
-          ${(cat.contacts || []).map(f => `<div class="kv"><span class="k">${f.icon || '📡'} ${esc(f.name)} <span style="color:var(--dim)">${esc(f.role || '')} · lv ${f.lvl||1}</span><div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${known.has(f.id) ? `<button class="btn cyan xs" data-act="street_call" data-contact="${f.id}" ${st.callReady ? '' : 'disabled'}>Call</button>` : `<button class="btn ghost xs" data-act="street_meet" data-contact="${f.id}">Meet</button>`}</span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">📦 Crates</div>
-          ${(cat.crates || []).map(f => `<div class="kv"><span class="k">${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${money(f.price)} <button class="btn gold xs" data-act="street_crate" data-crate="${f.id}">Crack</button></span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">🔫 Weapon finishes</div>
-          ${(cat.skins || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v">${ownedSkin.has(f.id) ? `<button class="btn ${st.skinOn===f.id?'gold':'ghost'} xs" data-act="street_wear_skin" data-skin="${f.id}">${st.skinOn===f.id?'On':'Wear'}</button>` : `${money(f.price)} <button class="btn cyan xs" data-act="street_skin" data-skin="${f.id}">Buy</button>`}</span></div>`).join('')}
-        </div>
-        <div class="card"><div class="subhead">🔧 Vehicle kits — fit from the Garage too</div>
-          <p style="color:var(--mut);font-size:12px">${(cat.mods||[]).length} kits. Open Garage, then Street Life after you own a car. Fit via the buttons below if you have a car in bay 0.</p>
-          ${(cat.mods || []).map(f => `<div class="kv"><span class="k">${f.icon} ${esc(f.name)} · ${money(f.price)}<div style="font-size:11px;color:var(--dim)">${esc(f.desc)}</div></span>
-            <span class="v"><button class="btn cyan xs" data-act="street_mod" data-mod="${f.id}" data-idx="0">Fit bay 0</button></span></div>`).join('')}
-        </div>
-      </div>`;
   }
 
   // ---------------- SIDE HUSTLES ----------------
@@ -3362,22 +3331,10 @@
     }
     if (a === 'close-modal') { if (G.needsEmail) { renderEmailGate(); return; } $('#modal-root').innerHTML = ''; }
     if (a === 'gate_email') { gateEmail(); return; }
-    if (a === 'save-look') { saveLook(); }
+    if (a === 'save-prefs') { savePreferences(); }
+    if (a === 'pref-pic-clear') { PREFS.pic = ''; const box = $('#pref-picbox'); if (box) box.innerHTML = picBoxHTML(''); }
     if (a === 'sound') { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; openMenu(); }
     if (a === 'logout') { doLogout(); }
-  }
-  async function saveLook() {
-    const me = G.me;
-    const parts = AV.parts(me.avatar);
-    const root = $('#modal-root');
-    const cur = {};
-    $$('[data-el-opt]', root).forEach(b => { if (b.classList.contains('on')) cur[b.dataset.elOpt] = +b.dataset.v; });
-    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0, cur.eyes ?? parts.eyes ?? 0, cur.facial ?? parts.facial ?? 0].join('|');
-    try {
-      const r = await Net.post('/api/updateprofile', { avatar: str });
-      G.me = r.p; root.innerHTML = ''; renderHUD(); reRenderCurrent();
-      U.toast('New look applied. Looking sharp.', 'good');
-    } catch (e) { U.toast(esc(e.message), 'bad'); }
   }
   async function doLogout() {
     try { await Net.post('/api/logout'); } catch (e) {}
@@ -3445,7 +3402,7 @@
       case 'auction_cancel': act('auction_cancel', { auctionId: +btn.dataset.aid }); break;
       case 'sell': act('sell', { itemId: btn.dataset.item, qty: 999 }); break;
       case 'equip': act('equip', { itemId: btn.dataset.item }); break;
-      case 'unequip': act('unequip', { slot: btn.dataset.slot }); break;
+      case 'unequip': act('unequip', { slot: btn.dataset.slot, itemId: btn.dataset.item }); break;
       case 'stock_buy': case 'stock_sell': {
         const qty = parseInt((document.querySelector(`[data-qty=\"${btn.dataset.sym}\"]`) || {}).value, 10) || 0;
         act(actN, { sym: btn.dataset.sym, qty }); break;
@@ -3761,7 +3718,7 @@
       case 'menu': openMenu(); break;
       case 'sound': { G.sound = !G.sound; localStorage.setItem('nsc_sound', G.sound ? '1' : '0'); SND.on = G.sound; break; }
       case 'logout': doLogout(); break;
-      case 'editlook': openEditLook(); break;
+      case 'editlook': openPreferences(); break;
       // ---------------- 2026 systems ----------------
       case 'mines_deal': { const bet = parseInt(($('#mines-bet') || {}).value, 10) || 0; const r = await actCatch('arcade_mines', { op: 'start', bet }); if (r) { sysPanel(true).then(renderArcade); } break; }
       case 'mine_tile': { const r = await actCatch('arcade_mines', { op: 'pick', tile: +btn.dataset.tile }); if (r) { sysPanel(true).then(renderArcade); } break; }
@@ -3803,22 +3760,6 @@
       case 'city_contract': { const r = await actCatch('city_contract', { contractId: btn.dataset.contract }); if (r) { U.toast(esc(r.res.text || 'Contract resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
       case 'night_lead': { const r = await actCatch('night_lead', { leadId: btn.dataset.lead }); if (r) { U.toast(esc(r.res.text || 'Brief resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
       case 'wire_favour': { const r = await actCatch('wire_favour', { favourId: btn.dataset.favour }); if (r) { U.toast(esc(r.res.text || 'Favour resolved.'), r.res.win ? 'good' : 'bad'); if (r.res.win) SND.win(); sysPanel(true).then(renderHustle); } break; }
-      case 'street_eat': { const r = await actCatch('street_eat', { foodId: btn.dataset.food }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_out': { const r = await actCatch('street_out', { venueId: btn.dataset.venue }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_pet': { const r = await actCatch('street_pet', { petId: btn.dataset.pet }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_rehome': { const r = await actCatch('street_rehome', { petId: btn.dataset.pet }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_ink': { const r = await actCatch('street_ink', { tatId: btn.dataset.tat }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_meet': { const r = await actCatch('street_meet', { contactId: btn.dataset.contact }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_call': { const r = await actCatch('street_call', { contactId: btn.dataset.contact }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_hide': { const r = await actCatch('street_hide', { hideId: btn.dataset.hide }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_rest': { const r = await actCatch('street_rest'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_crate': { const r = await actCatch('street_crate', { crateId: btn.dataset.crate }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_skin': { const r = await actCatch('street_skin', { skinId: btn.dataset.skin }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_wear_skin': { const r = await actCatch('street_wear_skin', { skinId: btn.dataset.skin }); if (r) sysPanel(true).then(renderStreet); break; }
-      case 'street_mod': { const r = await actCatch('street_mod', { idx: +btn.dataset.idx, modId: btn.dataset.mod }); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_streak': { const r = await actCatch('street_streak'); if (r) { U.toast(esc(r.res.text), 'good'); SND.cash(); sysPanel(true).then(renderStreet); } break; }
-      case 'street_cool': { const r = await actCatch('street_cool'); if (r) { U.toast(esc(r.res.text), 'good'); sysPanel(true).then(renderStreet); } break; }
-      case 'street_snack': { const r = await actCatch('street_snack'); if (r) { U.toast(esc(r.res.text), 'good'); } break; }
       case 'courier_take': { const r = await actCatch('courier_take'); if (r) sysPanel(true).then(renderHustle); break; }
       case 'courier_deliver': { const r = await actCatch('courier_deliver'); if (r) { U.toast(esc(r.res.text), r.res.late ? 'bad' : 'good'); sysPanel(true).then(renderHustle); } break; }
       case 'fish_cast': { const r = await actCatch('fish_cast'); if (r) { U.toast(`${r.res.icon || '🎣'} ${esc(r.res.text)}`, 'good'); sysPanel(true).then(renderHustle); } break; }

@@ -2,6 +2,8 @@
 
 **An online crime sim you can play in the browser — fully overhauled for 2026.** Modern streetwear, real modeled characters, an arcade floor of ten games, eight side hustles, a 1,000-contract city board, a garage, a turf war across eight districts, stocks, crafting, trading cards and 47 crimes. Real accounts & passwords (hashed + salted), crimes with consequences, gyms, day jobs, a black market, bank interest, a betting shop, player-vs-player fights, gangs, feats, a town news wire and leaderboards — all running at 60 fps on desktop *and* mobile.
 
+> **New in the wardrobe (2026.4):** the character system now works the way Torn's does — a citizen is a **body** (male / female / enby) wearing **equipped clothing**. The old character creator, the eight-slot part engine and the saved-look wardrobe are gone; clothing is 41 real items bought, stolen or won, each sitting on one body part at one layer, and the town sees exactly what you have on. The **Street Life tab has been removed**.
+>
 > **New in The Long Game (2026.3):** +10,022 features — **10,000 individually playable underworld operations** across ten families (rackets, heists, smuggling runs, forgery, muscle, chop shop, cyber, clinic, art and street circuits), ten districts and ten grades. Every one carries its own price, level bar, crew demand, live odds, payout band, heat trail and cooldown, and every one is wired into the informant tips, street heat, the economy dials and your garage — plus a new Operations tab, a wiring/fuzz suite and a boot-and-restart suite.
 >
 > **Rainlight overhaul (2026.2):** +1,063 features — a rebuilt eight-slot character engine (16 skins, 36 faces, 57 hairstyles, 12 eye colours, 24 facial-hair styles, 39 garments, 16 trinkets, 8 builds) and **The Informant Network**: 1,000 individually playable leads wired into crimes, payouts, bail, pawn prices, fights and gang operations, plus two dozen new founder tools (world dials, weather override, event injector, NPC spawner, metrics board).
@@ -39,7 +41,7 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ## 🎩 What you can do
 | Area | What's in it |
 |---|---|
-| **Character creator** | Fully modeled characters in two body builds (masc/fem) — 9 skin tones, 22 faces (beards, moustaches, scars, crows' feet), 25 haircuts with flat caps, bowlers, fedoras and grey long locks, 14 weathered coats (overcoats, dusters, peacoats, frocks…), and 8 trinkets (cravats, watch chains, carnations, a briar pipe, wire specs…). Coats dress the whole figure with matching trousers and boots. Save up to 3 looks in your **wardrobe**. Clean-shaven faces are always available, but the town defaults to older, rugged sorts. Re-style any time from your profile. |
+| **Character & clothing** | A Torn-style character: a **body** (male / female / enby — switchable from Preferences) wearing **equipped clothing**, drawn live from what you have on. 41 wearable pieces across eight body parts and five layers — tees, oxfords, knitwear, hoodies, denim and leather jackets, puffers, a belted trench, jeans, cargos, chinos, joggers, trainers, Dr Martens, loafers, caps, beanies, buckets, durags, shades and wire specs, balaclavas, respirators, scarves, gold and steel chains, gloves and hand wraps. One piece per body-part-and-layer seat; armour is worn in the armour slot and sits over the lot. Buy from the Market or the three clothing shops, wear it from your bag, and change your body, tagline and profile picture from **Preferences**. |
 | **Crimes** | 47 original jobs across 7 categories. Each costs nerve + energy, has skill requirements, odds, loot drops and bust risk. Chain successes for a **🔥 Spree** cash bonus. |
 | **Busted** | Screw up badly and you're **NICKED!** — the gaol keeps you below stairs (or the infirmary takes you in). Timers run live; energy refills while you wait. |
 | **Profile** | Your character model in full, every stat and slot, what you're wearing, your street title and followers, and your career record. |
@@ -71,9 +73,9 @@ reports liveness. True 24/7 for other people needs a host with an account — se
 ever sees the counter reset, the process restarted (a redeploy does that on purpose; anything else
 is a fault worth reporting).
 
-**Verify the systems yourself — 432 automated checks, all passing:**
-`node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — avatar clamping, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, wardrobe, respec, insurance, friends/blocks/gifts, and the 1,000-lead City Contracts board (95 assertions).
-`node tools/check-systems.js` runs 236 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
+**Verify the systems yourself — 606 automated checks, all passing:**
+`node tools/check-2026.js` drives **every 2026 system over real HTTP** against throwaway accounts — the body switch and profile picture, buying and wearing clothes, all ten arcade games, every hustle, storage auctions, cars/races/chop, turf, stocks, staking, crafting, cards, respec, insurance, friends/blocks/gifts, and the 1,000-lead City Contracts board (164 assertions).
+`node tools/check-systems.js` runs 316 rule-level assertions (property, upkeep, education, merits, bounties, the bazaar, the auction rooms, and every casino table) against a throwaway world in `/tmp` — it never touches the live ledger.
 `node tools/check-api.js` adds 93 API-contract checks, and `node tools/check-http.js` adds 8 resilience checks (dead sessions, broken JSON, absurd amounts, path traversal) proving the same process keeps serving.
 `node tools/e2e/qa.mjs` drives a real headless browser through all tabs on desktop and phone, the whole casino floor, a full two-citizen bazaar sale, an auction bid-buyout-pull round, and the character editor (29 checks; one-time browser setup with `tools/e2e/setup-qa.sh`).
 
@@ -148,7 +150,7 @@ In **`docs/screenshots/`** — `era-auth.png`, `era-creator.png`, `era-desktop-*
 ---
 
 ## ✏️ Editing / extending
-Everything is plain files — change them and restart (`npm start`). Content balances live in `lib/game/content.js`; the 2026 systems (arcade, hustles, garage, turf, stocks, turf, cards…) live in `lib/systems.js`; client screens are in `public/js/app.js` (templates for each tab); the look lives in `public/css/style.css` + `public/img/`; the character model engine is `public/js/avatar.js` (6-part spec: `skin|face|hair|shirt|accent|body`). Ask and this project can be changed, extended or rethemed at any time.
+Everything is plain files — change them and restart (`npm start`). Content balances live in `lib/game/content.js`; the 2026 systems (arcade, hustles, garage, turf, stocks, turf, cards…) live in `lib/systems.js`; client screens are in `public/js/app.js` (templates for each tab); the look lives in `public/css/style.css` + `public/img/`; the character model engine is `public/js/avatar.js` and the wardrobe rules are `lib/game/wear.js` (look string: `<gender>|<part>:<style>:<colour>:<layer>,…`). Ask and this project can be changed, extended or rethemed at any time.
 
 ---
 
