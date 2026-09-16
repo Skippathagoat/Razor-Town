@@ -12,14 +12,14 @@ event injector, NPC spawning and a metrics board.
 **This round is +1,063 features (1,736–2,798):** 1,000 playable informants plus 63 engine, system
 and console additions. Every one of them is live, wired to the UI, and covered by the check suites.
 
-**The Long Game (2026.3): +10,022 features (2,799–12,820).** Ten families of underworld work ×
+**The Long Game (2026.3): +10,028 features (2,799–12,826).** Ten families of underworld work ×
 ten districts × ten grades = **10,000 individually playable operations**, each with its own name,
 patch of the city, grade, price, level bar, crew demand, energy and nerve cost, live odds, payout
 band, heat trail, cooldown and consequence — plus the engine, console and tooling that drives them.
 Every operation is real: rackets bank money while you are elsewhere, heists run in three stages,
 smuggling runs turn ugly in bad weather, forgeries print one-shot papers you burn later, art
 appreciates in a capped vault, and chop shops and street circuits read the car in your garage.
-Run `node tools/check-2026.js` against a fresh world and all 155 end-to-end checks pass.
+Run `node tools/check-2026.js` against a fresh world and all 161 end-to-end checks pass.
 
 **Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
 
@@ -963,7 +963,7 @@ strength and duration.
 
 ---
 
-## 🕶️ The Long Game — features 2,799–12,820
+## 🕶️ The Long Game — features 2,799–12,826
 
 ### The ten families — 2,799–12,798 (10,000 operations)
 
@@ -1002,7 +1002,7 @@ consequence, and the catalogue hard-fails at boot if it is ever not exactly 10,0
 11,799–12,798. **🏁 Street circuits — 1,000 races.** Docks sprints to the Glass Quarter Grand. Your
    car's rating is your whole argument; enter short and you pay for the privilege twice.
 
-### The engine, the console and the tooling — 12,799–12,820
+### The engine, the console and the tooling — 12,799–12,826
 
 12,799. **📋 The Long Game tab** — family chips, search, district and grade filters, twenty-four cards
    a page, and a book-so-far ledger.
@@ -1035,18 +1035,27 @@ consequence, and the catalogue hard-fails at boot if it is ever not exactly 10,0
    and a clean shutdown with no orphans.
 12,820. **Hardened action boundary** — junk identifiers are refused instead of reaching SQLite, and
    nonsense filters are ignored rather than emptied (both found by the fuzzer, both regression-guarded).
+12,821. **📋 Open every racket** — founder tool: a standing racket in all ten districts, free.
+12,822. **🖨️ Fill the coat** — founder tool: a copy of every grade-I forgery to burn.
+12,823. **🖼️ Fill the vault** — founder tool: the whole wall, capped at the real twelve, already
+   appreciating.
+12,824. **Clear my job cooldowns** — founder tool: no waiting between operations.
+12,825. **Wipe my book / wipe a citizen's book** — founder tools to reset the Long Game cleanly.
+12,826. **Stateful view contract** — the check suite asserts every field the Operations tab prints is
+   actually sent (a running racket's cycle length, an owned card's rate, a held paper's label), so a
+   rename can never silently blank the tab again.
 
-> Count: 10,000 operations + 22 engine, console and tooling features = **10,022 new features**,
-> bringing the ledger to **12,820 numbered additions** in total.
+> Count: 10,000 operations + 28 engine, console and tooling features = **10,028 new features**,
+> bringing the ledger to **12,826 numbered additions** in total.
 
 
 ### Verified working
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **155 / 155 pass** |
+| `node tools/check-2026.js` | every action family over HTTP, incl. City Contracts, the Informant Network, the founder console and the 10,000-operation book | **161 / 161 pass** |
 | `node tools/check-systems.js` | the rules of every system, incl. the 1,000-contract, 1,000-informant and 10,000-operation catalogues, tip math and the founder dials | **315 / 315 pass** |
-| `node tools/check-fuzz.js` | wiring sweep + every action fed malformed payloads + the client view contract + a 2,000-look avatar sweep | **18 / 18 pass** |
+| `node tools/check-fuzz.js` | wiring sweep + every action fed malformed payloads + the client view contract + a 2,000-look avatar sweep | **19 / 19 pass** |
 | `node tools/check-api.js` | core API contract | **93 / 93 pass** |
 | `node tools/check-gangs.js` | gang bench, chest, arrangements, operations | **101 / 101 pass** |
 | `node tools/check-boot.js` | clean boot, assets, database integrity, live stream, restart persistence, clean shutdown | **24 / 24 pass** |

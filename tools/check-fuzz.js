@@ -62,6 +62,15 @@ ok(S.INF.INFORMANTS.every(x => Number.isFinite(x.price) && x.price > 0 && Number
   ok(!badLook, '2,000 random looks render without NaN or undefined', badLook && JSON.stringify(badLook));
 }
 
+// every founder button must name a real console op
+{
+  const app = fs.readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
+  const srv = fs.readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+  const ops = [...new Set([...app.matchAll(/data-act="dev_(?:self|world)"[^>]*data-op="([a-z_]+)"/g)].map(m => m[1]))];
+  const dead = ops.filter(op => !new RegExp("case '" + op + "':|if \\(op === '" + op + "'\\)").test(srv));
+  ok(ops.length >= 50 && dead.length === 0, `${ops.length} founder buttons name a real console op`, dead.join(', '));
+}
+
 // ---------------------------------------------------------------- 2. live fuzz
 async function req(path, { method = 'GET', body, token } = {}) {
   const r = await fetch(BASE + path, {

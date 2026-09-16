@@ -261,6 +261,15 @@ const uniq = Date.now().toString(36);
   r = await act(A.tok, 'block_remove', { target: B.name });
   ok(r.code === 200, 'block remove');
 
+  // ================= FOUNDER CONSOLE: THE LONG GAME =================
+  for (const op of ['op_rackets', 'op_papers', 'op_vault', 'op_cooldowns', 'op_clear']) {
+    const d = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op } });
+    ok(d.code === 200, 'founder tool ' + op, detail(d.j && d.j.err));
+  }
+  {
+    const d = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'op_wipe_target', target: accOf[A.name] } });
+    ok(d.code === 200, 'founder tool op_wipe_target', detail(d.j && d.j.err));
+  }
   // ================= INSURANCE + RESPEC =================
   r = await act(A.tok, 'buy', { itemId: 'insurance_pol', qty: 1 });
   ok(r.code === 200, 'buy policy');

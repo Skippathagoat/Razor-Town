@@ -1097,6 +1097,11 @@
           <button class="btn sm ghost" data-act="dev_self" data-op="clear_tips">Clear my tips</button>
           <button class="btn sm" data-act="dev_self" data-op="comp_leads">Comp every lead on my board</button>
           <button class="btn sm" data-act="dev_self" data-op="cool_heat">Cool my street heat</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_rackets">📋 Open every racket (grade I)</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_papers">🖨️ Fill my coat with papers</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="op_vault">🖼️ Fill the vault (a day old)</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="op_cooldowns">Clear my job cooldowns</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="op_clear">Wipe my whole book</button>
           <button class="btn sm" data-act="dev_self" data-op="set_happy">Set happy =</button>
         </div>
         <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>

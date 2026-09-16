@@ -520,6 +520,32 @@ const routes = async (req, res, urlPath, q) => {
         break;
       }
       case 'cool_heat': { try { if (p.sys && p.sys.life) { p.sys.life.heat = 0; p.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
+      case 'op_cooldowns': { try { p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {}; p.sys.ops.cool = {}; } catch (_) {} break; }
+      case 'op_rackets': {
+        // every racket on the book, up and running, free of charge
+        try {
+          p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {}; p.sys.ops.rackets = p.sys.ops.rackets || {};
+          for (const op of S.OPS.byFamily('rackets')) if (op.grade === 0) p.sys.ops.rackets[op.id] = { at: Date.now() };
+        } catch (_) {}
+        break;
+      }
+      case 'op_papers': {
+        // a few of every forgery the catalogue can print
+        try {
+          p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {}; p.sys.ops.docs = p.sys.ops.docs || {};
+          for (const op of S.OPS.byFamily('prints')) if (op.grade === 0) p.sys.ops.docs[op.id] = 1;
+        } catch (_) {}
+        break;
+      }
+      case 'op_vault': {
+        // the whole wall, free, and already appreciating
+        try {
+          p.sys = p.sys || {}; p.sys.ops = p.sys.ops || {};
+          p.sys.ops.art = S.OPS.byFamily('art').filter(o => o.grade === 0).slice(0, 12).map(op => ({ id: op.id, at: Date.now() - 6 * 3600000, paid: op.cash }));
+        } catch (_) {}
+        break;
+      }
+      case 'op_clear': { try { p.sys = p.sys || {}; p.sys.ops = null; } catch (_) {} break; }
       case 'set_happy': p.happy = Math.max(0, Math.min(p.max_happy || 100, parseInt(body.value, 10) || 100)); break;
       case 'spawn_all_cars': {
         try {
@@ -740,6 +766,7 @@ const routes = async (req, res, urlPath, q) => {
       case 'wipe_tips': { try { if (tp.sys) tp.sys.tips = {}; } catch (_) {} break; }
       case 'set_level_target': tp.level = Math.max(1, Math.min(100, parseInt(body.value, 10) || 1)); tp.xp = Math.max(tp.xp || 0, tp.level * 100); break;
       case 'heal_target': tp.life = tp.max_life; tp.hosp_until = 0; break;
+      case 'op_wipe_target': { try { if (tp.sys) tp.sys.ops = null; } catch (_) {} break; }
       case 'cool_heat_target': { try { if (tp.sys && tp.sys.life) { tp.sys.life.heat = 0; tp.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
