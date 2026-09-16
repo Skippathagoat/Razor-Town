@@ -408,14 +408,17 @@
     size = size || 320;
     const W = 320, H = 176;
     const inner = `<defs>`
-      + `<linearGradient id="duelbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b1e26"/><stop offset="100%" stop-color="#0b0c10"/></linearGradient>`
-      + `<radialGradient id="duellight" cx="50%" cy="42%" r="62%"><stop offset="38%" stop-color="#e8c46a" stop-opacity=".18"/><stop offset="100%" stop-color="#000" stop-opacity="0"/></radialGradient>`
+      + `<linearGradient id="duelbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#241b3e"/><stop offset="100%" stop-color="#0d0a16"/></linearGradient>`
+      + `<radialGradient id="duellight" cx="50%" cy="42%" r="62%"><stop offset="38%" stop-color="#a678e8" stop-opacity=".2"/><stop offset="100%" stop-color="#000" stop-opacity="0"/></radialGradient>`
       + `<clipPath id="figA"><rect x="0" y="0" width="160" height="${H}"/></clipPath>`
       + `<clipPath id="figB"><rect x="160" y="0" width="160" height="${H}"/></clipPath></defs>`
       + `<rect width="${W}" height="${H}" fill="url(#duelbg)"/>`
       + `<rect width="${W}" height="${H}" fill="url(#duellight)"/>`
-      + `<g clip-path="url(#figA)" transform="translate(0.6 6) scale(0.64)"><g transform="translate(56 0)">${fa.svg}</g></g>`
-      + `<g clip-path="url(#figB)" transform="translate(319.4 6) scale(-0.64 0.64)"><g transform="translate(64 0)">${fb.svg}</g></g>`
+      // clip on an untransformed wrapper: with clip-path on the transformed
+      // group itself, the clip rect travels with the group's own transform and
+      // the mirrored figure ends up clipped away entirely
+      + `<g clip-path="url(#figA)"><g transform="translate(0.6 6) scale(0.64)"><g transform="translate(56 0)">${fa.svg}</g></g></g>`
+      + `<g clip-path="url(#figB)"><g transform="translate(319.4 6) scale(-0.64 0.64)"><g transform="translate(64 0)">${fb.svg}</g></g></g>`
       + `<path d="M 160 26 v 130" stroke="rgba(255,255,255,.07)" stroke-width="2"/>`
       + `<ellipse cx="160" cy="170" rx="128" ry="7" fill="rgba(255,255,255,.04)"/>`;
     return wrap(1, W, H, size, inner, 'av-duel');
@@ -424,12 +427,12 @@
     const f = figure(s);
     const W = 240, H = 190;
     const sky = 'sc' + (f.seed % 9973);
-    const inner = `<defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22252f"/><stop offset="100%" stop-color="#0a0b0f"/></linearGradient></defs>`
+    const inner = `<defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2b2149"/><stop offset="100%" stop-color="#0d0a16"/></linearGradient></defs>`
       + `<rect width="${W}" height="${H}" fill="url(#${sky})"/>`
-      + `<rect x="0" y="150" width="${W}" height="40" fill="#15171d"/>`
-      + `<rect x="12" y="94" width="22" height="56" fill="#0f1116"/><rect x="196" y="84" width="26" height="66" fill="#0f1116"/>`
+      + `<rect x="0" y="150" width="${W}" height="40" fill="#1a1428"/>`
+      + `<rect x="12" y="94" width="22" height="56" fill="#120d1e"/><rect x="196" y="84" width="26" height="66" fill="#120d1e"/>`
       + `<path d="M 34 94 v 56 M 206 84 v 66" stroke="rgba(255,255,255,.06)" stroke-width="2"/>`
-      + `<circle cx="176" cy="44" r="12" fill="rgba(240,215,154,.5)"/>`
+      + `<circle cx="176" cy="44" r="12" fill="rgba(216,121,201,.45)"/>`
       + `<g transform="translate(0 2) scale(0.72)"><g transform="translate(-4 0)">${f.svg}</g></g>`;
     return wrap(f.seed, W, H, size, inner, 'av-scene');
   }
@@ -441,7 +444,7 @@
     for (let x = 6; x <= 114; x += 8) grid += `<path d="M${x} 16 v3" stroke="#aeb6c2" stroke-width=".7" opacity=".45"/>`;
     const no = 100000 + (f.seed % 899999);
     const nm = S(name || 'DETAINED').toUpperCase().slice(0, 18);
-    const inner = `<rect width="${W}" height="${H}" fill="#101216"/>`
+    const inner = `<rect width="${W}" height="${H}" fill="#120d1e"/>`
       + `<g transform="translate(8 -4) scale(0.62)"><g transform="translate(-24 0)">${f.svg}</g></g>`
       + grid
       + `<rect x="0" y="0" width="${W}" height="13" fill="rgba(0,0,0,.66)"/>`
@@ -456,11 +459,11 @@
     const f = figure(s);
     const W = 480, H = 120;
     const nm = S(name || 'CITIZEN').toUpperCase().slice(0, 20);
-    const inner = `<defs><linearGradient id="btx" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#191c24"/><stop offset="100%" stop-color="#0a0b0f"/></linearGradient></defs>`
+    const inner = `<defs><linearGradient id="btx" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#221a38"/><stop offset="100%" stop-color="#0a0813"/></linearGradient></defs>`
       + `<rect width="${W}" height="${H}" fill="url(#btx)"/>`
       + `<g transform="translate(4 -12) scale(0.52)"><g transform="translate(-30 0)">${f.svg}</g></g>`
-      + `<text x="96" y="58" font-family="Georgia,serif" font-size="30" font-weight="700" fill="#f0e6d2" letter-spacing="2">${nm}</text>`
-      + `<text x="98" y="78" font-family="monospace" font-size="12" fill="#c8a24a" letter-spacing="2.4">${S(sub || '').toUpperCase().slice(0, 46)}</text>`;
+      + `<text x="96" y="58" font-family="Georgia,serif" font-size="30" font-weight="700" fill="#f0ecfa" letter-spacing="2">${nm}</text>`
+      + `<text x="98" y="78" font-family="monospace" font-size="12" fill="#a678e8" letter-spacing="2.4">${S(sub || '').toUpperCase().slice(0, 46)}</text>`;
     return wrap(f.seed, W, H, size, inner, 'av-banner');
   }
 
@@ -507,71 +510,147 @@
   // either a catalog face (/img/portraits/…) or their own upload (data URL) —
   // with the head/eyes/mouth/neck pieces of their equipped kit drawn on top as
   // a filter-style overlay. torso/legs/feet still live on the full-body model.
-  const OX = {
-    // overlay space: 100x100 box over a square-cropped chest-up photo.
-    // Head centre ≈ (50, 34); face width ≈ 34; shoulders from y ≈ 78.
-    headCy: 26, headR: 19, faceCy: 36, eyeY: 34, chinY: 49, neckY: 58
+  //
+  // Every catalog photo has its own anchor — where THAT face's features sit in
+  // the 100x100 box after the browser's square cover crop (object-fit:cover,
+  // object-position:center 18%). The overlay art is parameterised on the
+  // anchor, so a cap / shades / chain lands on the actual face instead of
+  // floating somewhere near it. Anchors are measured per photo; keep this map
+  // in sync with PORTRAITS in lib/game/t26.js (tools/check-t26.js guards the
+  // ids and files, the ox maps are additive data).
+  //
+  // ox: x = face centre, headTop = crown/hairline, eyeY = eye line,
+  //     chinY = bottom of chin, neckY = base of neck — all in 0..100 box units.
+  const PORTRAIT_FILES = {
+    p01: { file: '/img/portraits/p01.jpg', ox: { x: 48, headTop: 13, eyeY: 36, chinY: 57, neckY: 65 } },
+    p02: { file: '/img/portraits/p02.jpg', ox: { x: 50, headTop: 8,  eyeY: 40, chinY: 58, neckY: 68 } },
+    p03: { file: '/img/portraits/p03.jpg', ox: { x: 51, headTop: 10, eyeY: 42, chinY: 60, neckY: 70 } },
+    p04: { file: '/img/portraits/p04.jpg', ox: { x: 49, headTop: 10, eyeY: 45, chinY: 63, neckY: 72 } },
+    p05: { file: '/img/portraits/p05.jpg', ox: { x: 49, headTop: 10, eyeY: 37, chinY: 55, neckY: 66 } },
+    p06: { file: '/img/portraits/p06.jpg', ox: { x: 49, headTop: 14, eyeY: 39, chinY: 56, neckY: 66 } },
+    p07: { file: '/img/portraits/p07.jpg', ox: { x: 49, headTop: 12, eyeY: 42, chinY: 60, neckY: 70 } },
+    p08: { file: '/img/portraits/p08.jpg', ox: { x: 50, headTop: 12, eyeY: 44, chinY: 62, neckY: 72 } },
+    p09: { file: '/img/portraits/p09.jpg', ox: { x: 50, headTop: 8,  eyeY: 42, chinY: 58, neckY: 68 } },
+    p10: { file: '/img/portraits/p10.jpg', ox: { x: 49, headTop: 10, eyeY: 40, chinY: 58, neckY: 68 } }
   };
-  function overlayPiece(part, style, c) {
-    const H = OX;
+  // uploads are cut to a 200x275 head-and-shoulders frame in the browser;
+  // this anchor suits that typical framing once shown in the square box
+  const OX_CUSTOM = { x: 50, headTop: 11, eyeY: 31, chinY: 45, neckY: 56 };
+  const OX_DEFAULT = { x: 50, headTop: 10, eyeY: 37, chinY: 56, neckY: 66 };
+
+  function anchorOf(p) {
+    const face = (p && p.portrait) ? p.portrait : '';
+    if (face === 'custom') return OX_CUSTOM;
+    const e = PORTRAIT_FILES[face];
+    return (e && e.ox) || OX_DEFAULT;
+  }
+  // derived geometry for the overlay art. The face model: width at eye level
+  // scales with the measured head height, the jaw tapers below, hats sit a
+  // touch wider than the eyes.
+  function geomOf(O) {
+    O = O || OX_DEFAULT;
+    const x = Number.isFinite(O.x) ? O.x : 50;
+    const headTop = Number.isFinite(O.headTop) ? O.headTop : 10;
+    const eyeY = Number.isFinite(O.eyeY) ? O.eyeY : 37;
+    const chinY = Number.isFinite(O.chinY) ? Math.max(eyeY + 12, O.chinY) : eyeY + 19;
+    const neckY = Number.isFinite(O.neckY) ? Math.max(chinY + 4, O.neckY) : chinY + 10;
+    const headH = Math.max(18, chinY - headTop);
+    const eyeW = Math.max(24, Math.min(38, headH * 0.66));   // width at eye level
+    const jawW = eyeW * 0.8;                                  // width at mouth/jaw
+    const capW = eyeW * 1.08;                                 // hat width
+    const eyeDx = eyeW * 0.21;                                // eye centre offset
+    return {
+      x, headTop, eyeY, chinY, neckY, headH, eyeW, jawW, capW, eyeDx,
+      mouthY: eyeY + (chinY - eyeY) * 0.62
+    };
+  }
+  function overlayPiece(part, style, c, G) {
     const sh = (col, a) => shade(col, a);
+    const { x, headTop, eyeY, chinY, neckY, eyeW, jawW, capW, eyeDx, mouthY } = G;
     switch (part + ':' + style) {
       case 'head:cap':
-      case 'head:snapback':
-        return `<path d="M ${50 - 17} ${H.headCy + 2} C ${50 - 18} ${H.headCy - 24} ${50 + 18} ${H.headCy - 24} ${50 + 17} ${H.headCy + 2} Z" fill="${c}" stroke="rgba(0,0,0,.4)" stroke-width=".6"/>`
-          + `<path d="M ${50 + 15} ${H.headCy + 1} q 15 2 16 6.5 q -10 2 -16 1 Z" fill="${sh(c, -.28)}"/>`
-          + `<path d="M ${50 - 15} ${H.headCy + 1} q -15 2 -16 6.5 q 10 2 16 1 Z" fill="${sh(c, -.28)}"/>`;
-      case 'head:beanie':
-        return `<path d="M ${50 - 16.5} ${H.headCy + 4} C ${50 - 17.5} ${H.headCy - 22} ${50 + 17.5} ${H.headCy - 22} ${50 + 16.5} ${H.headCy + 4} Z" fill="${c}"/>`
-          + `<rect x="${50 - 17}" y="${H.headCy - 1}" width="34" height="7.5" rx="3.6" fill="${sh(c, -.2)}"/>`
-          + [0, 1, 2, 3, 4].map(i => `<path d="M ${50 - 12 + i * 6} ${H.headCy - 14} v 9" stroke="${sh(c, -.1)}" stroke-width="1" opacity=".7"/>`).join('');
-      case 'head:bucket':
-        return `<path d="M ${50 - 15} ${H.headCy + 2} C ${50 - 16} ${H.headCy - 20} ${50 + 16} ${H.headCy - 20} ${50 + 15} ${H.headCy + 2} Z" fill="${c}"/>`
-          + `<path d="M ${50 - 27} ${H.headCy + 3} q 27 -7 54 0 q -7 5.5 -27 5.5 q -20 0 -27 -5.5 Z" fill="${sh(c, -.14)}"/>`;
-      case 'head:durag':
-        return `<path d="M ${50 - 16.5} ${H.headCy + 5} C ${50 - 17} ${H.headCy - 22} ${50 + 17} ${H.headCy - 22} ${50 + 16.5} ${H.headCy + 5} Z" fill="${c}"/>`
-          + `<path d="M ${50 + 15} ${H.headCy - 6} q 13 8 9 20 q -7 -2.5 -10.5 -11 Z" fill="${sh(c, -.16)}"/>`
-          + `<path d="M ${50 - 15} ${H.headCy - 6} q -13 8 -9 20 q 7 -2.5 10.5 -11 Z" fill="${sh(c, -.16)}"/>`;
+      case 'head:snapback': {
+        const hw = capW / 2;
+        let out = `<path d="M ${x - hw - 1} ${eyeY - 2.2} C ${x - hw - 2} ${headTop - 4} ${x + hw + 2} ${headTop - 4} ${x + hw + 1} ${eyeY - 2.2} Z" fill="${c}" stroke="rgba(0,0,0,.4)" stroke-width=".6"/>`
+          + `<rect x="${x - hw - 1.6}" y="${eyeY - 3.2}" width="${capW + 3.2}" height="4.2" rx="2.1" fill="${sh(c, -.28)}"/>`
+          + `<circle cx="${x}" cy="${headTop - 0.6}" r="1.4" fill="${sh(c, .3)}"/>`;
+        if (style === 'snapback') out += `<path d="M ${x - hw - 1.2} ${eyeY - 3.6} q ${hw + 1.2} -2.2 ${capW + 2.4} 0" stroke="${sh(c, -.32)}" stroke-width="1" fill="none"/>`;
+        return out;
+      }
+      case 'head:beanie': {
+        const hw = eyeW / 2;
+        const knit = [0, 1, 2, 3, 4].map(i => `<path d="M ${x - hw * 0.7 + i * (hw * 0.35)} ${headTop + 0.5} v 7.5" stroke="${sh(c, -.1)}" stroke-width="1" opacity=".7"/>`).join('');
+        return `<path d="M ${x - hw} ${eyeY - 4.4} C ${x - hw - 1.2} ${headTop - 2.5} ${x + hw + 1.2} ${headTop - 2.5} ${x + hw} ${eyeY - 4.4} Z" fill="${c}"/>`
+          + `<rect x="${x - hw - 0.6}" y="${eyeY - 5.8}" width="${eyeW + 1.2}" height="7" rx="3.5" fill="${sh(c, -.2)}"/>`
+          + knit;
+      }
+      case 'head:bucket': {
+        const hw = eyeW / 2;
+        const bw = hw + 9.5;
+        return `<ellipse cx="${x}" cy="${eyeY - 2.2}" rx="${bw}" ry="4.6" fill="${sh(c, -.14)}"/>`
+          + `<path d="M ${x - hw + 0.5} ${eyeY - 2.4} C ${x - hw - 1} ${headTop - 3.5} ${x + hw + 1} ${headTop - 3.5} ${x + hw - 0.5} ${eyeY - 2.4} Z" fill="${c}"/>`
+          + `<path d="M ${x - hw * 0.72} ${headTop + 0.5} q ${hw * 0.72} -2.8 ${hw * 1.44} 0" stroke="${sh(c, .16)}" stroke-width="1.5" fill="none"/>`;
+      }
+      case 'head:durag': {
+        const hw = eyeW / 2;
+        return `<path d="M ${x - hw} ${eyeY - 1.4} C ${x - hw - 1} ${headTop - 2} ${x + hw + 1} ${headTop - 2} ${x + hw} ${eyeY - 1.4} Z" fill="${c}"/>`
+          + `<path d="M ${x + hw - 1.5} ${eyeY - 7} q 11.5 7 8.4 18.4 q -6 -2.4 -9 -10 Z" fill="${sh(c, -.16)}"/>`
+          + `<path d="M ${x - hw + 1.5} ${eyeY - 7} q -11.5 7 -8.4 18.4 q 6 -2.4 9 -10 Z" fill="${sh(c, -.16)}"/>`
+          + `<path d="M ${x + hw - 1.5} ${eyeY - 2} q 7 3 8 8" stroke="${sh(c, .2)}" stroke-width="1.2" fill="none"/>`;
+      }
       case 'eyes:shades':
-        return `<rect x="${50 - 16}" y="${H.eyeY - 4}" width="32" height="8.6" rx="3" fill="${c}" stroke="rgba(0,0,0,.5)" stroke-width=".7"/>`
-          + `<rect x="${50 - 14}" y="${H.eyeY - 2}" width="11" height="2.6" rx="1.2" fill="rgba(255,255,255,.3)"/>`
-          + `<rect x="${50 + 3}" y="${H.eyeY - 2}" width="11" height="2.6" rx="1.2" fill="rgba(255,255,255,.3)"/>`;
-      case 'eyes:specs':
-        return `<circle cx="${50 - 7.5}" cy="${H.eyeY}" r="5.4" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
-          + `<circle cx="${50 + 7.5}" cy="${H.eyeY}" r="5.4" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
-          + `<path d="M ${50 - 2.2} ${H.eyeY - .4} h 4.4" stroke="${c}" stroke-width="1.4"/>`
-          + `<path d="M ${50 - 12.9} ${H.eyeY - 1} l -4.4 -1.6 M ${50 + 12.9} ${H.eyeY - 1} l 4.4 -1.6" stroke="${c}" stroke-width="1.1"/>`;
+        return `<rect x="${x - eyeW / 2 - 1.4}" y="${eyeY - 4.2}" width="${eyeW + 2.8}" height="8.6" rx="2.9" fill="${c}" stroke="rgba(0,0,0,.5)" stroke-width=".7"/>`
+          + `<path d="M ${x - eyeW / 2 - 1.4} ${eyeY - 0.6} h ${eyeW + 2.8}" stroke="${sh(c, .3)}" stroke-width="1" opacity=".5"/>`
+          + `<rect x="${x - eyeDx - 4.2}" y="${eyeY - 2.2}" width="8.4" height="2.4" rx="1.1" fill="rgba(255,255,255,.3)"/>`
+          + `<rect x="${x + eyeDx - 4.2}" y="${eyeY - 2.2}" width="8.4" height="2.4" rx="1.1" fill="rgba(255,255,255,.3)"/>`;
+      case 'eyes:specs': {
+        const r = eyeW * 0.135;
+        return `<circle cx="${x - eyeDx}" cy="${eyeY + 0.3}" r="${r}" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
+          + `<circle cx="${x + eyeDx}" cy="${eyeY + 0.3}" r="${r}" fill="rgba(205,228,240,.28)" stroke="${c}" stroke-width="1.4"/>`
+          + `<path d="M ${x - r * 0.4} ${eyeY - 0.1} h ${r * 0.8}" stroke="${c}" stroke-width="1.4"/>`
+          + `<path d="M ${x - eyeDx - r} ${eyeY - 0.7} l -4.2 -1.5 M ${x + eyeDx + r} ${eyeY - 0.7} l 4.2 -1.5" stroke="${c}" stroke-width="1.1"/>`;
+      }
       case 'mouth:bandana':
-        return `<path d="M ${50 - 16.5} ${H.faceCy + 8} q 16.5 -3.6 33 0 v 8.4 q -16.5 4 -33 0 Z" fill="${c}"/>`
-          + `<path d="M ${50 - 16.5} ${H.faceCy + 12} q 16.5 3.6 33 0" stroke="${sh(c, .2)}" stroke-width="1" fill="none" opacity=".7"/>`;
-      case 'mouth:balaclava':
-        return `<path d="M ${50 - 18} ${H.headCy - 4} C ${50 - 19} ${H.headCy - 26} ${50 + 19} ${H.headCy - 26} ${50 + 18} ${H.headCy - 4} C ${50 + 19} ${H.chinY + 8} ${50 - 19} ${H.chinY + 8} ${50 - 18} ${H.headCy - 4} Z" fill="${c}"/>`
-          + `<rect x="${50 - 11}" y="${H.eyeY - 3.4}" width="22" height="7" rx="3.4" fill="#14161a"/>`
-          + `<path d="M ${50 - 11} ${H.eyeY - .8} h 22" stroke="${sh(c, .35)}" stroke-width=".8" opacity=".6"/>`;
+        return `<path d="M ${x - jawW / 2 - 1} ${mouthY - 3} q ${jawW / 2 + 1} -2.6 ${jawW + 2} 0 v 8 q -${(jawW + 2) / 2} 3.4 -${jawW + 2} 0 Z" fill="${c}"/>`
+          + `<path d="M ${x - jawW / 2 - 1} ${mouthY - 3} q -5.4 -0.5 -7.6 2.9 q 5 2.6 7.6 2.9 Z" fill="${sh(c, -.22)}"/>`
+          + `<path d="M ${x - jawW / 2 - 1} ${mouthY + 2.4} q ${jawW / 2 + 1} 2.8 ${jawW + 2} 0" stroke="${sh(c, .2)}" stroke-width=".9" fill="none" opacity=".7"/>`;
+      case 'mouth:balaclava': {
+        const hw = capW / 2;
+        const slitW = eyeW * 0.62;
+        return `<path d="M ${x - hw - 2.4} ${eyeY - 4} C ${x - hw - 3.6} ${headTop - 3.5} ${x + hw + 3.6} ${headTop - 3.5} ${x + hw + 2.4} ${eyeY - 4} C ${x + hw + 3} ${chinY + 2.5} ${x - hw - 3} ${chinY + 2.5} ${x - hw - 2.4} ${eyeY - 4} Z" fill="${c}"/>`
+          + `<rect x="${x - slitW / 2}" y="${eyeY - 3.6}" width="${slitW}" height="7.2" rx="3.6" fill="#14161a"/>`
+          + `<path d="M ${x - slitW / 2} ${eyeY - 1} h ${slitW}" stroke="${sh(c, .35)}" stroke-width=".7" opacity=".6"/>`
+          + `<path d="M ${x - hw - 2.4} ${eyeY + 7} q ${hw + 2.4} -2.6 ${capW + 4.8} 0" stroke="${sh(c, -.25)}" stroke-width="1" fill="none" opacity=".6"/>`;
+      }
       case 'mouth:resp':
-        return `<path d="M ${50 - 13.5} ${H.faceCy + 6} q 13.5 -3.4 27 0 q 2 10.6 -13.5 12.8 q -15.5 -2.2 -13.5 -12.8 Z" fill="${c}"/>`
-          + `<circle cx="${50 - 8.4}" cy="${H.faceCy + 12}" r="3.4" fill="${sh(c, -.3)}"/>`
-          + `<circle cx="${50 + 8.4}" cy="${H.faceCy + 12}" r="3.4" fill="${sh(c, -.3)}"/>`;
+        return `<path d="M ${x - eyeW * 0.41} ${mouthY - 3} q ${eyeW * 0.41} -3 ${eyeW * 0.82} 0 q 1.6 9.6 -${eyeW * 0.41} 11.4 q -${eyeW * 0.41} -1.8 -${eyeW * 0.82} -11.4 Z" fill="${c}"/>`
+          + `<circle cx="${x - eyeDx * 1.15}" cy="${mouthY + 3.4}" r="3" fill="${sh(c, -.3)}"/>`
+          + `<circle cx="${x + eyeDx * 1.15}" cy="${mouthY + 3.4}" r="3" fill="${sh(c, -.3)}"/>`
+          + `<path d="M ${x - eyeW * 0.41} ${mouthY - 2} l -4.4 -1.8 M ${x + eyeW * 0.41} ${mouthY - 2} l 4.4 -1.8" stroke="${sh(c, -.24)}" stroke-width="1.8"/>`;
       case 'neck:chain':
-        return `<path d="M ${50 - 10} ${H.neckY - 4} q 10 8.5 20 0" stroke="${c}" stroke-width="2.4" fill="none"/>`
-          + `<circle cx="50" cy="${H.neckY + 6.4}" r="3.4" fill="${c}" stroke="${sh(c, -.35)}" stroke-width=".8"/>`
-          + `<circle cx="49.2" cy="${H.neckY + 5.4}" r="1.1" fill="${sh(c, .45)}" opacity=".85"/>`;
-      case 'neck:scarf':
-        return `<path d="M ${50 - 11.5} ${H.neckY - 6} q 11.5 9 23 0 q 1.2 6.6 -0.7 9.8 q -10.3 6 -20.6 0 q -1.9 -3.2 -0.7 -9.8 Z" fill="${c}"/>`
-          + `<path d="M ${50 + 6} ${H.neckY + 2} l 5 21 l -6.4 1.2 l -3 -20 Z" fill="${sh(c, -.14)}"/>`
-          + `<path d="M ${50 - 11.5} ${H.neckY + 1.4} q 11.5 4.6 23 0" stroke="${sh(c, .24)}" stroke-width="1.5" fill="none" opacity=".8"/>`;
+        return `<path d="M ${x - eyeW * 0.3} ${neckY - 2} q ${eyeW * 0.3} 9 ${eyeW * 0.6} 0" stroke="${c}" stroke-width="2.4" fill="none"/>`
+          + `<circle cx="${x}" cy="${neckY + 8.6}" r="3.2" fill="${c}" stroke="${sh(c, -.35)}" stroke-width=".8"/>`
+          + `<circle cx="${x - 0.8}" cy="${neckY + 7.8}" r="1" fill="${sh(c, .45)}" opacity=".85"/>`;
+      case 'neck:scarf': {
+        const sw = eyeW * 0.42;
+        return `<path d="M ${x - sw} ${neckY - 4.5} q ${sw} 8 ${sw * 2} 0 q 1 5.8 -0.6 8.6 q -${sw * 0.92} 5.2 -${sw * 1.84} 0 q -1.6 -2.8 -0.3 -8.6 Z" fill="${c}"/>`
+          + `<path d="M ${x + sw * 0.5} ${neckY + 3.4} l 4.2 19 l -5.6 1 l -2.6 -18 Z" fill="${sh(c, -.14)}"/>`
+          + `<path d="M ${x - sw} ${neckY + 0.8} q ${sw} 4.2 ${sw * 2} 0" stroke="${sh(c, .24)}" stroke-width="1.4" fill="none" opacity=".8"/>`;
+      }
       default:
         return '';
     }
   }
-  // Accessory overlay for a look string: only the parts a chest-up photo shows.
-  function portraitOverlay(look) {
+  // Accessory overlay for a look string on a given face anchor: only the parts
+  // a chest-up photo shows (head / eyes / mouth / neck).
+  function portraitOverlay(look, O) {
+    const G = geomOf(O);
     const r = parse(look);
     const usable = ['head', 'eyes', 'mouth', 'neck'];
     const bits = r.pieces.filter(p => usable.includes(p.part))
       .sort((a, b) => (a.part === 'mouth' ? 0 : 1) - (b.part === 'mouth' ? 0 : 1));
     let inner = '';
-    for (const p of bits) { try { inner += overlayPiece(p.part, p.style, p.col) || ''; } catch (e) {} }
+    for (const p of bits) { try { inner += overlayPiece(p.part, p.style, p.col, G) || ''; } catch (e) {} }
     if (!inner) return '';
     return `<svg viewBox="0 0 100 100" class="av-overlay" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
   }
@@ -581,30 +660,23 @@
     size = size || 64;
     opts = opts || {};
     const look = (p && typeof p.avatar === 'string') ? p.avatar : (typeof p === 'string' ? p : 'm|');
-    const face = (p && p.portrait) ? p.portrait : '';
+    const O = anchorOf(p);
     let src = '';
-    if (face === 'custom' && p.pic) src = p.pic;
-    else if (face && face !== 'custom') src = PORTRAIT_FILES[face];
+    if (p && p.portrait === 'custom' && p.pic) src = p.pic;
+    else if (p && p.portrait && p.portrait !== 'custom') src = (PORTRAIT_FILES[p.portrait] || {}).file || '';
     const badge = [];
     if (opts.online) badge.push('<span class="av-online" title="online now"></span>');
     if (opts.wanted > 0) badge.push('<span class="av-wanted" title="' + opts.wanted + '-star warrant">' + '★'.repeat(opts.wanted) + '</span>');
     if (src) {
       return `<span class="av-photo ${opts.cls || ''}" style="width:${size}px;height:${size}px" title="${S(p && p.name || 'citizen').replace(/"/g, '&quot;')}">`
         + `<img src="${src}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;display:block">`
-        + portraitOverlay(look)
+        + portraitOverlay(look, O)
         + badge.join('')
         + '</span>';
     }
     // no portrait data (dense lists for uploaders, legacy junk): the town model
     return `<span class="av-fallback ${opts.cls || ''}" style="width:${size}px;height:${size}px;display:inline-block">${svgFor(look, size)}</span>`;
   }
-  // catalog map id → /img/portraits/file (kept in sync by tools/check-t26.js)
-  const PORTRAIT_FILES = {
-    p01: '/img/portraits/p01.jpg', p02: '/img/portraits/p02.jpg', p03: '/img/portraits/p03.jpg',
-    p04: '/img/portraits/p04.jpg', p05: '/img/portraits/p05.jpg', p06: '/img/portraits/p06.jpg',
-    p07: '/img/portraits/p07.jpg', p08: '/img/portraits/p08.jpg', p09: '/img/portraits/p09.jpg',
-    p10: '/img/portraits/p10.jpg'
-  };
 
   const SURFACES = ['doll', 'svgFor', 'duel', 'scene', 'mugshot', 'banner', 'wear', 'parts', 'random', 'parse', 'figure', 'styleOf', 'svgDataUri', 'portraitDataUri', 'portraitFor', 'portraitOverlay', 'portraitSrc'];
   ROOT.AV = {
@@ -613,7 +685,8 @@
     portraitSrc: (p) => {
       if (!p) return '';
       if (p.portrait === 'custom' && p.pic) return p.pic;
-      return PORTRAIT_FILES[p.portrait] || '';
+      const e = PORTRAIT_FILES[p.portrait];
+      return (e && e.file) || '';
     },
     PARTS, PART_LABEL, BODIES, STYLES: P,
     styleOf: (look) => parse(look).pieces.map(p => p.style),

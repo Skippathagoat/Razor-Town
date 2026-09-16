@@ -65,13 +65,13 @@
       }
     },
     confetti() {
-      const r = this.rect(); const colors = ['#e5b95e', '#c7a252', '#9c3228', '#8f2f28', '#b7a987', '#e9e0c9'];
+      const r = this.rect(); const colors = ['#a678e8', '#d879c9', '#8a5fd0', '#6a48b8', '#c8a5f5', '#f1edfb'];
       for (let i = 0; i < 140; i++) {
         this.parts.push({ x: Math.random() * r.w, y: -20 - Math.random() * 300, vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.2, life: 1, d: 2 + Math.random() * 1.6, c: colors[i % colors.length], s: 3 + Math.random() * 4, g: 0.05, rot: Math.random() * 6, vr: (Math.random() - .5) * .3, sq: true });
       }
     },
     cashSprinkle(x, y) { this.burst(x, y, ['#ffd166', '#ff9f43', '#fff3c4'], 26, 3.6, 2.6); },
-    splash(x, y) { this.burst(x, y, ['#c7a252', '#9c3228', '#e9e0c9'], 18, 2.6, 2.2); },
+    splash(x, y) { this.burst(x, y, ['#8a5fd0', '#b04a9e', '#e9e4f5'], 18, 2.6, 2.2); },
     floatText(txt, x, y, cls) {
       const el = document.createElement('div');
       el.className = 'floater ' + (cls || '');
@@ -1104,7 +1104,7 @@
     const c = G.meta.crimes.find(x => x.id === res.id);
     if (!c) { closeScene(); applyMe(r.p, res); return; }
     if (res.busted === 'jail') {
-      SND.bust(); shakeAmp($('#game-body'), 8); FX.burst(undefined, undefined, ['#b0453c', '#e5b95e', '#e9e0c9'], 40, 5, 4);
+      SND.bust(); shakeAmp($('#game-body'), 8); FX.burst(undefined, undefined, ['#c24236', '#e05248', '#e9e4f5'], 40, 5, 4);
       root.innerHTML = `<div class="modal scene active"><div class="scene-card lose"><div class="scene-title">NICKED!</div>
         <div class="scene-sub">Sirens. Cuffs. The whole crew scatters.</div>
         <p style="color:var(--bad);font-weight:700">Sent to jail for ${fmtDur(res.jailMin * 60000)}.</p>
@@ -1617,7 +1617,7 @@
     const names = { courier: 'The Exchange Run', ledger: 'The Ghost Ledger', crown: 'The Crown Suite' };
     const acts = Object.entries(hs).filter(([, h]) => h && ((h.stage || 0) > 0 || (h.cool || 0) > Date.now()));
     if (!acts.length) return '';
-    return `<div class="card" style="padding:10px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;border-color:rgba(212,175,55,.35)">
+    return `<div class="card" style="padding:10px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;border-color:rgba(166,120,232,.42)">
       <span style="font-size:10.5px;letter-spacing:1.2px;color:var(--gold)">🎯 OPEN HEISTS</span>${acts.map(([g, h]) => {
         const cooling = (h.cool || 0) > Date.now();
         const stg = h.stage || 0;
@@ -2717,14 +2717,14 @@
       </div></div>
       <div class="grid2 profile-grid">
         <div class="dollframe">
-          ${(me.portrait && AV.portraitSrc(me)) ? `<div class="av-photo" style="width:100%;height:210px;box-sizing:border-box">${AV.portraitSrc(me)}</div>`
-            : (me.pic ? `<img src="${me.pic}" alt="profile picture" style="width:100%;display:block;border-radius:8px">`
+          ${AV.portraitSrc(me) ? AV.portraitFor(me, 210, { cls: 'av-profile' })
+            : (me.pic ? AV.portraitFor(Object.assign({}, me, { portrait: 'custom' }), 210, { cls: 'av-profile' })
             : ((me.jail_until && me.jail_until > Date.now()) ? AV.mugshot(me.avatar, 210, me.name) : AV.doll(me.avatar, 210)))}
           <div class="dollname">${esc(me.name)}</div>
           <div class="dollsub">${origin ? esc(origin.name) : ''} · Level ${me.level}${me.profile_visits ? ` · 👁 ${(me.profile_visits || 0).toLocaleString()} visits` : ''}</div>
           <div class="dollbio">${esc(me.bio || '')}</div>
           <div class="statgrid" style="margin-top:10px">
-            ${['st','de','sp','dx'].map(k => `<div class="statcell"><div class="snum">${Math.floor(me.stats[k])}</div><div class="slab">${F[k]}</div></div>`).join('')}
+            ${['st','de','sp','dx'].map(k => `<div class="statcell"><div class="snum">${Math.floor(me.stats[k])}</div><div class="slab">${F(k)}</div></div>`).join('')}
           </div>
         </div>
         <div>
@@ -2976,11 +2976,16 @@
       : `<div style="width:120px;height:165px;border-radius:6px;border:1px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;text-align:center;padding:6px;box-sizing:border-box">no picture — the citizen drawing is used</div>`;
   }
   function prefPrevHTML() {
-    if (PREFS.portrait) {
-      const src = (G.meta.portraits || []).find(p => p.id === PREFS.portrait);
-      if (src) return `<div class="av-photo" style="width:120px;height:150px;box-sizing:border-box;margin:0 auto"><img src="/img/portraits/${src.file}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center 18%"></div>`;
+    // the preview wears the equipped kit on the picked face, so you can see
+    // exactly what the town will see before you save
+    if (PREFS.portrait || PREFS.pic) {
+      return AV.portraitFor({
+        name: G.me ? G.me.name : 'citizen',
+        avatar: prefLookWith(PREFS.gender),
+        portrait: PREFS.portrait || (PREFS.pic ? 'custom' : ''),
+        pic: PREFS.pic
+      }, 150);
     }
-    if (PREFS.pic) return picBoxHTML(PREFS.pic);
     return AV.doll(prefLookWith(PREFS.gender), 150);
   }
   let prefLook = (g) => g + '|';
@@ -3018,7 +3023,7 @@
           ${me.pic ? `<div class="portrait-cell ${PREFS.portrait === 'custom' ? 'on' : ''}" data-act="pref-face" data-portrait="custom" role="button" title="Your uploaded picture">
             <img src="${me.pic}" alt="" loading="lazy"><span class="pc-cap">Your picture</span></div>` : ''}
           <div class="portrait-cell" data-act="pref-face" data-portrait="" role="button" title="No face — the citizen drawing">
-            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;background:#1c2027">🎭</div><span class="pc-cap">No face</span></div>
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;background:#171226">🎭</div><span class="pc-cap">No face</span></div>
         </div>
         <button class="btn ghost sm" data-act="pref-reroll" style="margin-top:2px">🎲 Reroll</button>
       </div>
@@ -3038,7 +3043,7 @@
       const b = e.target.closest('[data-gender]'); if (!b) return;
       PREFS.gender = b.dataset.gender;
       $$('#pref-gender .chip').forEach(x => x.classList.toggle('on', x === b));
-      $('#pref-prev').innerHTML = AV.doll(lookWith(PREFS.gender), 150);
+      $('#pref-prev').innerHTML = prefPrevHTML();
     });
     $('#pref-pic-file').addEventListener('change', e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -3262,14 +3267,14 @@
     v.innerHTML = `
       <div class="vhead"><div><div class="vtitle">📦 <span class="head">SIDE HUSTLES</span></div>
       <div class="vdesc">Legal-ish income between crimes. ${sp.event ? `<b style="color:var(--gold)">${sp.event.icon} ${sp.event.name}</b> — ${sp.event.desc} (${fmtDur(sp.event.until - sp.now)} left)` : 'The city is quiet — no event running.'}</div></div></div>
-      ${sp.event ? `<div class="card" style="border-color:rgba(226,183,20,.5);padding:8px 12px;display:flex;gap:10px;align-items:center"><span style="font-size:20px">${sp.event.icon}</span><div style="flex:1"><b>${sp.event.name}</b> <span style="color:var(--dim);font-size:12px">— ${sp.event.desc}</span></div><span class="mono" style="color:var(--gold)">${fmtDur(sp.event.until - sp.now)}</span></div>` : ''}
+      ${sp.event ? `<div class="card" style="border-color:rgba(166,120,232,.5);padding:8px 12px;display:flex;gap:10px;align-items:center"><span style="font-size:20px">${sp.event.icon}</span><div style="flex:1"><b>${sp.event.name}</b> <span style="color:var(--dim);font-size:12px">— ${sp.event.desc}</span></div><span class="mono" style="color:var(--gold)">${fmtDur(sp.event.until - sp.now)}</span></div>` : ''}
       <div class="grid2">
         <div class="card"><div class="subhead">📋 Gig board — refreshes every 4h</div>
           ${(gig.ids || []).filter(g => g && g.id).map(g => `<div class="kv" style="align-items:center"><span class="k" style="flex:1">${g.icon} <b>${g.name}</b><br><span style="color:var(--dim);font-size:11px">${g.desc}</span></span>
             <span class="v" style="text-align:right"><b style="color:var(--gold)">$${g.cash[0].toLocaleString()}–${g.cash[1].toLocaleString()}</b><br>
             <button class="btn cyan xs" data-act="gig_do" data-gig="${g.id}" ${me.energy < g.energy ? 'disabled' : ''}>Do it (${g.energy}⚡)</button></span></div>`).join('') || '<p style="color:var(--dim)">The board rotates soon.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${gig.left}/${(gig.ids || []).length * 3} gigs done this rotation · ${gig.slots} slots</div></div>
-        <div class="card" style="border-color:rgba(91,192,190,.38)"><div class="subhead">📜 City Contracts <span class="pill" style="color:var(--cyn);margin-left:5px">${contracts.catalogSize.toLocaleString()} live leads</span></div>
+        <div class="card" style="border-color:rgba(166,120,232,.3)"><div class="subhead">📜 City Contracts <span class="pill" style="color:var(--cyn);margin-left:5px">${contracts.catalogSize.toLocaleString()} live leads</span></div>
           <p style="color:var(--mut);font-size:12px;margin:0 0 7px">Three one-shot jobs, selected for you every four hours. Match the weather for +8% success.</p>
           ${(contracts.offers || []).map(c => `<div class="kv" style="align-items:center;border-top:1px solid var(--line);padding:8px 0"><span class="k" style="flex:1;min-width:0">${c.icon} <b>#${c.serial} · ${esc(c.name)}</b><br><span style="color:var(--dim);font-size:11px">${esc(c.sector)} · ${esc(c.blurb)}</span><br><span style="font-size:10.5px;color:${c.weatherLive ? 'var(--ok)' : 'var(--dim)'}">${c.weatherLive ? '✦ Weather edge active: +8%' : `Best in ${esc(c.weather)}`}</span></span>
             <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br><span style="font-size:11px;color:var(--dim)">${c.chance}% · 🧠 ${c.nerve}</span><br>
@@ -3281,7 +3286,7 @@
             <span class="v" style="text-align:right;white-space:nowrap"><b style="color:var(--gold)">$$${c.cash[0].toLocaleString()}–${c.cash[1].toLocaleString()}</b><br>
             <button class="btn ${c.done ? 'ghost' : 'gold'} xs" data-act="night_lead" data-lead="${c.id}" ${c.done || me.energy < c.energy || me.nerve < c.nerve ? 'disabled' : ''}>${c.done ? 'Closed' : `Run (${c.energy}⚡)`}</button></span></div>`).join('') || '<p style="color:var(--dim)">No briefs came through this rotation.</p>'}
           <div style="color:var(--dim);font-size:11.5px;margin-top:6px">${(sp.nights && sp.nights.completed) || 0}/3 closed · ${(sp.nights && sp.nights.wins) || 0} clean</div></div>
-        <div class="card" style="border-color:rgba(90,200,250,.28)"><div class="subhead">📡 Wire Favours <span class="pill" style="color:var(--ok);margin-left:5px">${((sp.favours && sp.favours.catalogSize) || 600).toLocaleString()} on the wire</span></div>
+        <div class="card" style="border-color:rgba(216,121,201,.32)"><div class="subhead">📡 Wire Favours <span class="pill" style="color:var(--ok);margin-left:5px">${((sp.favours && sp.favours.catalogSize) || 600).toLocaleString()} on the wire</span></div>
           <p style="color:var(--mut);font-size:12px;margin:0 0 8px">Quiet jobs from the street. Three new favours every 4 hours. ${(sp.favours && sp.favours.total) || 0} closed all-time.</p>
           ${((sp.favours && sp.favours.offers) || []).map(c => `<div class="kv" style="align-items:flex-start"><span class="k">${c.done ? '✓ ' : ''}${c.name}<div style="font-size:11px;color:var(--dim);font-weight:400;margin-top:2px">${c.sector} · ${c.xp} XP · ${c.chance}% · ${c.weatherLive ? 'weather bonus' : c.weather}</div></span>
             <span class="v" style="text-align:right">${money(c.cash[0])}–${money(c.cash[1])}<br>
@@ -4117,7 +4122,7 @@
       const iv = setInterval(() => {
         t += 0.05 + Math.random() * 0.08;
         const m = 1 + Math.pow(t, 1.25) * (0.5 + Math.random() * 0.12);
-        el.innerHTML = `<span class="mono" style="color:${m > 2.4 ? 'var(--gold)' : 'var(--cyn)'};text-shadow:0 0 30px ${m > 2.4 ? 'rgba(229,185,94,.85)' : 'rgba(199,162,82,.6)'}">${m.toFixed(2)}×</span>`;
+        el.innerHTML = `<span class="mono" style="color:${m > 2.4 ? 'var(--gold)' : 'var(--cyn)'};text-shadow:0 0 30px ${m > 2.4 ? 'rgba(229,185,94,.85)' : 'rgba(166,120,232,.7)'}">${m.toFixed(2)}×</span>`;
         if (t > 1.9) { clearInterval(iv); resolve(); }
       }, 110);
     });
