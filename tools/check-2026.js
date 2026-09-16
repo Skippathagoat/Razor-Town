@@ -49,11 +49,11 @@ const uniq = Date.now().toString(36);
 
   const panel = async (tok) => (await req('/api/sys/panel', { token: tok })).j;
 
-  // ---- avatar clamping (new catalog + 6 parts) ----
-  const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9' } });
-  ok(pr.code === 200 && pr.j.p.avatar === '8|21|24|13|7|1', 'avatar clamp to new catalog');
+  // ---- avatar clamping (Rainlight catalog + 8 parts) ----
+  const pr = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '99|99|99|99|99|9|99|99' } });
+  ok(pr.code === 200 && pr.j.p.avatar === '15|35|56|38|15|7|11|23', 'avatar clamp to new catalog');
   const pr5 = await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '1|2|3|4|5' } });
-  ok(pr5.j.p.avatar === '1|2|3|4|5|0', 'legacy 5-part spec keeps body 0');
+  ok(pr5.j.p.avatar === '1|2|3|4|5|0|0|0', 'legacy 5-part spec fills eyes + facial with 0');
 
   // ---- dev: fund both testers
   for (const t of [A, B]) {
@@ -277,12 +277,83 @@ const uniq = Date.now().toString(36);
   r = await act(A.tok, 'respec_apply', { stats: { st: 5, de: 5, sp: 5, dx: 5 } });
   ok(r.code === 400, 'respec one-shot enforced');
 
+  // ================= INFORMANT NETWORK =================
+  {
+    // the meta payload advertises the 1,000-lead catalog
+    const m2 = await req('/api/meta');
+    ok(m2.j.informants && m2.j.informants.count === 1000 && m2.j.informants.perRotation === 6, 'meta: 1,000-informant network');
+
+    // fund the tester so the board is affordable, then read the board
+    await req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'grant_cash', amount: 5000000 } });
+    let pn = await panel(A.tok);
+    ok(pn.informants && pn.informants.leads.length === 6 && pn.informants.total === 1000, 'panel: six leads ride the board');
+    const lead = pn.informants.leads.slice().sort((a, b) => a.price - b.price)[0];
+    ok(lead && lead.price > 0 && lead.reliability >= 0.4 && lead.strength > 0, 'panel: a lead carries a price, a reliability and a payout');
+
+    // forged + duplicate guards
+    r = await act(A.tok, 'informant_hire', { informantId: 'inf_not_a_real_lead' });
+    ok(r.code === 400, 'a forged informant id is refused');
+    const offBoard = (pn.informants.leads.some(l => l.id === 'inf_coppers_lock_cut_bribe')) ? 'inf_dockers_lamp_row_edge' : 'inf_coppers_lock_cut_bribe';
+    r = await act(A.tok, 'informant_hire', { informantId: offBoard });
+    ok(r.code === 400, 'a lead that is not on the board is refused');
+
+    // buy the cheapest lead, then buy it again
+    const moneyBefore = (await req('/api/me', { token: A.tok })).j.me.money;
+    r = await act(A.tok, 'informant_hire', { informantId: lead.id });
+    ok(r.code === 200 && r.j.res && typeof r.j.res.landed === 'boolean' && r.j.p.money === moneyBefore - lead.price, 'buying a lead charges the price and reports the outcome');
+    const spent = moneyBefore - r.j.p.money;
+    ok(spent === r.j.res.price, 'the reported price is what left the purse');
+    const dup = await act(A.tok, 'informant_hire', { informantId: lead.id });
+    ok(dup.code === 400, 'the same lead cannot be bought twice in a rotation');
+  }
+
+  // ================= FOUNDER CONSOLE =================
+  {
+    // new self tools
+    for (const op of ['make_whole', 'random_look', 'give_all_tips', 'comp_leads', 'cool_heat']) {
+      const rr = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op } });
+      ok(rr.code === 200, 'founder self tool: ' + op);
+    }
+    const whole = await req('/api/dev/self', { method: 'POST', token: ftok, body: { op: 'make_whole' } });
+    ok(whole.j.me.stats.st === 500 && whole.j.me.level === 100, 'make-me-whole raises stats and level');
+
+    // world dials
+    let w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'weather', kind: 'fog' } });
+    ok(w.code === 200 && w.j.weather === 'fog', 'the founder can force the weather');
+    w = await panel(A.tok);
+    ok(w.weather.id === 'fog' && w.weather.forced, 'the forced weather shows up in the panel');
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'economy', payout: 150, danger: 50 } });
+    ok(w.code === 200 && w.j.dials.payout === 150 && w.j.dials.danger === 50, 'the founder can move the economy dials');
+    const mt = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'metrics' } });
+    ok(mt.code === 200 && mt.j.metrics && mt.j.metrics.informants === 1000 && mt.j.metrics.contracts === 1000, 'the live metrics board reports the catalogs');
+    const evId = ((await req('/api/meta')).j.events[0] || {}).id;
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'event', event: evId, minutes: 20 } });
+    ok(w.code === 200 && w.j.event === evId, 'the founder can trigger a city event');
+
+    // bot spawning + per-target tools, then clean up
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'spawn_bot', count: 2 } });
+    ok(w.code === 200 && w.j.made.length === 2, 'the founder can spawn NPC citizens');
+    const botId = w.j.made[0].id;
+    for (const [op, body] of [['set_look', {}], ['give_tip', { kind: 'payoff' }], ['set_level_target', { value: 12 }], ['heal_target', {}], ['cool_heat_target', {}]]) {
+      const rr = await req('/api/dev/world', { method: 'POST', token: ftok, body: Object.assign({ op, target: botId }, body) });
+      ok(rr.code === 200, 'founder world tool: ' + op);
+    }
+    const botRow = (await req('/api/dev/panel', { token: ftok })).j.players;
+    w = await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'purge_bots' } });
+    ok(w.code === 200 && w.j.purged >= 2, 'the founder can purge every NPC');
+
+    // dials back to neutral so later assertions see a normal world
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'economy', payout: 100, danger: 100 } });
+    await req('/api/dev/world', { method: 'POST', token: ftok, body: { op: 'weather', kind: 'auto' } });
+    ok(Array.isArray(botRow), 'the dev panel still serves its player list');
+  }
+
   // ================= WARDROBE =================
   r = await act(A.tok, 'wardrobe_save', { slot: 0 });
   ok(r.code === 200, 'wardrobe save');
-  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '2|3|4|5|6|1' } });
+  await req('/api/updateprofile', { method: 'POST', token: A.tok, body: { avatar: '2|3|4|5|6|1|2|3' } });
   r = await act(A.tok, 'wardrobe_load', { slot: 0 });
-  ok(r.code === 200 && r.j.p.avatar === '1|2|3|4|5|0', 'wardrobe load restores look');
+  ok(r.code === 200 && r.j.p.avatar === '1|2|3|4|5|0|0|0', 'wardrobe load restores look');
 
   // ================= CHALLENGES =================
   p = await panel(A.tok);

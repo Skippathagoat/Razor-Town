@@ -154,6 +154,11 @@ function guard(req, res) {
 // ---------------------------------------------------------------- founder dev tools + payments
 const DEV_USERS = (process.env.DEV_ACCOUNTS || 'ghost,killa1979').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
 const _devCache = new Map();
+const AV_MAX = () => (A.AVATAR_MAX || { skin: 15, face: 35, hair: 56, shirt: 38, accent: 15, body: 7, eyes: 11, facial: 23 });
+const rndPart = (n) => Math.floor(Math.random() * (n + 1));
+const randomLook = () => { const m = AV_MAX(); return ['skin','face','hair','shirt','accent','body','eyes','facial'].map(k => rndPart(m[k])).join('|'); };
+const BOT_NAMES = ['Nobby','Sid','Gladys','Percy','Doris','Ron','Elsie','Albert','Mabel','Frank','Ivy','Stan'];
+
 function isDevAcc(accId) {
   if (accId == null) return false;
   if (_devCache.has(accId)) return _devCache.get(accId);
@@ -190,6 +195,8 @@ function metaPayload(){
     cars: C.CARS, gigs: C.GIGS, recipes: C.RECIPES, districts: C.DISTRICTS, titles: C.TITLES,
     drops: C.DROP_POOL, dropPrices: C.SNEAKER_DROP_PRICE, emotes: C.EMOTES, factionOperations: C.FACTION_OPERATIONS,
     contractCatalog: { count: C.CITY_CONTRACTS.length, rotationHours: 4, offersPerRotation: 3 },
+    informants: { count: S.INF.INFORMANTS.length, rotationHours: 4, perRotation: 6 },
+    events: (C.EVENTS || []).map(e => ({ id: e.id, name: e.name, icon: e.icon, dur: e.dur })),
     nightCatalog: { count: C.NIGHT_LEADS.length, rotationHours: 4, offersPerRotation: 3 },
     favourCatalog: { count: C.WIRE_FAVOURS.length, rotationHours: 4, offersPerRotation: 3 },
     street: { pets: (C.PETS||[]).length, tats: (C.TATTOOS||[]).length, food: (C.STREET_FOOD||[]).length, venues: (C.NIGHTLIFE_VENUES||[]).length, contacts: (C.CONTACTS||[]).length, hideouts: (C.HIDEOUTS||[]).length, crates: (C.LOOT_CRATES||[]).length, skins: (C.WEAPON_SKINS||[]).length, mods: (C.VEHICLE_MODS||[]).length } };
@@ -307,10 +314,10 @@ const routes = async (req, res, urlPath, q) => {
     if (typeof body.avatar === 'string') {
       // clamp every part against the live catalog, exactly like the creator does
       const parts = String(body.avatar).split('|').map(x => parseInt(x, 10));
-      const maxes = [A.AVATAR_MAX.skin, A.AVATAR_MAX.face, A.AVATAR_MAX.hair, A.AVATAR_MAX.shirt, A.AVATAR_MAX.accent, A.AVATAR_MAX.body];
-      p.avatar = maxes.map((mx, i) => {
+      const slots = A.AVATAR_SLOTS || ['skin', 'face', 'hair', 'shirt', 'accent', 'body'];
+      p.avatar = slots.map((k, i) => {
         const v = parts[i];
-        return Number.isFinite(v) ? Math.max(0, Math.min(mx, v)) : 0;
+        return Number.isFinite(v) ? Math.max(0, Math.min(A.AVATAR_MAX[k], v)) : 0;
       }).join('|');
     }
     if (typeof body.bio === 'string') p.bio = String(body.bio).replace(/[<>&]/g, '').slice(0, 120);
@@ -478,6 +485,39 @@ const routes = async (req, res, urlPath, q) => {
         p.jail_until = Date.now() + mins * 60000; break;
       }
       case 'wipe_items': p.items = {}; break;
+      case 'make_whole': {
+        // one switch that leaves a founder test-ready: stats, level, bars, courses, feats
+        p.stats = { st: 500, de: 500, sp: 500, dx: 500 };
+        p.xp = Math.max(p.xp || 0, 5000000); p.level = Math.max(p.level || 1, 100);
+        p.life = p.max_life = 5000; p.energy = p.max_energy = 1000; p.nerve = p.max_nerve = 100;
+        p.happy = p.max_happy = 100; p.money = Math.max(p.money || 0, 50000000);
+        p.courses = p.courses || {}; for (const c of C.COURSES) p.courses[c.id] = Date.now();
+        p.achievements = p.achievements || {}; for (const k of Object.keys(C.ACHIEVEMENTS)) p.achievements[k] = Date.now();
+        p.course = null; p.course_ends = null; p.jail_until = 0; p.hosp_until = 0;
+        break;
+      }
+      case 'random_look': p.avatar = randomLook(); break;
+      case 'give_all_tips': {
+        const kinds = { edge: 60, payoff: 80, fence: 80, bail: 60, muscle: 40, crew: 40 };
+        try {
+          p.sys = p.sys || {}; p.sys.tips = p.sys.tips || {};
+          for (const k of Object.keys(kinds)) p.sys.tips[k] = { s: kinds[k], until: Date.now() + 24 * 3600000, label: S.TIP_LABEL[k], from: 'founder override' };
+        } catch (_) {}
+        break;
+      }
+      case 'clear_tips': { try { if (p.sys) p.sys.tips = {}; } catch (_) {} break; }
+      case 'comp_leads': {
+        // every lead on this rotation's board is treated as bought
+        try {
+          const rot = S.INF.rotationOf();
+          p.sys = p.sys || {}; p.sys.inf = p.sys.inf || { hires: 0, spent: 0, hits: 0, blown: 0, roster: {} };
+          p.sys.inf.roster = p.sys.inf.roster || {};
+          for (const l of S.INF.board(id, rot, 6)) p.sys.inf.roster[l.id] = rot;
+        } catch (_) {}
+        break;
+      }
+      case 'cool_heat': { try { if (p.sys && p.sys.life) { p.sys.life.heat = 0; p.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
+      case 'set_happy': p.happy = Math.max(0, Math.min(p.max_happy || 100, parseInt(body.value, 10) || 100)); break;
       case 'spawn_all_cars': {
         try {
           const cars = C.CARS || [];
@@ -512,6 +552,56 @@ const routes = async (req, res, urlPath, q) => {
       db.prepare('UPDATE pay_claims SET status=?, decided_by=?, decided_ts=? WHERE id=?').run(approve ? 'approved' : 'declined', id, Date.now(), claimId);
       return send(res, 200, { ok: true, decided: approve ? 'approved' : 'declined' });
     }
+    if (op === 'weather') {
+      const kind = String(body.kind || 'auto');
+      S.setWeatherOverride(kind === 'auto' ? null : kind);
+      return send(res, 200, { ok: true, weather: kind });
+    }
+    if (op === 'event') {
+      const ev = (C.EVENTS || []).find(x => x.id === String(body.event));
+      if (!ev) return send(res, 400, { err: 'No such city event — try ' + (C.EVENTS || []).slice(0, 4).map(x => x.id).join(', ') });
+      S.setEventOverride(ev.id, Math.max(1, Math.min(180, parseInt(body.minutes, 10) || 20)));
+      return send(res, 200, { ok: true, event: ev.id });
+    }
+    if (op === 'economy') {
+      const dials = S.setDials({ payout: body.payout, danger: body.danger });
+      return send(res, 200, { ok: true, dials });
+    }
+    if (op === 'spawn_bot') {
+      const n = Math.max(1, Math.min(10, parseInt(body.count, 10) || 1));
+      const made = [];
+      for (let i = 0; i < n; i++) {
+        const uname = '~npc' + Date.now().toString(36) + i + Math.floor(Math.random() * 900 + 100);
+        const nm = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + ' ' + BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+        try {
+          const acc = A.createAccount(uname, 'npc' + Math.random().toString(36).slice(2, 10), 'bot');
+          const pj = A.createPlayerForAccount(acc, { name: nm, origin: 'street', avatar: randomLook(), bio: 'Put here by the founder.' });
+          made.push({ id: acc.id, name: pj.name });
+        } catch (_) {}
+      }
+      pushAll('news', { n: 1 });
+      return send(res, 200, { ok: true, made });
+    }
+    if (op === 'purge_bots') {
+      const bots = db.prepare("SELECT id FROM accounts WHERE kind='bot'").all();
+      for (const b of bots) { try { db.prepare('DELETE FROM players WHERE acc_id=?').run(b.id); db.prepare('DELETE FROM accounts WHERE id=?').run(b.id); } catch (_) {} }
+      return send(res, 200, { ok: true, purged: bots.length });
+    }
+    if (op === 'metrics') {
+      const accs = db.prepare('SELECT COUNT(*) c FROM accounts').get().c;
+      const plrs = db.prepare('SELECT COUNT(*) c FROM players').get().c;
+      const gangs = db.prepare('SELECT COUNT(*) c FROM factions').get().c;
+      return send(res, 200, { ok: true, metrics: {
+        accounts: accs, players: plrs, gangs,
+        informants: S.INF.INFORMANTS.length, contracts: C.CITY_CONTRACTS.length,
+        crimes: C.CRIMES.length, jobs: C.JOBS.length, items: Object.keys(C.ITEMS).length,
+        weather: S.weatherNow().id, dials: S.dials(), uptime: Math.round(process.uptime())
+      } });
+    }
+    if (op === 'feature_flags') {
+      return send(res, 200, { ok: true, flags: S.flags() });
+    }
+
     const target = parseInt(body.target, 10);
     const trow = db.prepare('SELECT 1 FROM players WHERE acc_id=?').get(target);
     if (!trow) return send(res, 400, { err: 'No such player.' });
@@ -632,6 +722,22 @@ const routes = async (req, res, urlPath, q) => {
       case 'unlock_all_achievements': {
         tp.achievements=tp.achievements||{}; for(const k of Object.keys(C.ACHIEVEMENTS)) tp.achievements[k]=Date.now(); break;
       }
+      case 'set_look': tp.avatar = randomLook(); break;
+      case 'give_tip': {
+        const kind = String(body.kind || 'edge');
+        if (!S.TIP_LABEL[kind]) return send(res, 400, { err: 'Unknown tip kind.' });
+        const strengths = { edge: 60, payoff: 80, fence: 80, bail: 60, muscle: 40, crew: 40, heat: 25, patch: 50, market: 20000, bribe: 40 };
+        try {
+          tp.sys = tp.sys || {}; tp.sys.tips = tp.sys.tips || {};
+          const v = strengths[kind];
+          tp.sys.tips[kind] = { s: v, until: Date.now() + 12 * 3600000, label: S.TIP_LABEL[kind], from: 'founder gift' };
+        } catch (_) {}
+        break;
+      }
+      case 'wipe_tips': { try { if (tp.sys) tp.sys.tips = {}; } catch (_) {} break; }
+      case 'set_level_target': tp.level = Math.max(1, Math.min(100, parseInt(body.value, 10) || 1)); tp.xp = Math.max(tp.xp || 0, tp.level * 100); break;
+      case 'heal_target': tp.life = tp.max_life; tp.hosp_until = 0; break;
+      case 'cool_heat_target': { try { if (tp.sys && tp.sys.life) { tp.sys.life.heat = 0; tp.sys.life.heatAt = Date.now(); } } catch (_) {} break; }
       default: return send(res, 400, { err: 'Unknown op: ' + op });
     }
     W.save(target, tp);
@@ -820,6 +926,9 @@ const routes = async (req, res, urlPath, q) => {
       wardrobe_load: () => S.wardrobeLoad(id, body.slot),
       challenge_claim: () => S.challengeClaim(id, body.cid),
       respec_apply: () => S.respecApply(id, body),
+      // the informant network (1,000 leads)
+      informants: () => ({ p: W.publicView(W.load(id)), res: { board: S.informantBoard(W.load(id)) } }),
+      informant_hire: () => S.informantHire(id, body.informantId || body.id),
     };
     const fn = handlers[name];
     if (!fn) return send(res, 404, { err: 'Unknown action.' });

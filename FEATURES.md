@@ -1,8 +1,20 @@
-# Razor Town — 2026 Feature Ledger
+# Razor Town — Feature Ledger
+
+**Rainlight overhaul (2026.2):** the character engine was rebuilt from scratch — an eight-slot
+avatar (`skin|face|hair|shirt|accent|body|eyes|facial`) with 16 skins, 36 faces, 57 hairstyles and
+headwear, 12 eye colours, 24 facial-hair styles, 39 garments, 16 trinkets and 8 builds, all drawn
+from gradient-shaded geometry instead of flat paper dolls. Alongside it: **The Informant Network**,
+a thousand individually playable leads across ten circles, ten districts and ten trades, wired into
+criminal success, payouts, bail, pawn prices, fights, gang operations and street heat — and a
+founder console that grew by two dozen tools including live world dials, a weather override, a city
+event injector, NPC spawning and a metrics board.
+
+**This round is +1,063 features (1,736–2,798):** 1,000 playable informants plus 63 engine, system
+and console additions. Every one of them is live, wired to the UI, and covered by the check suites.
 
 **Street Life overhaul:** a new **🌃 Street Life** tab wires the unused catalogs — street food, nightlife, pets, tattoos, contacts, hideouts, loot crates, weapon finishes, vehicle kits — plus a daily login streak, street heat that rises on crimes, HUD snack button, and bag search. **Night Briefs + Wire Favours expansion:** 1,000 extra playable night jobs (`lib/game/night-leads.js`), **600 extra Wire Favours** (`lib/game/wire-favours.js`) — quiet 4-hour rotation jobs on the hustle desk — a rebuilt streetwear/character rack (more skins, faces, hair, hoodies, bombers, snapbacks), and extra founder tools (god mode, fill bars, influence, followers, spawn all cars, jail-self, empty bag).
 
-Everything new in the 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
+Everything from the first 2026 overhaul. Numbered so you can count them: **1,735 playable additions**, including **1,000 individually playable City Contracts**, plus a rebuilt character engine and a full content expansion. Every system below is live, wired to the UI, and covered by the automated check suites.
 
 ---
 
@@ -838,14 +850,117 @@ The feature is playable rather than a list of placeholders:
 
 ---
 
+## 🕵️ The Rainlight overhaul — features 1,736–2,798
+
+### The Informant Network — 1,000 individually playable leads
+
+**Features 1,736–2,735: Informant #001 through Informant #1,000.** The catalog is exactly
+**10 circles × 10 districts × 10 trades** (`lib/game/informants.js`), and the module hard-fails at
+boot if it is ever not exactly 1,000 leads. Each lead is an individual with their own name and
+nickname, circle (dockers → runners), patch of the city, trade, price, reliability figure, payout
+strength and duration.
+
+- Every citizen gets **six unique leads per four-hour rotation**, deterministically selected from
+  the 1,000 for that citizen and rotation — the server owns the board and rejects forged, stale and
+  already-bought ids.
+- A lead costs its listed price and then rolls its own reliability: it either lands (a live tip) or
+  burns (the money is gone, the lead goes cold for a day and word costs you reputation).
+- Ten trades, all playable: job intel, payout tips, fence introductions, magistrate nudges, fight
+  corners, crew whispers, heat coolers, back-room patches, market tips and cell-door keys.
+- Six of the ten are timed buffs carried on the player and read by the real systems —
+  crime success, crime payout, bail cost, pawn prices, PvP fights and gang operations. Four are
+  instant: street heat down, health patched, cash off a market move, or a shorter sentence.
+- The **Informants tab** shows the rotation clock, the live tip board with countdowns, the six
+  leads with price/reliability/odds, and lifetime stats (bought, landed %, spent).
+
+### Rainlight character engine (2,736–2,758)
+
+2,736. **Eight-slot avatar spec** — `skin|face|hair|shirt|accent|body|eyes|facial`, with every old
+   five- and six-part string upgraded on read.
+2,737. **16 skin tones**, each with its own lit/mid/form/deep shading curve.
+2,738. **36 face sculpts** — jaw archetypes, brows, noses, mouths, wrinkles, scars and character.
+2,739. **57 hairstyles and headwear** — crops, slickbacks, pompadours, comb-overs, afros, curls,
+   locs, buns, plus flat caps, bowlers, trilbies, fedoras, boaters, beanies, hoods and scarves.
+2,740. **12 eye colours** with iris gradients.
+2,741. **24 facial-hair styles** — stubble through full beards, moustaches, sideburns, mutton chops.
+2,742. **39 garments** across fifteen silhouette families, with matched collars and linings.
+2,743. **16 trinkets** — watch chains, cravats, cigars, pipes, spectacles and more.
+2,744. **8 builds** — four masculine, four feminine skeletons with different proportions.
+2,745. **Gradient-shaded skin** — every head is lit from one source with lit/base/form/deep tones.
+2,746. **Gradient-shaded garments** with six woven fabric patterns.
+2,747. **Hair rendered as strands over a gradient mass**, including grey streaks.
+2,748. **Portrait surface** — the head-and-shoulders renderer used across the app.
+2,749. **Full-figure doll surface** — the whole character, head to boots.
+2,750. **Street scene surface** — the figure dropped into a lit backdrop.
+2,751. **Mugshot surface** — cropped, framed, named.
+2,752. **Banner surface** — the wide name-plate for profiles and leaderboards.
+2,753. **Wear-list readout** — a plain-English ledger of every equipped slot.
+2,754. **Deterministic look roller** — `AV.random(seed)` produces a full, valid eight-part citizen.
+2,755. **Creator now offers eyes and facial hair** alongside the old slots.
+2,756. **The edit-look modal matches**, with live preview on every chip.
+2,757. **Server-side eight-part clamp** on save — nothing malformed can ever reach a renderer.
+2,758. **Catalogue exposure** — slot sizes, totals and the 47,202,435,072-combination count.
+
+### Informant mechanics and wiring (2,759–2,774)
+
+2,759. **Deterministic six-lead board** per citizen per four-hour rotation.
+2,760. **Board ownership guard** — forged, off-board and repeat buys are all refused server-side.
+2,761. **Reliability roll** — every lead has its own odds, printed before you pay.
+2,762. **Burn-a-day consequence** with a reputation hit when a lead goes wrong.
+2,763. **Six timed tip buffs** that ride the player and expire on a clock.
+2,764. **Four instant tips** (heat, patch, market, cell-door).
+2,765. **Crime-success hook** — job intel raises the odds on the next jobs.
+2,766. **Crime-payout hook** — payout tips inflate clean scores.
+2,767. **Bail hook** — magistrate nudges cut what the desk wants for the door.
+2,768. **Pawn hook** — fence introductions lift the broker's price.
+2,769. **Fight hook** — a bought corner sharpens your hands in PvP.
+2,770. **Gang-operation hook** — crew whispers steady the crew's work.
+2,771. **Tip store with expiry**, surfaced in `/api/sys/panel` and the tab.
+2,772. **Network lifetime stats** — bought, landed, spent, burned, landing rate.
+2,773. **Informants tab** with the live tip board, countdowns and the rotation clock.
+2,774. **Full API surface** — `informants` / `informant_hire` actions plus the catalog count in
+   `/api/meta`, so the client and the checks can verify the network.
+
+### Founder console (2,775–2,798)
+
+2,775. **Make me whole** — stats, level 100, full bars, every course and feat in one click.
+2,776. **Roll me a random look** — a fresh eight-part citizen from the Rainlight catalogue.
+2,777. **Give me every tip** — all six timed buffs at max strength for a day.
+2,778. **Clear my tips**.
+2,779. **Comp every lead on my board** — the whole rotation marked as bought.
+2,780. **Cool my street heat**.
+2,781. **Set happiness**.
+2,782. **Spawn NPC citizens** — real accounts with random eight-part looks and pooled names.
+2,783. **Purge every NPC**.
+2,784. **Weather override** — force clear/rain/fog/wind/storm/heat, or hand it back to the clock.
+2,785. **City event injector** — trigger any event in the catalogue for a chosen run of minutes.
+2,786. **Economy dials** — crime payout and danger multipliers, clamped to a sane 10–400 band.
+2,787. **Live metrics board** — accounts, players, gangs, catalogs, weather, dials and uptime.
+2,788. **Status board** — every live dial and override in one payload.
+2,789. **Re-roll a target's look**.
+2,790. **Gift a specific tip to any citizen**.
+2,791. **Wipe a citizen's tips**.
+2,792. **Set a target's level**.
+2,793. **Heal a target**.
+2,794. **Cool a target's street heat**.
+2,795. **"Rainlight & network tools"** row in the founder page.
+2,796. **"World dials & live ops"** card — weather, events, dials, bots, metrics and per-target ops.
+2,797. **Event catalogue in `/api/meta`** so the injector lists real events.
+2,798. **NPC name pool and random-look spawner** shared by the bot tools.
+
+> Count: 1,000 informant leads + 63 engine, system and console features = **1,063 new features this
+> round**, on top of the 1,735 from the first 2026 overhaul — **2,798 numbered additions in total**.
+
+
 ### Verified working
 
 | Suite | What it covers | Result |
 |---|---|---|
-| `node tools/check-2026.js` | every 2026 action family over HTTP, including City Contracts | **95 / 95 pass** |
+| `node tools/check-2026.js` | every 2026 action family over HTTP, incl. City Contracts, the Informant Network and the founder console | **122 / 122 pass** |
 | `node tools/check-api.js` | core API contract | **93 / 93 pass** |
-| `node tools/check-systems.js` | rules of every system, including the 1,000-contract catalog | **236 / 236 pass** |
+| `node tools/check-systems.js` | rules of every system, incl. the 1,000-contract and 1,000-informant catalogs, tip math and the founder dials | **259 / 259 pass** |
 | `node tools/check-http.js` | resilience & abuse | **8 / 8 pass** |
 
-Avatar renderer additionally smoke-tested across 30,000 random part combinations with zero broken
-renders, plus legacy 5-part upgrade paths.
+Avatar renderer additionally smoke-tested across 45,000+ random part combinations with zero broken
+renders, plus legacy five- and six-part upgrade paths and empty/garbage spec strings. The informant
+catalogue is asserted at exactly 1,000 entries at boot.

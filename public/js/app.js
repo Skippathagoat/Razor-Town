@@ -30,6 +30,7 @@
     { id: 'life', label: 'Street Life', ico: '🌃', key: '6' },
     { id: 'garage', label: 'Garage', ico: '🚗', key: '9' },
     { id: 'turf', label: 'Turf', ico: '🗺️', key: '5' },
+    { id: 'informants', label: 'Informants', ico: '🕵️', key: '1' },
     { id: 'faction', label: 'Gang', ico: '🪓', key: 'f' },
     { id: 'ach', label: 'Feats', ico: '🏆', key: 'e' },
     { id: 'leaders', label: 'The Gallery', ico: '👑', key: 'l' },
@@ -235,14 +236,14 @@
   }
 
   // ------- character creator
-  const CREATOR = { skin: 1, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, origin: 'street', name: '' };
+  const CREATOR = { skin: 3, face: 2, hair: 8, shirt: 0, accent: 1, body: 0, eyes: 3, facial: 0, origin: 'street', name: '' };
   function openCreator(creds) {
     CREATOR.name = creds.username;
     G.creds = creds;
     screen('creator');
     renderCreator();
   }
-  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body].join('|'); }
+  function avatarStr() { return [CREATOR.skin, CREATOR.face, CREATOR.hair, CREATOR.shirt, CREATOR.accent, CREATOR.body, CREATOR.eyes, CREATOR.facial].join('|'); }
   function wearList(str) {
     return `<div class="weargrid" style="margin-top:10px;text-align:left">${AV.wear(str).map(w =>
       `<div class="slot"><span class="s-ico">${w.icon}</span><span><span class="s-slot">${w.slot}</span><span class="s-val">${esc(w.value)}</span></span></div>`).join('')}</div>`;
@@ -276,6 +277,8 @@
             ${chips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), 'hair')}
             ${swatches('shirt', 'Top', AV.SHIRTS, 'shirt')}
             ${swatches('accent', 'Trinket', AV.ACCENTS, 'accent')}
+            ${chips('eyes', 'Eyes', (AV.EYE_NAMES || []), 'eyes')}
+            ${chips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), 'facial')}
           </div>
           <div class="creator-panel"><h3>🌱 Origin story</h3><div class="chiprow" id="originrow">
             ${o.map(orig => `<button class="chip origin-card ${CREATOR.origin === orig.id ? 'on' : ''}" data-origin="${orig.id}"><b>${orig.icon} ${orig.name}</b><span>${esc(orig.trait)}</span><span class="tag">starts with +${orig.bonus} ${FINGER[orig.stat]}</span></button>`).join('')}
@@ -540,7 +543,7 @@
   // sidebar grammar: standalone Home, then three folded crews of tabs, player card pinned below
   const SIDE_GROUPS = [
     { id: 'hustle', name: 'The Hustle', ico: '🧢', tabs: ['crime', 'jail', 'attack', 'gym', 'job', 'college', 'merits', 'bounty'] },
-    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf'] },
+    { id: 'street', name: 'The 2026 Streets', ico: '🌃', tabs: ['arcade', 'hustle', 'life', 'garage', 'turf', 'informants'] },
     { id: 'ledger', name: 'Money & Gear', ico: '💰', tabs: ['market', 'items', 'bank', 'property', 'casino'] },
     { id: 'crew',   name: 'The Crew & The Name', ico: '🪓', tabs: ['faction', 'ach', 'leaders', 'msg', 'profile', 'help'] }
   ];
@@ -602,7 +605,7 @@
     // cover lifecycle: the custody cover must never sit on the yard, the cells, or founder tools — and drops on release
     if (!(jail || hosp) || view === 'crime' || view === 'jail' || view === 'dev') { const oldCover = $('#lock-cover'); if (oldCover) oldCover.remove(); }
     const renders = { city: renderCity, crime: renderCrime, attack: renderAttack, gym: renderGym, job: renderJob, market: renderMarket, items: renderItems, bank: renderBank, property: renderProperty, college: renderCollege, merits: renderMerits, bounty: renderBounty, casino: renderCasino, faction: renderFaction, ach: renderAch, leaders: renderLeaders, jail: renderJail, msg: renderMsg, profile: renderProfile, help: renderHelp, dev: renderDev,
-      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf };
+      arcade: renderArcade, hustle: renderHustle, street: renderStreet, garage: renderGarage, turf: renderTurf, informants: renderInformants };
     (renders[view] || renderCity)();
     renderRail();
     if (jail || hosp) maybeLockCover();
@@ -1084,6 +1087,16 @@
           <button class="btn sm bad" data-act="dev_self" data-op="jail_self">Jail me 10m</button>
           <button class="btn sm bad" data-act="dev_self" data-op="wipe_items">Empty bag</button>
         </div>
+        <div class="subhead" style="color:var(--cyn);margin-top:12px">🧪 Rainlight & network tools</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm gold" data-act="dev_self" data-op="make_whole">🧬 Make me whole (stats · level 100 · bars · courses · feats)</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="random_look">🎲 Roll me a random look</button>
+          <button class="btn sm cyan" data-act="dev_self" data-op="give_all_tips">🕵️ Give me every tip</button>
+          <button class="btn sm ghost" data-act="dev_self" data-op="clear_tips">Clear my tips</button>
+          <button class="btn sm" data-act="dev_self" data-op="comp_leads">Comp every lead on my board</button>
+          <button class="btn sm" data-act="dev_self" data-op="cool_heat">Cool my street heat</button>
+          <button class="btn sm" data-act="dev_self" data-op="set_happy">Set happy =</button>
+        </div>
         <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <span style="color:var(--bad);font-size:11px;font-weight:800;letter-spacing:.08em">DANGER:</span>
@@ -1114,6 +1127,7 @@
           <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_courses">Unlock courses</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="unlock_all_achievements">Unlock feats</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="give_vault">+Vault 100k</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="set_level_target">Set level</button>
           <button class="btn sm cyan" data-act="dev_world" data-op="grant_sub">Give 7-day pass</button>
           <button class="btn sm gold" data-act="dev_world" data-op="founder_sub">Give founder ∞</button>
           <button class="btn sm bad" data-act="dev_world" data-op="revoke_sub">Revoke pass</button>
@@ -1153,6 +1167,40 @@
             </div>
           </div>`;
         }).join('')}
+        </div>
+      </div>
+
+      <div class="card"><div class="subhead" style="color:var(--cyn)">🌍 World dials & live ops</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="in" id="dev-weather" style="width:150px">
+            <option value="auto">Weather: automatic</option>
+            <option value="clear">Clear skies</option><option value="rain">Rain</option><option value="fog">Fog</option>
+            <option value="wind">High wind</option><option value="storm">Storm</option><option value="heat">Heatwave</option>
+          </select>
+          <button class="btn sm" data-act="dev_world" data-op="weather">Force weather</button>
+          <select class="in" id="dev-event" style="width:190px">${(G.meta.events || []).map(e => `<option value="${e.id}">${esc(e.name || e.id)}</option>`).join('')}</select>
+          <button class="btn sm" data-act="dev_world" data-op="event">Trigger city event</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <span style="font-size:11px;color:var(--dim)">Economy dials (crime payout % · danger %)</span>
+          <input class="in" id="dev-dial-payout" style="width:80px" type="number" min="10" max="400" value="100">
+          <input class="in" id="dev-dial-danger" style="width:80px" type="number" min="10" max="400" value="100">
+          <button class="btn sm gold" data-act="dev_world" data-op="economy">Apply dials</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <input class="in" id="dev-bots" style="width:70px" type="number" min="1" max="10" value="3">
+          <button class="btn sm cyan" data-act="dev_world" data-op="spawn_bot">Spawn NPC citizens</button>
+          <button class="btn sm bad" data-act="dev_world" data-op="purge_bots">Purge every NPC</button>
+          <button class="btn sm" data-act="dev_world" data-op="metrics">📊 Live metrics</button>
+        </div>
+        <div id="dev-metrics" style="margin-top:10px"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <select class="in" id="dev-tipkind" style="width:170px">${['edge','payoff','fence','bail','muscle','crew','heat','patch','market','bribe'].map(k => `<option value="${k}">${k}</option>`).join('')}</select>
+          <button class="btn sm cyan" data-act="dev_world" data-op="give_tip">Give that tip</button>
+          <button class="btn sm ghost" data-act="dev_world" data-op="wipe_tips">Wipe their tips</button>
+          <button class="btn sm cyan" data-act="dev_world" data-op="set_look">Re-roll their look</button>
+          <button class="btn sm ok" data-act="dev_world" data-op="heal_target">Heal them</button>
+          <button class="btn sm" data-act="dev_world" data-op="cool_heat_target">Cool their heat</button>
         </div>
       </div>
 
@@ -2562,6 +2610,49 @@
         <p style="color:var(--dim);font-size:11px;margin-top:10px">Razor Town is an original work — styled after classic crime-city browser games, with 100% our own names, jobs and fiction.</p></div>`;
   }
 
+  // ================================================================ INFORMANT NETWORK
+  function renderInformants() {
+    const v = $('#view');
+    v.innerHTML = U.spinner('Finding the people who know…');
+    refreshInformants(v);
+  }
+  async function refreshInformants(v) {
+    let b;
+    try { b = await Net.get('/api/sys/panel'); G.sysPanel = b; } catch (e) { v.innerHTML = `<div class="card"><p style="color:var(--bad)">${esc(e.message)}</p></div>`; return; }
+    const inf = (b && b.informants) || { leads: [], tips: [], stats: {} };
+    const tips = inf.tips || [];
+    const money = (G.me && G.me.money) || 0;
+    const mins = Math.max(0, Math.round(((inf.ends || 0) - Date.now()) / 60000));
+    v.innerHTML = `
+      <div class="vhead"><div><div class="vtitle">🕵️ <span class="head">The Informant Network</span></div>
+      <div class="vdesc">Ten circles, ten districts, ten trades — <b>${(inf.total || 1000).toLocaleString()}</b> people who know something.
+      Six ride your board each rotation; the rest are other people's problems. Buy a lead, live with what it turns out to be.</div></div>
+      <div class="pill"><span>Rotation ends in <b style="color:var(--cyn)">${mins}m</b></span> <b style="color:var(--gold)">${tips.length} tip${tips.length === 1 ? '' : 's'} live</b></div></div>
+
+      <div class="card"><div class="subhead">🎧 Live tips</div>
+        ${tips.length ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${tips.map(t => `
+          <div class="slot" style="padding:8px"><span class="s-ico">⚡</span><span><span class="s-slot">${esc(t.label)}</span>
+          <span class="s-val">+${t.strength}${t.kind === 'market' ? '' : '%'} · ${U.fmtDur(Math.max(0, t.until - Date.now()))} left · ${esc(t.from || '')}</span></span></div>`).join('')}</div>`
+        : '<p style="color:var(--dim);font-size:12px">No tips running. Buy a lead below — a good one pays for itself on the next job.</p>'}
+      </div>
+
+      <div class="card"><div class="subhead">📋 This rotation's board <span style="color:var(--dim);font-weight:400">— ${inf.stats && inf.stats.hires || 0} bought, ${inf.stats && inf.stats.rate || 0}% landed, $${((inf.stats && inf.stats.spent) || 0).toLocaleString()} spent</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${(inf.leads || []).map(l => `
+          <div class="card" style="margin:0;border-color:${l.hired ? 'rgba(90,220,160,0.35)' : l.blown ? 'rgba(255,90,90,0.3)' : 'var(--line)'}">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+              <div><div style="font-weight:800">${l.icon} ${esc(l.name)}</div>
+                <div style="font-size:11px;color:var(--dim);letter-spacing:0.4px">${l.circleIcon} ${esc(l.circle)} · ${esc(l.district)} · lead #${l.serial}</div></div>
+              <div style="text-align:right;font-size:11px;color:var(--dim)">$${l.price.toLocaleString()}<br><b style="color:var(--cyn)">${Math.round(l.reliability * 100)}% solid</b></div>
+            </div>
+            <p style="font-size:12px;color:var(--mut);margin:8px 0 4px">${esc(l.blurb)}</p>
+            <div style="font-size:11px;color:var(--gold);margin-bottom:8px">Pays out: <b>${esc(l.trade)}</b> · +${l.strength}${l.dur ? ' for ' + l.dur + 'm' : ' — instant'}</div>
+            ${l.hired ? '<span class="tag ok">bought this rotation</span>'
+              : l.blown ? '<span class="tag bad">burned — cold for a day</span>'
+              : `<button class="btn sm ${money >= l.price ? 'cyan' : 'ghost'}" data-act="informant_hire" data-id="${l.id}">Hire for $${l.price.toLocaleString()}</button>`}
+          </div>`).join('')}</div>
+      </div>` ;
+  }
+
   // ================================================================ EDIT LOOK (modal)
   function openEditLook() {
     const me = G.me;
@@ -2578,6 +2669,8 @@
       ${editChips('hair', 'Hair / headwear', AV.HAIRS.map(x => x.n), parts.hair)}
       ${editChips('shirt', 'Top', AV.SHIRTS.map((_, i) => i + ''), parts.shirt, true)}
       ${editChips('accent', 'Trinket', AV.ACCENTS.map((_, i) => i + ''), parts.accent, true)}
+      ${editChips('eyes', 'Eyes', (AV.EYE_NAMES || []), parts.eyes || 0)}
+      ${editChips('facial', 'Facial hair', (AV.FACIALS || []).map(x => x.n), parts.facial || 0)}
       <div class="subhead" style="margin-top:14px">🧥 Wardrobe presets</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px" id="el-ward">
         ${[0,1,2].map(i => `<button class="btn ghost sm" data-ward-slot="${i}" data-act="wardrobe_slot">Slot ${i+1}<br><span style="font-size:10px;color:var(--dim)">—</span></button>`).join('')}
@@ -2585,9 +2678,9 @@
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" data-act="close-modal">Cancel</button>
         <button class="btn cyan" data-act="save-look">Save look</button></div></div></div>`;
-    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0 };
+    const els = { skin: parts.skin, face: parts.face, hair: parts.hair, shirt: parts.shirt, accent: parts.accent, body: parts.body || 0, eyes: parts.eyes || 0, facial: parts.facial || 0 };
     const cur = { ...els };
-    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body].join('|');
+    const strOf = () => [cur.skin, cur.face, cur.hair, cur.shirt, cur.accent, cur.body, cur.eyes, cur.facial].join('|');
     // hydrate wardrobe slots from the panel cache if present
     const fillWard = (slots) => {
       $$('#el-ward [data-ward-slot]').forEach(b => {
@@ -3151,7 +3244,7 @@
     const root = $('#modal-root');
     const cur = {};
     $$('[data-el-opt]', root).forEach(b => { if (b.classList.contains('on')) cur[b.dataset.elOpt] = +b.dataset.v; });
-    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0].join('|');
+    const str = [cur.skin ?? parts.skin, cur.face ?? parts.face, cur.hair ?? parts.hair, cur.shirt ?? parts.shirt, cur.accent ?? parts.accent, cur.body ?? parts.body ?? 0, cur.eyes ?? parts.eyes ?? 0, cur.facial ?? parts.facial ?? 0].join('|');
     try {
       const r = await Net.post('/api/updateprofile', { avatar: str });
       G.me = r.p; root.innerHTML = ''; renderHUD(); reRenderCurrent();
@@ -3190,6 +3283,7 @@
         act('attack', { targetId: +tid }, 'attack');
         break;
       }
+      case 'informant_hire': { act('informant_hire', { informantId: btn.dataset.id }).then(() => { if (G.view === 'informants') refreshInformants($('#view')); }); break; }
       case 'train': act('train', { stat: btn.dataset.stat, gymId: btn.dataset.gym || 'abandoned_gym' }); break;
       case 'job_apply': act('job_apply', { jobId: btn.dataset.job }); break;
       case 'job_quit': act('job_quit', {}); break;
@@ -3323,6 +3417,28 @@
   async function devWorld(btn) {
     const op = btn.dataset.op;
     const payload = { op };
+    // world dials & live ops that do not need a target player
+    if (op === 'weather') { payload.kind = ($('#dev-weather') || { value: 'auto' }).value; }
+    else if (op === 'event') { payload.event = ($('#dev-event') || { value: '' }).value; payload.minutes = 20; }
+    else if (op === 'economy') {
+      payload.payout = parseInt(($('#dev-dial-payout') || { value: '100' }).value, 10) || 100;
+      payload.danger = parseInt(($('#dev-dial-danger') || { value: '100' }).value, 10) || 100;
+    }
+    else if (op === 'spawn_bot') { payload.count = parseInt(($('#dev-bots') || { value: '3' }).value, 10) || 3; }
+    else if (['purge_bots', 'metrics'].includes(op)) { /* targetless */ }
+    else if (op === 'give_tip') { payload.kind = ($('#dev-tipkind') || { value: 'edge' }).value; }
+    if (['weather', 'event', 'economy', 'spawn_bot', 'purge_bots', 'metrics'].includes(op)) {
+      try {
+        const r = await Net.post('/api/dev/world', payload);
+        if (op === 'metrics' && r.metrics) {
+          const m = r.metrics;
+          $('#dev-metrics').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;font-size:12px">
+            ${Object.entries(m).map(([k, v]) => `<div><small class="dimtext">${esc(k)}</small><br><b style="color:var(--cyn)">${esc(typeof v === 'object' ? JSON.stringify(v) : String(v))}</b></div>`).join('')}</div>`;
+        } else U.toast('Dev: ' + op + ' → ' + JSON.stringify(r).slice(0, 80), 'good');
+        if (op === 'spawn_bot' || op === 'purge_bots') renderDev();
+      } catch (e) { U.toast(e.message, 'bad'); }
+      return;
+    }
     if (op === 'announce') {
       payload.message = ($('#dev-msg') && $('#dev-msg').value.trim()) || '';
       if (!payload.message) { U.toast('Write a message first.', 'bad'); return; }
@@ -3333,6 +3449,7 @@
       if (op === 'set_money') payload.amount = parseInt(($('#dev-wamt')||{value:''}).value,10)||0;
       if (op === 'grant_item') { const inv = Object.keys(G.meta.items); payload.item = inv[Math.floor(Math.random()*inv.length)]; payload.qty=1; }
       if (op === 'set_stat') { payload.stat='st'; payload.value=100; }
+      if (op === 'set_level_target') payload.value = parseInt(($('#dev-wamt') || { value: '10' }).value, 10) || 10;
       if (op === 'hospital') payload.minutes=30;
       if (op === 'ban') {
         payload.reason = (prompt('Reason for the ban (shown to nobody but founders, kept in the ledger):') || '').trim();

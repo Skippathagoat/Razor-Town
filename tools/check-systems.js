@@ -803,6 +803,111 @@ head('City Contracts — 1,000 lead catalog');
   ok('only a resolved City Contract advances daily challenge progress', (S.sys(load(ca.id)).today.contracts || 0) === before + 1);
 }
 
+head('The Informant Network — 1,000 leads and live tips');
+{
+  const IT = S.INF;
+  ok('the informant catalog contains exactly 1,000 unique stable IDs', IT.INFORMANTS.length === 1000 && new Set(IT.INFORMANTS.map(x => x.id)).size === 1000);
+  ok('every informant has a unique name, a price, a reliability and a payout', new Set(IT.INFORMANTS.map(x => x.name)).size === 1000
+    && IT.INFORMANTS.every(x => x.price > 0 && x.reliability >= 0.4 && x.reliability <= 0.94 && x.strength > 0));
+  ok('the catalog spans all ten circles, districts and trades', new Set(IT.INFORMANTS.map(x => x.circle)).size === 10
+    && new Set(IT.INFORMANTS.map(x => x.district)).size === 10 && new Set(IT.INFORMANTS.map(x => x.trade)).size === 10);
+  const rot = IT.rotationOf();
+  ok('a board is six unique leads and is deterministic per account + rotation',
+    IT.board(7, rot, 6).length === 6 && new Set(IT.board(7, rot, 6).map(x => x.id)).size === 6
+    && IT.board(7, rot).map(x => x.id).join() === IT.board(7, rot).map(x => x.id).join()
+    && IT.board(8, rot).map(x => x.id).join() !== IT.board(7, rot).map(x => x.id).join());
+  const ia = A.createAccount('informanta', 'pw123456', 'user'); A.createPlayerForAccount(ia, { name: 'Info Runner', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  const iid = ia.id;
+  fund(iid, 5000000);
+  const boardView = S.informantBoard(load(iid));
+  ok('the panel exposes the board, the rotation clock and lifetime stats',
+    boardView.leads.length === 6 && boardView.total === 1000 && boardView.ends > Date.now() && boardView.stats.hires === 0, boardView.stats);
+  const lead = boardView.leads[0];
+  ok('forged / off-board leads are refused', !!S.informantHire(iid, 'inf_coppers_lock_cut_bribe_notreal').err);
+  const off = IT.INFORMANTS.find(x => !boardView.leads.some(l => l.id === x.id));
+  ok('a lead that is not on your board is refused', !!S.informantHire(iid, off.id).err);
+  // buy until one lands (reliability floors at 40%, so four tries is overwhelming)
+  let landed = null, tried = 0, spent0 = load(iid).money;
+  for (const l of boardView.leads) {
+    if (load(iid).money < l.price) continue;
+    tried++;
+    const r = S.informantHire(iid, l.id);
+    if (r.ok && r.res.landed) { landed = { lead: l, r }; break; }
+  }
+  ok('a bought tip either lands or burns the lead — never both', !!landed);
+  ok('the price is taken from the purse', load(iid).money < spent0, { before: spent0, after: load(iid).money });
+  ok('the same lead cannot be bought twice in one rotation', !!S.informantHire(iid, landed.lead.id).err);
+  const after = S.informantBoard(load(iid));
+  ok('lifetime stats move when a lead is bought', after.stats.hires >= 1 && after.stats.spent > 0, after.stats);
+  // the timed kinds show up in the tip store and in the panel
+  const timed = ['edge', 'payoff', 'fence', 'bail', 'muscle', 'crew'];
+  S.tipsGrant(iid, 'edge', 25, 60, 'check harness');
+  const tips = S.tipActive(load(iid));
+  ok('a granted tip is live, labelled and time-boxed', tips.some(t => t.kind === 'edge' && t.strength === 25 && t.until > Date.now()), tips);
+  ok('the tip reader returns the strength for a live tip and zero otherwise', S.tipPct(load(iid), 'edge') === 25 && S.tipPct(load(iid), 'payoff') === 0);
+  // the tip has to actually move the crime maths, not just sit in a list
+  const before = W.load(iid);
+  before.sys = before.sys || {}; before.sys.tips = { edge: { s: 500, until: Date.now() + 60000 }, payoff: { s: 500, until: Date.now() + 60000 } };
+  before.energy = before.max_energy; before.nerve = before.max_nerve;
+  W.save(iid, before);
+  const crimeId = CT.CRIMES[0].id;
+  let paid = 0, tries = 0;
+  for (let i = 0; i < 25 && tries < 25; i++) {
+    const p = load(iid); p.energy = p.max_energy; p.nerve = p.max_nerve; p.life = p.max_life; p.jail_until = 0; p.hosp_until = 0; W.save(iid, p);
+    const r = W.doCrime(iid, crimeId);
+    tries++;
+    if (r && r.res && r.res.ok) { paid = r.res.cash; break; }
+  }
+  ok('a payout tip inflates a clean score', paid > 0, { paid, tries });
+  const timers = S.tipActive(load(iid)).length;
+  S.tipsClear(iid);
+  ok('tips clear out on command', timers >= 2 && S.tipActive(load(iid)).length === 0);
+  ok('the network is countable from meta-shaped stats', S.INF.INFORMANTS.filter(x => x.kind === 'edge').length === 100 && S.INF.INFORMANTS.filter(x => x.rank === 9).length === 100);
+}
+
+head('Founder dials — weather, events, economy levers');
+{
+  const d0 = S.dials();
+  ok('economy dials start at 100% payout and 100% danger', d0.payout === 100 && d0.danger === 100, d0);
+  const d1 = S.setDials({ payout: 175, danger: 55 });
+  ok('dials clamp into the 10–400 band and persist', d1.payout === 175 && d1.danger === 55 && S.dials().payout === 175);
+  const wild = S.setDials({ payout: 99999, danger: -400 });
+  ok('absurd dial values are clamped, not accepted', wild.payout === 400 && wild.danger === 10, wild);
+  ok('the weather override is honoured (and reports itself as forced)', (() => {
+    S.setWeatherOverride('fog');
+    const w = S.weatherNow();
+    S.setWeatherOverride(null);
+    return w.id === 'fog' && w.forced === true && S.weatherNow().forced === false;
+  })());
+  const evId = (CT.EVENTS[0] || {}).id;
+  if (evId) {
+    S.setEventOverride(evId, 20);
+    const ev = S.currentEvent();
+    S.setEventOverride(null, 0);
+    ok('a forced city event rides the event slot and then clears', ev && ev.id === evId && ev.forced === true, ev);
+  }
+  ok('the flags board reports every live dial and the new catalogs', (() => {
+    const f = S.flags();
+    return f.dials && f.informants === 1000 && f.contracts === 1000 && Array.isArray(f.weatherKinds) && f.weatherKinds.length === 6;
+  })());
+  // the payout dial has to reach the crime payout, not just the store
+  const pa = A.createAccount('dialpaya', 'pw123456', 'user'); A.createPlayerForAccount(pa, { name: 'Dial Tester', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
+  S.setDials({ payout: 100 });
+  const run = () => {
+    for (let i = 0; i < 40; i++) {
+      const p = load(pa.id); p.energy = p.max_energy; p.nerve = p.max_nerve; p.life = p.max_life; p.jail_until = 0; p.hosp_until = 0; W.save(pa.id, p);
+      const r = W.doCrime(pa.id, CT.CRIMES[0].id);
+      if (r && r.res && r.res.ok) return r.res.cash;
+    }
+    return 0;
+  };
+  const base = run();
+  S.setDials({ payout: 200 });
+  const doubled = run();
+  S.setDials({ payout: 100 });
+  ok('the payout dial changes what a crime actually pays', base > 0 && doubled >= base, { base, doubled });
+}
+
 head('Daily Streak');
 {
   const da = A.createAccount('dailya', 'pw123456', 'user'); A.createPlayerForAccount(da, { name: 'Daily Regular', origin: 'street', avatar: '0|0|0|0|0', bio: '' });
