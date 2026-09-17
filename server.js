@@ -1024,8 +1024,11 @@ const routes = async (req, res, urlPath, q) => {
       op_sell: () => S.opSell(id, body.idx),
       doc_use: () => S.docUse(id, body.id),
     };
-    const fn = handlers[name];
-    if (!fn) return send(res, 404, { err: 'Unknown action.' });
+    // Look the handler up as an OWN property and confirm it is callable. A bare
+    // handlers[name] walks the prototype chain, so an action named "__proto__"
+    // or "constructor" resolved to an object and then threw a 500 on call.
+    const fn = Object.prototype.hasOwnProperty.call(handlers, name) ? handlers[name] : null;
+    if (typeof fn !== 'function') return send(res, 404, { err: 'Unknown action.' });
     try {
       const out = fn();
       try { S.track(id, name, out); } catch (_) {}
